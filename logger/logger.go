@@ -13,6 +13,7 @@ import (
 
 const (
 	appKey = iota
+	databaseKey
 	writerKey
 	logLevelKey
 )
@@ -20,6 +21,11 @@ const (
 // WithAppName returns a context with the Application name set
 func WithAppName(ctx context.Context, name string) context.Context {
 	return context.WithValue(ctx, appKey, name)
+}
+
+// WithWriter returns a context with the log Writer set
+func WithDatabase(ctx context.Context, database *DatabaseLogger) context.Context {
+	return context.WithValue(ctx, databaseKey, database)
 }
 
 // WithWriter returns a context with the log Writer set
@@ -64,4 +70,11 @@ func contextLevel(ctx context.Context) logrus.Level {
 		}
 	}
 	return logrus.WarnLevel
+}
+
+func contextDatabase(ctx context.Context) *DatabaseLogger {
+	if ctxDatabase, ok := ctx.Value(databaseKey).(*DatabaseLogger); ok {
+		return ctxDatabase
+	}
+	return nil
 }

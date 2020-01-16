@@ -42,7 +42,6 @@ func main() {
 	log := logger.Logger(ctx)
 	for index := 0; index < 1024*10; index++ {
 		log.
-			WithField("Timestamp", time.Now().UTC().Round(time.Millisecond)).
 			WithField("ID", index).
 			Infof("Add log")
 

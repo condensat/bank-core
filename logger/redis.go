@@ -12,6 +12,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/condensat/bank-core/logger/model"
+
 	"github.com/go-redis/redis"
 	log "github.com/sirupsen/logrus"
 )
@@ -58,16 +60,15 @@ func (r *RedisLogger) Grab(ctx context.Context) {
 	log.SetLevel(contextLevel(ctx))
 	log.SetOutput(os.Stderr)
 
-	entryChan := make(chan []byte)
+	entryChan := make(chan [][]byte)
 
-	go r.pullRedisEntries(ctx, entryChan, 1024, 20*time.Millisecond)
-	go r.processEntries(ctx, entryChan)
+	go r.pullRedisEntries(ctx, entryChan, 256, 20*time.Millisecond)
 
 	<-ctx.Done()
 }
 
 // pullRedisEntries publish entries from redis to entryChan
-func (r *RedisLogger) pullRedisEntries(ctx context.Context, entryChan chan<- []byte, bulkSize int64, sleep time.Duration) {
+func (r *RedisLogger) pullRedisEntries(ctx context.Context, entryChan chan<- [][]byte, bulkSize int64, sleep time.Duration) {
 	rdb := r.rdb
 	for {
 		// check for entries
@@ -87,35 +88,76 @@ func (r *RedisLogger) pullRedisEntries(ctx context.Context, entryChan chan<- []b
 			panic(err)
 		}
 
-		// process entries
-		for _, entry := range entries {
-			entryChan <- []byte(entry)
+		log.
+			WithField("Count", len(entries)).
+			Debug("Got entries")
 
+		// process entries
+		var data [][]byte
+		for _, entry := range entries {
+			data = append(data, []byte(entry))
+		}
+		r.processEntries(ctx, data)
+
+		for range entries {
 			// entry processed, remove it from redis
 			_, err = rdb.LPop(cstRedisQueueName).Result()
 			if err != nil {
 				panic(err)
 			}
 		}
-		log.
-			WithField("Count", len(entries)).
-			Debug("Got entries")
 	}
 }
 
 // processEntries consume log entries from entryChan
-func (r *RedisLogger) processEntries(ctx context.Context, entryChan <-chan []byte) {
-	for {
-		select {
-		case data := <-entryChan:
+func (r *RedisLogger) processEntries(ctx context.Context, datas [][]byte) {
+	databaseLogger := contextDatabase(ctx)
+	if databaseLogger != nil {
+		var logEntries []*model.LogEntry
+		for _, data := range datas {
+
 			var entry interface{}
-			err := json.Unmarshal([]byte(data), &entry)
+			err := json.Unmarshal(data, &entry)
 			if err != nil {
+				// not json, print to stdout
+				fmt.Fprint(os.Stdout, string(data))
 				continue
 			}
-			// print to stdout for now
+
+			m := entry.(map[string]interface{})
+			timestamp := time.Now().UTC().Round(time.Second)
+			if ts, ok := m["time"]; ok {
+				t, err := time.Parse(time.RFC3339, ts.(string))
+				if err == nil {
+					timestamp = t
+					delete(m, "time")
+				}
+			}
+			app := m["app"].(string)
+			delete(m, "app")
+			level := m["level"].(string)
+			delete(m, "level")
+			msg := m["msg"].(string)
+			delete(m, "msg")
+			d, err := json.Marshal(m)
+			if err == nil {
+				data = d
+			}
+
+			logEntries = append(logEntries, databaseLogger.CreateLogEntry(timestamp, app, level, msg, string(data)))
+		}
+
+		err := databaseLogger.AddLogEntries(logEntries)
+		if err != nil {
+			log.
+				WithError(err).
+				Error("Fail to Add log entries")
+			return
+		}
+	} else {
+		// print to stdout
+		for _, data := range datas {
 			fmt.Fprint(os.Stdout, string(data))
-		case <-ctx.Done():
 		}
 	}
 }
