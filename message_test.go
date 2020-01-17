@@ -9,7 +9,267 @@ import (
 	"testing"
 )
 
-func TestMessage_Encode_(t *testing.T) {
+func TestMessage_SetCompressed(t *testing.T) {
+	t.Parallel()
+
+	type fields struct {
+		Version   string
+		From      string
+		Data      []byte
+		Signature string
+		Flags     uint
+		Error     error
+	}
+	type args struct {
+		compressed bool
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   uint
+	}{
+		{"default_compressed", fields{}, args{true}, 1 << flagCompressed},
+		{"default_not_compressed", fields{}, args{false}, 0},
+		{"unsed_compressed", fields{Flags: 1 << flagCompressed}, args{false}, 0},
+		{"keepflag_compressed", fields{Flags: (1 << flagEncrypted) + 1<<flagCompressed}, args{false}, (1 << flagEncrypted)},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			m := &Message{
+				Version:   tt.fields.Version,
+				From:      tt.fields.From,
+				Data:      tt.fields.Data,
+				Signature: tt.fields.Signature,
+				Flags:     tt.fields.Flags,
+				Error:     tt.fields.Error,
+			}
+			m.SetCompressed(tt.args.compressed)
+
+			if m.Flags != tt.want {
+				t.Errorf("Message.SetCompressed() = %v, want %v", m.Flags, tt.want)
+			}
+		})
+	}
+}
+
+func TestMessage_SetEncrypted(t *testing.T) {
+	t.Parallel()
+
+	type fields struct {
+		Version   string
+		From      string
+		Data      []byte
+		Signature string
+		Flags     uint
+		Error     error
+	}
+	type args struct {
+		compressed bool
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   uint
+	}{
+		{"default_encrypted", fields{}, args{true}, 1 << flagEncrypted},
+		{"default_not_encrypted", fields{}, args{false}, 0},
+		{"unsed_encrypted", fields{Flags: 1 << flagEncrypted}, args{false}, 0},
+		{"keepflag_encrypted", fields{Flags: (1 << flagEncrypted) + 1<<flagCompressed}, args{false}, (1 << flagCompressed)},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			m := &Message{
+				Version:   tt.fields.Version,
+				From:      tt.fields.From,
+				Data:      tt.fields.Data,
+				Signature: tt.fields.Signature,
+				Flags:     tt.fields.Flags,
+				Error:     tt.fields.Error,
+			}
+			m.SetEncrypted(tt.args.compressed)
+
+			if m.Flags != tt.want {
+				t.Errorf("Message.SetEncrypted() = %v, want %v", m.Flags, tt.want)
+			}
+		})
+	}
+}
+
+func TestMessage_SetSigned(t *testing.T) {
+	t.Parallel()
+
+	type fields struct {
+		Version   string
+		From      string
+		Data      []byte
+		Signature string
+		Flags     uint
+		Error     error
+	}
+	type args struct {
+		compressed bool
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   uint
+	}{
+		{"default_not_signed", fields{}, args{false}, 0},
+		{"unsed_signed", fields{Flags: 1 << flagSigned}, args{false}, 0},
+		{"default_signed", fields{}, args{true}, 1 << flagSigned},
+		{"keepflag_signed", fields{Flags: (1 << flagSigned) + 1<<flagCompressed}, args{false}, (1 << flagCompressed)},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			m := &Message{
+				Version:   tt.fields.Version,
+				From:      tt.fields.From,
+				Data:      tt.fields.Data,
+				Signature: tt.fields.Signature,
+				Flags:     tt.fields.Flags,
+				Error:     tt.fields.Error,
+			}
+			m.SetSigned(tt.args.compressed)
+
+			if m.Flags != tt.want {
+				t.Errorf("Message.SetSigned() = %v, want %v", m.Flags, tt.want)
+			}
+		})
+	}
+}
+
+func TestMessage_IsCompressed(t *testing.T) {
+	t.Parallel()
+
+	var m Message
+	m.SetCompressed(true)
+	type fields struct {
+		Version   string
+		From      string
+		Data      []byte
+		Signature string
+		Flags     uint
+		Error     error
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   bool
+	}{
+		{"default", fields{}, false},
+		{"compressed", fields{Flags: 1 << flagCompressed}, true},
+		{"encrypted", fields{Flags: 1 << flagEncrypted}, false},
+		{"signed", fields{Flags: 1 << flagSigned}, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			m := &Message{
+				Version:   tt.fields.Version,
+				From:      tt.fields.From,
+				Data:      tt.fields.Data,
+				Signature: tt.fields.Signature,
+				Flags:     tt.fields.Flags,
+				Error:     tt.fields.Error,
+			}
+			if got := m.IsCompressed(); got != tt.want {
+				t.Errorf("Message.IsCompressed() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMessage_IsEncrypted(t *testing.T) {
+	t.Parallel()
+
+	var m Message
+	m.SetCompressed(true)
+	type fields struct {
+		Version   string
+		From      string
+		Data      []byte
+		Signature string
+		Flags     uint
+		Error     error
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   bool
+	}{
+		{"default", fields{}, false},
+		{"compressed", fields{Flags: 1 << flagCompressed}, false},
+		{"encrypted", fields{Flags: 1 << flagEncrypted}, true},
+		{"signed", fields{Flags: 1 << flagSigned}, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			m := &Message{
+				Version:   tt.fields.Version,
+				From:      tt.fields.From,
+				Data:      tt.fields.Data,
+				Signature: tt.fields.Signature,
+				Flags:     tt.fields.Flags,
+				Error:     tt.fields.Error,
+			}
+			if got := m.IsEncrypted(); got != tt.want {
+				t.Errorf("Message.IsEncrypted() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMessage_IsSigned(t *testing.T) {
+	t.Parallel()
+
+	var m Message
+	m.SetCompressed(true)
+	type fields struct {
+		Version   string
+		From      string
+		Data      []byte
+		Signature string
+		Flags     uint
+		Error     error
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   bool
+	}{
+		{"default", fields{}, false},
+		{"compressed", fields{Flags: 1 << flagCompressed}, false},
+		{"encrypted", fields{Flags: 1 << flagEncrypted}, false},
+		{"signed", fields{Flags: 1 << flagSigned}, true},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			m := &Message{
+				Version:   tt.fields.Version,
+				From:      tt.fields.From,
+				Data:      tt.fields.Data,
+				Signature: tt.fields.Signature,
+				Flags:     tt.fields.Flags,
+				Error:     tt.fields.Error,
+			}
+			if got := m.IsSigned(); got != tt.want {
+				t.Errorf("Message.IsSigned() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMessage_Encode(t *testing.T) {
+	t.Parallel()
+
 	type fields struct {
 		Version   string
 		From      string
@@ -28,6 +288,7 @@ func TestMessage_Encode_(t *testing.T) {
 		{"Encode", fields{"1.0", "from", nil, "", 42, nil}, 103, false},
 	}
 	for _, tt := range tests {
+		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Message{
 				Version:   tt.fields.Version,
@@ -50,6 +311,8 @@ func TestMessage_Encode_(t *testing.T) {
 }
 
 func TestMessage_Decode(t *testing.T) {
+	t.Parallel()
+
 	message := Message{"1.0", "from", nil, "", 42, nil}
 	data, _ := message.Encode()
 
@@ -75,6 +338,7 @@ func TestMessage_Decode(t *testing.T) {
 		{"Decode", fields{}, args{data}, &message, false},
 	}
 	for _, tt := range tests {
+		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Message{}
 			if err := m.Decode(tt.args.data); (err != nil) != tt.wantErr {
