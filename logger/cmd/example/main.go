@@ -10,6 +10,7 @@ import (
 	"flag"
 
 	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
 )
@@ -47,7 +48,7 @@ func echoHandler(ctx context.Context, subject string, message *bank.Message) (*b
 }
 
 func natsClient(ctx context.Context) {
-	messaging := logger.ContextMessaging(ctx)
+	messaging := appcontext.Messaging(ctx)
 	messaging.SubscribeWorkers(ctx, "Example.Request", 8, echoHandler)
 
 	log := logger.Logger(ctx)
@@ -70,10 +71,10 @@ func natsClient(ctx context.Context) {
 func main() {
 	args := parseArgs()
 
-	ctx := logger.WithAppName(context.Background(), args.AppName)
-	ctx = logger.WithWriter(ctx, logger.NewRedisLogger(args.Redis))
-	ctx = logger.WithLogLevel(ctx, args.LogLevel)
-	ctx = logger.WithMessaging(ctx, messaging.NewNats(ctx, args.Nats))
+	ctx := appcontext.WithAppName(context.Background(), args.AppName)
+	ctx = appcontext.WithWriter(ctx, logger.NewRedisLogger(args.Redis))
+	ctx = appcontext.WithLogLevel(ctx, args.LogLevel)
+	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, args.Nats))
 
 	natsClient(ctx)
 }

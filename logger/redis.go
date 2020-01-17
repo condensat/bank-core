@@ -12,6 +12,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger/model"
 
 	"github.com/go-redis/redis"
@@ -57,7 +58,7 @@ func (r *RedisLogger) Write(entry []byte) (int, error) {
 
 // Grab entries from redis
 func (r *RedisLogger) Grab(ctx context.Context) {
-	log.SetLevel(contextLevel(ctx))
+	log.SetLevel(appcontext.Level(ctx))
 	log.SetOutput(os.Stderr)
 
 	entryChan := make(chan [][]byte)
@@ -111,8 +112,8 @@ func (r *RedisLogger) pullRedisEntries(ctx context.Context, entryChan chan<- [][
 
 // processEntries consume log entries from entryChan
 func (r *RedisLogger) processEntries(ctx context.Context, datas [][]byte) {
-	databaseLogger := contextDatabase(ctx)
-	if databaseLogger != nil {
+	ctxLogger := appcontext.Logger(ctx)
+	if ctxLogger != nil {
 		var logEntries []*model.LogEntry
 		for _, data := range datas {
 
@@ -144,10 +145,10 @@ func (r *RedisLogger) processEntries(ctx context.Context, datas [][]byte) {
 				data = d
 			}
 
-			logEntries = append(logEntries, databaseLogger.CreateLogEntry(timestamp, app, level, msg, string(data)))
+			logEntries = append(logEntries, ctxLogger.CreateLogEntry(timestamp, app, level, msg, string(data)))
 		}
 
-		err := databaseLogger.AddLogEntries(logEntries)
+		err := ctxLogger.AddLogEntries(logEntries)
 		if err != nil {
 			log.
 				WithError(err).
