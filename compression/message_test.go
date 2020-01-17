@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/security"
 )
 
 func TestCompressMessage(t *testing.T) {
@@ -22,6 +23,12 @@ func TestCompressMessage(t *testing.T) {
 	}
 	_ = CompressMessage(&compress, 5)
 
+	encrypted := bank.Message{
+		Data: data[:],
+	}
+	pub, priv, _ := security.NewKeys()
+	_ = security.EncryptMessageFor(priv, pub, &encrypted)
+
 	type args struct {
 		message *bank.Message
 		level   int
@@ -34,6 +41,7 @@ func TestCompressMessage(t *testing.T) {
 	}{
 		{"nil", args{nil, 5}, true, false},
 		{"empty", args{new(bank.Message), 5}, true, false},
+		{"encrypted", args{&encrypted, 5}, true, false},
 
 		{"compress", args{&message, 5}, false, true},
 		{"already_compress", args{&compress, 5}, false, true},
