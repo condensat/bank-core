@@ -45,3 +45,19 @@ A logging component setup a RedisLogger and log normally.
 ```bash
 go run logger/cmd/example/main.go --appName=Foo --log=debug
 ```
+
+## Messaging system
+
+Nats is used for internal messaging system between components.
+
+### Start nats
+
+``` bash
+docker run --name nats-test -p 4222:4222 -d nats:2.1-alpine
+```
+
+## Unit testing
+
+```bash
+go test -v ./...
+```

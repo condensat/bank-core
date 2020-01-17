@@ -8,6 +8,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/condensat/bank-core"
 	"github.com/sirupsen/logrus"
 )
 
@@ -16,6 +17,7 @@ const (
 	databaseKey
 	writerKey
 	logLevelKey
+	messagingKey
 )
 
 // WithAppName returns a context with the Application name set
@@ -36,6 +38,11 @@ func WithWriter(ctx context.Context, writer io.Writer) context.Context {
 // WithLogLevel returns a context with the LogLevel set
 func WithLogLevel(ctx context.Context, level string) context.Context {
 	return context.WithValue(ctx, logLevelKey, level)
+}
+
+// WithMessaging returns a context with the messaging set
+func WithMessaging(ctx context.Context, messaging bank.Messaging) context.Context {
+	return context.WithValue(ctx, messagingKey, messaging)
 }
 
 func Logger(ctx context.Context) *logrus.Entry {
@@ -75,6 +82,13 @@ func contextLevel(ctx context.Context) logrus.Level {
 func contextDatabase(ctx context.Context) *DatabaseLogger {
 	if ctxDatabase, ok := ctx.Value(databaseKey).(*DatabaseLogger); ok {
 		return ctxDatabase
+	}
+	return nil
+}
+
+func ContextMessaging(ctx context.Context) bank.Messaging {
+	if ctxMessaging, ok := ctx.Value(messagingKey).(bank.Messaging); ok {
+		return ctxMessaging
 	}
 	return nil
 }
