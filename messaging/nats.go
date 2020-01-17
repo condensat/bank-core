@@ -23,7 +23,6 @@ const (
 
 var (
 	ErrInvalidSubject = errors.New("Invalid Subject")
-	ErrInvalidMessage = errors.New("Invalid Message")
 	ErrInvalidHandler = errors.New("Invalid Handler")
 
 	ErrRequest  = errors.New("Request error")
@@ -181,7 +180,7 @@ func (n *Nats) RequestWithTimeout(ctx context.Context, subject string, message *
 	}
 	if message == nil {
 		log.
-			WithError(ErrInvalidMessage).
+			WithError(bank.ErrInvalidMessage).
 			Panic("Invalid message")
 	}
 

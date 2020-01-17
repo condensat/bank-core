@@ -7,6 +7,7 @@ package bank
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
 
 	"github.com/emef/bitfield"
 )
@@ -19,6 +20,11 @@ const (
 	flagCompressed MessageFlag = 0
 	flagEncrypted  MessageFlag = 1
 	flagSigned     MessageFlag = 2
+)
+
+var (
+	ErrInvalidMessage = errors.New("Invalid Message")
+	ErrNoData         = errors.New("No Data")
 )
 
 // Message used for all communication between components
