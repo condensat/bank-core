@@ -44,6 +44,7 @@ type Database interface {
 	DB() DB
 
 	Migrate(models []model.Model) error
+	Transaction(txFunc func(tx Database) error) error
 }
 
 // Cache (Redis)

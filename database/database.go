@@ -5,6 +5,7 @@
 package database
 
 import (
+	"errors"
 	syslog "log"
 	"os"
 
@@ -13,8 +14,18 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
+var (
+	ErrInvalidDatabase = errors.New("Invalid database")
+)
+
 type Database struct {
 	db *gorm.DB
+}
+
+func (p *Database) Transaction(txFunc func(tx bank.Database) error) error {
+	return p.db.Transaction(func(tx *gorm.DB) error {
+		return txFunc(&Database{db: tx})
+	})
 }
 
 // NewDatabase create new mysql connection

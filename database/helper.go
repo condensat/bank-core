@@ -32,5 +32,7 @@ func connectMyql(host string, port int, user, pass, dbname string) *gorm.DB {
 			Panicln("Failed to open connection to database")
 	}
 
+	db.SingularTable(true)
+
 	return db
 }

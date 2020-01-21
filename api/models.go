@@ -9,5 +9,8 @@ import (
 )
 
 func Models() []model.Model {
-	return nil
+	return []model.Model{
+		new(model.User),
+		new(model.Credential),
+	}
 }

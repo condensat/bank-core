@@ -4,7 +4,9 @@
 
 package database
 
-import "github.com/condensat/bank-core/database/model"
+import (
+	"github.com/condensat/bank-core/database/model"
+)
 
 func (p *Database) Migrate(models []model.Model) error {
 	var interfaces []interface{}
