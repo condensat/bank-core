@@ -9,6 +9,7 @@ import (
 	"context"
 	"flag"
 
+	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 )
 
@@ -44,15 +45,15 @@ func parseArgs() Args {
 func main() {
 	args := parseArgs()
 
-	ctx := logger.WithAppName(context.Background(), args.AppName)
-	ctx = logger.WithLogLevel(ctx, args.LogLevel)
+	ctx := appcontext.WithAppName(context.Background(), args.AppName)
+	ctx = appcontext.WithLogLevel(ctx, args.LogLevel)
 
 	var databaseLogger *logger.DatabaseLogger
 	if args.WithDatabase {
 		databaseLogger = logger.NewDatabaseLogger(args.Database)
 		defer databaseLogger.Close()
 
-		ctx = logger.WithDatabase(ctx, databaseLogger)
+		ctx = appcontext.WithLogger(ctx, databaseLogger)
 	}
 
 	redisLogger := logger.NewRedisLogger(args.Redis)

@@ -8,6 +8,8 @@ import (
 	"context"
 	"io"
 
+	"github.com/condensat/bank-core/appcontext"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -16,31 +18,12 @@ const (
 	databaseKey
 	writerKey
 	logLevelKey
+	messagingKey
 )
-
-// WithAppName returns a context with the Application name set
-func WithAppName(ctx context.Context, name string) context.Context {
-	return context.WithValue(ctx, appKey, name)
-}
-
-// WithWriter returns a context with the log Writer set
-func WithDatabase(ctx context.Context, database *DatabaseLogger) context.Context {
-	return context.WithValue(ctx, databaseKey, database)
-}
-
-// WithWriter returns a context with the log Writer set
-func WithWriter(ctx context.Context, writer io.Writer) context.Context {
-	return context.WithValue(ctx, writerKey, writer)
-}
-
-// WithLogLevel returns a context with the LogLevel set
-func WithLogLevel(ctx context.Context, level string) context.Context {
-	return context.WithValue(ctx, logLevelKey, level)
-}
 
 func Logger(ctx context.Context) *logrus.Entry {
 	logger := logrus.New()
-	logger.SetLevel(contextLevel(ctx))
+	logger.SetLevel(appcontext.Level(ctx))
 	logger.SetFormatter(&logrus.JSONFormatter{})
 	entry := logrus.NewEntry(logger)
 
@@ -61,20 +44,4 @@ func Logger(ctx context.Context) *logrus.Entry {
 	}
 
 	return entry
-}
-
-func contextLevel(ctx context.Context) logrus.Level {
-	if ctxLogLevel, ok := ctx.Value(logLevelKey).(string); ok {
-		if level, err := logrus.ParseLevel(ctxLogLevel); err == nil {
-			return level
-		}
-	}
-	return logrus.WarnLevel
-}
-
-func contextDatabase(ctx context.Context) *DatabaseLogger {
-	if ctxDatabase, ok := ctx.Value(databaseKey).(*DatabaseLogger); ok {
-		return ctxDatabase
-	}
-	return nil
 }
