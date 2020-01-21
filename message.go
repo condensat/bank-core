@@ -7,10 +7,24 @@ package bank
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
+
+	"github.com/emef/bitfield"
 )
+
+type MessageFlag uint32
 
 const (
 	cstCurrentVersion = "1.0"
+
+	flagCompressed MessageFlag = 0
+	flagEncrypted  MessageFlag = 1
+	flagSigned     MessageFlag = 2
+)
+
+var (
+	ErrInvalidMessage = errors.New("Invalid Message")
+	ErrNoData         = errors.New("No Data")
 )
 
 // Message used for all communication between components
@@ -27,6 +41,30 @@ func NewMessage() *Message {
 	return &Message{
 		Version: cstCurrentVersion,
 	}
+}
+
+func (m *Message) SetCompressed(compressed bool) {
+	m.setFlag(flagCompressed, compressed)
+}
+
+func (m *Message) SetEncrypted(encrypted bool) {
+	m.setFlag(flagEncrypted, encrypted)
+}
+
+func (m *Message) SetSigned(signed bool) {
+	m.setFlag(flagSigned, signed)
+}
+
+func (m *Message) IsCompressed() bool {
+	return m.getFlag(flagCompressed)
+}
+
+func (m *Message) IsEncrypted() bool {
+	return m.getFlag(flagEncrypted)
+}
+
+func (m *Message) IsSigned() bool {
+	return m.getFlag(flagSigned)
 }
 
 // Encode return bytes from Message. Encoded with gob
@@ -51,4 +89,23 @@ func (m *Message) Decode(data []byte) error {
 		return err
 	}
 	return nil
+}
+
+func (m *Message) getFlag(flag MessageFlag) bool {
+	b := bitfield.NewFromUint32(uint32(m.Flags))
+	f := uint32(flag)
+	return b.Test(f)
+}
+
+func (m *Message) setFlag(flag MessageFlag, enable bool) {
+	b := bitfield.NewFromUint32(uint32(m.Flags))
+	f := uint32(flag)
+
+	if enable {
+		b.Set(f)
+	} else {
+		b.Clear(f)
+	}
+
+	m.Flags = uint(b.ToUint32Safe())
 }

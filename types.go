@@ -11,6 +11,12 @@ import (
 	"github.com/condensat/bank-core/logger/model"
 )
 
+type Key []byte
+
+type PublicKey Key
+type PrivateKey Key
+type SharedKey Key
+
 type Logger interface {
 	Close()
 	CreateLogEntry(timestamp time.Time, app, level, msg, data string) *model.LogEntry
