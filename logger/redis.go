@@ -32,11 +32,6 @@ type RedisLogger struct {
 	rdb *redis.Client
 }
 
-type RedisOptions struct {
-	HostName string
-	Port     int
-}
-
 func NewRedisLogger(options RedisOptions) *RedisLogger {
 	return &RedisLogger{
 		rdb: redis.NewClient(&redis.Options{

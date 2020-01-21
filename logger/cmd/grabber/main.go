@@ -10,32 +10,26 @@ import (
 	"flag"
 
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/logger"
 )
 
 type Args struct {
-	AppName  string
-	LogLevel string
-	Redis    logger.RedisOptions
-
+	App          appcontext.Options
 	WithDatabase bool
-	Database     logger.DatabaseOptions
+
+	Redis    logger.RedisOptions
+	Database database.Options
 }
 
 func parseArgs() Args {
 	var args Args
-	flag.StringVar(&args.AppName, "appName", "LogGrabber", "Application Name")
-	flag.StringVar(&args.LogLevel, "log", "warning", "Log level [trace, debug, info, warning, error]")
 
-	flag.StringVar(&args.Redis.HostName, "redisHost", "localhost", "Redis hostName (default 'localhost')")
-	flag.IntVar(&args.Redis.Port, "redisPort", 6379, "Redis port (default 6379)")
-
+	appcontext.OptionArgs(&args.App, "LogGrabber")
 	flag.BoolVar(&args.WithDatabase, "withDatabase", false, "Store log to database (default false)")
-	flag.StringVar(&args.Database.HostName, "dbHost", "localhost", "Database hostName (default 'localhost')")
-	flag.IntVar(&args.Database.Port, "dbPort", 3306, "Database port (default 3306)")
-	flag.StringVar(&args.Database.User, "dbUser", "condensat", "Database user (condensat)")
-	flag.StringVar(&args.Database.Password, "dbPassword", "condensat", "Database user (condensat)")
-	flag.StringVar(&args.Database.Database, "dbName", "condensat", "Database name (condensat)")
+
+	logger.OptionArgs(&args.Redis)
+	database.OptionArgs(&args.Database)
 
 	flag.Parse()
 
@@ -45,18 +39,17 @@ func parseArgs() Args {
 func main() {
 	args := parseArgs()
 
-	ctx := appcontext.WithAppName(context.Background(), args.AppName)
-	ctx = appcontext.WithLogLevel(ctx, args.LogLevel)
+	ctx := context.Background()
+	ctx = appcontext.WithOptions(ctx, args.App)
 
-	var databaseLogger *logger.DatabaseLogger
 	if args.WithDatabase {
-		databaseLogger = logger.NewDatabaseLogger(args.Database)
-		defer databaseLogger.Close()
-
+		ctx = appcontext.WithDatabase(ctx, database.NewDatabase(args.Database))
+		databaseLogger := logger.NewDatabaseLogger(ctx)
 		ctx = appcontext.WithLogger(ctx, databaseLogger)
+		defer databaseLogger.Close()
 	}
 
-	redisLogger := logger.NewRedisLogger(args.Redis)
+	logger := logger.NewRedisLogger(args.Redis)
 	// Start the log grabber
-	redisLogger.Grab(ctx)
+	logger.Grab(ctx)
 }

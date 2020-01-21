@@ -15,10 +15,11 @@ import (
 
 const (
 	appKey = iota
-	databaseKey
+	loggerKey
 	writerKey
 	logLevelKey
 	messagingKey
+	databaseKey
 )
 
 // WithAppName returns a context with the Application name set
@@ -28,7 +29,7 @@ func WithAppName(ctx context.Context, name string) context.Context {
 
 // WithLogger returns a context with the log Writer set
 func WithLogger(ctx context.Context, database bank.Logger) context.Context {
-	return context.WithValue(ctx, databaseKey, database)
+	return context.WithValue(ctx, loggerKey, database)
 }
 
 // WithWriter returns a context with the log Writer set
@@ -46,6 +47,17 @@ func WithMessaging(ctx context.Context, messaging bank.Messaging) context.Contex
 	return context.WithValue(ctx, messagingKey, messaging)
 }
 
+// WithDatabase returns a context with the database set
+func WithDatabase(ctx context.Context, db bank.Database) context.Context {
+	return context.WithValue(ctx, databaseKey, db)
+}
+
+func WithOptions(ctx context.Context, options Options) context.Context {
+	ctx = WithAppName(ctx, options.AppName)
+	ctx = WithLogLevel(ctx, options.LogLevel)
+	return ctx
+}
+
 func Level(ctx context.Context) log.Level {
 	if ctxLogLevel, ok := ctx.Value(logLevelKey).(string); ok {
 		if level, err := log.ParseLevel(ctxLogLevel); err == nil {
@@ -56,7 +68,7 @@ func Level(ctx context.Context) log.Level {
 }
 
 func Logger(ctx context.Context) bank.Logger {
-	if ctxDatabase, ok := ctx.Value(databaseKey).(bank.Logger); ok {
+	if ctxDatabase, ok := ctx.Value(loggerKey).(bank.Logger); ok {
 		return ctxDatabase
 	}
 	return nil
@@ -65,6 +77,13 @@ func Logger(ctx context.Context) bank.Logger {
 func Messaging(ctx context.Context) bank.Messaging {
 	if ctxMessaging, ok := ctx.Value(messagingKey).(bank.Messaging); ok {
 		return ctxMessaging
+	}
+	return nil
+}
+
+func Database(ctx context.Context) bank.Database {
+	if ctxDatabase, ok := ctx.Value(databaseKey).(bank.Database); ok {
+		return ctxDatabase
 	}
 	return nil
 }

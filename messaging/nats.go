@@ -30,11 +30,6 @@ var (
 	ErrDecoding = errors.New("Decoding error")
 )
 
-type NatsOptions struct {
-	HostName string
-	Port     int
-}
-
 type Nats struct {
 	nc *nats.Conn
 }
@@ -46,8 +41,7 @@ func NewNats(ctx context.Context, options NatsOptions) *Nats {
 
 	nc, err := nats.Connect(url)
 	if err != nil {
-		logger.
-			Logger(ctx).
+		logger.Logger(ctx).
 			WithError(err).
 			WithField("Method", "messaging.NewNats").
 			WithField("URL", url).

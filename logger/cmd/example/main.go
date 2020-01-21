@@ -27,11 +27,8 @@ func parseArgs() Args {
 	flag.StringVar(&args.AppName, "appName", "LoggerExample", "Application Name")
 	flag.StringVar(&args.LogLevel, "log", "warning", "Log level [trace, debug, info, warning, error]")
 
-	flag.StringVar(&args.Redis.HostName, "redisHost", "localhost", "Redis hostName (default 'localhost')")
-	flag.IntVar(&args.Redis.Port, "redisPort", 6379, "Redis port (default 6379)")
-
-	flag.StringVar(&args.Nats.HostName, "natsHost", "localhost", "Nats hostName (default 'localhost')")
-	flag.IntVar(&args.Nats.Port, "natsPort", 4222, "Nats port (default 4222)")
+	logger.OptionArgs(&args.Redis)
+	messaging.OptionArgs(&args.Nats)
 
 	flag.Parse()
 
