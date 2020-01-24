@@ -6,11 +6,12 @@ package messaging
 
 import (
 	"flag"
+
+	"github.com/condensat/bank-core"
 )
 
 type NatsOptions struct {
-	HostName string
-	Port     int
+	bank.ServerOptions
 }
 
 func OptionArgs(args *NatsOptions) {

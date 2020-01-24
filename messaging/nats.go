@@ -52,6 +52,10 @@ func NewNats(ctx context.Context, options NatsOptions) *Nats {
 	}
 }
 
+func (n *Nats) NC() bank.NC {
+	return n.nc
+}
+
 func natsMessageHandler(ctx context.Context, log *logrus.Entry, msg *nats.Msg, handle bank.MessageHandler) {
 	log.
 		WithField("Subject", msg.Subject).

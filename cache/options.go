@@ -2,20 +2,21 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package logger
+package cache
 
 import (
 	"flag"
+
+	"github.com/condensat/bank-core"
 )
 
 type RedisOptions struct {
-	HostName string
-	Port     int
+	bank.ServerOptions
 }
 
 func OptionArgs(args *RedisOptions) {
 	if args == nil {
-		panic("Invalid args options")
+		panic("Invalid redis options")
 	}
 
 	flag.StringVar(&args.HostName, "redisHost", "localhost", "Redis hostName (default 'localhost')")

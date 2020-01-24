@@ -18,6 +18,7 @@ const (
 	loggerKey
 	writerKey
 	logLevelKey
+	cacheKey
 	messagingKey
 	databaseKey
 )
@@ -40,6 +41,11 @@ func WithWriter(ctx context.Context, writer io.Writer) context.Context {
 // WithLogLevel returns a context with the LogLevel set
 func WithLogLevel(ctx context.Context, level string) context.Context {
 	return context.WithValue(ctx, logLevelKey, level)
+}
+
+// WithMessaging returns a context with the messaging set
+func WithCache(ctx context.Context, cache bank.Cache) context.Context {
+	return context.WithValue(ctx, cacheKey, cache)
 }
 
 // WithMessaging returns a context with the messaging set
@@ -70,6 +76,13 @@ func Level(ctx context.Context) log.Level {
 func Logger(ctx context.Context) bank.Logger {
 	if ctxDatabase, ok := ctx.Value(loggerKey).(bank.Logger); ok {
 		return ctxDatabase
+	}
+	return nil
+}
+
+func Cache(ctx context.Context) bank.Cache {
+	if ctxCache, ok := ctx.Value(cacheKey).(bank.Cache); ok {
+		return ctxCache
 	}
 	return nil
 }

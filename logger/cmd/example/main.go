@@ -11,23 +11,23 @@ import (
 
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
 )
 
 type Args struct {
-	AppName  string
-	LogLevel string
-	Redis    logger.RedisOptions
-	Nats     messaging.NatsOptions
+	App appcontext.Options
+
+	Redis cache.RedisOptions
+	Nats  messaging.NatsOptions
 }
 
 func parseArgs() Args {
 	var args Args
-	flag.StringVar(&args.AppName, "appName", "LoggerExample", "Application Name")
-	flag.StringVar(&args.LogLevel, "log", "warning", "Log level [trace, debug, info, warning, error]")
+	appcontext.OptionArgs(&args.App, "LoggerExample")
 
-	logger.OptionArgs(&args.Redis)
+	cache.OptionArgs(&args.Redis)
 	messaging.OptionArgs(&args.Nats)
 
 	flag.Parse()
@@ -68,9 +68,10 @@ func natsClient(ctx context.Context) {
 func main() {
 	args := parseArgs()
 
-	ctx := appcontext.WithAppName(context.Background(), args.AppName)
-	ctx = appcontext.WithWriter(ctx, logger.NewRedisLogger(args.Redis))
-	ctx = appcontext.WithLogLevel(ctx, args.LogLevel)
+	ctx := context.Background()
+	ctx = appcontext.WithOptions(ctx, args.App)
+	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, args.Redis))
+	ctx = appcontext.WithWriter(ctx, logger.NewRedisLogger(ctx))
 	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, args.Nats))
 
 	natsClient(ctx)

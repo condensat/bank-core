@@ -12,10 +12,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger/model"
 
-	"github.com/go-redis/redis"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -24,25 +25,27 @@ const (
 )
 
 var (
-	// ErrRedisFailed
-	ErrRedisFailed = errors.New("Redis Failed")
+	ErrInvalidCache = errors.New("Invalid Cache")
 )
 
 type RedisLogger struct {
-	rdb *redis.Client
+	cache bank.Cache
 }
 
-func NewRedisLogger(options RedisOptions) *RedisLogger {
+func NewRedisLogger(ctx context.Context) *RedisLogger {
+	cache := appcontext.Cache(ctx)
+	if cache == nil {
+		panic(ErrInvalidCache)
+	}
 	return &RedisLogger{
-		rdb: redis.NewClient(&redis.Options{
-			Addr: fmt.Sprintf("%s:%d", options.HostName, options.Port),
-		}),
+		cache: cache,
 	}
 }
 
 // Write implements io.Writer interface
 func (r *RedisLogger) Write(entry []byte) (int, error) {
-	_, err := r.rdb.RPush(cstRedisQueueName, entry).Result()
+	rdb := cache.ToRedis(r.cache)
+	_, err := rdb.RPush(cstRedisQueueName, entry).Result()
 	if err != nil {
 		// print missed entry and exit
 		print(string(entry))
@@ -65,7 +68,7 @@ func (r *RedisLogger) Grab(ctx context.Context) {
 
 // pullRedisEntries publish entries from redis to entryChan
 func (r *RedisLogger) pullRedisEntries(ctx context.Context, entryChan chan<- [][]byte, bulkSize int64, sleep time.Duration) {
-	rdb := r.rdb
+	rdb := cache.ToRedis(r.cache)
 	for {
 		// check for entries
 		count, err := rdb.LLen(cstRedisQueueName).Result()
