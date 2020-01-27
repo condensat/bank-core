@@ -21,6 +21,7 @@ const (
 	cacheKey
 	messagingKey
 	databaseKey
+	hasherWorkerKey
 )
 
 // WithAppName returns a context with the Application name set
@@ -56,6 +57,11 @@ func WithMessaging(ctx context.Context, messaging bank.Messaging) context.Contex
 // WithDatabase returns a context with the database set
 func WithDatabase(ctx context.Context, db bank.Database) context.Context {
 	return context.WithValue(ctx, databaseKey, db)
+}
+
+// WithHasherWorker returns a context with the password worker set
+func WithHasherWorker(ctx context.Context, worker bank.Worker) context.Context {
+	return context.WithValue(ctx, hasherWorkerKey, worker)
 }
 
 func WithOptions(ctx context.Context, options Options) context.Context {
@@ -97,6 +103,13 @@ func Messaging(ctx context.Context) bank.Messaging {
 func Database(ctx context.Context) bank.Database {
 	if ctxDatabase, ok := ctx.Value(databaseKey).(bank.Database); ok {
 		return ctxDatabase
+	}
+	return nil
+}
+
+func HasherWorker(ctx context.Context) bank.Worker {
+	if ctxWorker, ok := ctx.Value(hasherWorkerKey).(bank.Worker); ok {
+		return ctxWorker
 	}
 	return nil
 }

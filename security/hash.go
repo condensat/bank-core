@@ -9,8 +9,8 @@ import (
 
 	"crypto/subtle"
 
+	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
-	"golang.org/x/crypto/argon2"
 )
 
 // SaltedHash return argon2 key from salt and input
@@ -20,7 +20,13 @@ func SaltedHash(ctx context.Context, password, salt []byte) []byte {
 			Panic("Invalid Input")
 	}
 
-	return argon2.Key(password, salt, 1, 32<<10, 4, 32)
+	worker := appcontext.HasherWorker(ctx).(*HasherWorker)
+	if worker == nil {
+		logger.Logger(ctx).
+			Panic("Invalid HasherWorker")
+	}
+
+	return worker.doHash(password, salt)
 }
 
 // SaltedHashVerify check if key correspond to argon2 hash from salt and input
@@ -29,8 +35,14 @@ func SaltedHashVerify(ctx context.Context, password, salt []byte, key []byte) bo
 		return false
 	}
 
+	worker := appcontext.HasherWorker(ctx).(*HasherWorker)
+	if worker == nil {
+		logger.Logger(ctx).
+			Panic("Invalid HasherWorker")
+	}
+
 	// compute argon hash
-	dk := argon2.Key(password, salt, 1, 32<<10, 4, 32)
+	dk := worker.doHash(password, salt)
 
 	// check if length match
 	if subtle.ConstantTimeEq(int32(len(dk)), int32(len(key))) == 0 {
