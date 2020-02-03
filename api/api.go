@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/condensat/bank-core/api/services"
+	"github.com/condensat/bank-core/api/sessions"
 	"github.com/condensat/bank-core/logger"
 
 	"github.com/urfave/negroni"
@@ -22,6 +23,12 @@ type Api int
 
 func (p *Api) Run(ctx context.Context, port int) {
 	muxer := http.NewServeMux()
+
+	// create session and and to context
+	session := sessions.NewSession(ctx)
+	ctx = context.WithValue(ctx, sessions.KeySessions, session)
+
+	services.RegisterServices(ctx, muxer)
 
 	handler := negroni.New(&negroni.Recovery{})
 	handler.Use(services.StatsMiddleware)

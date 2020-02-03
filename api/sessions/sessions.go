@@ -18,6 +18,10 @@ import (
 	"github.com/go-redis/redis"
 )
 
+const (
+	KeySessions = "Api.Sessions"
+)
+
 var (
 	ErrInvalidDuration  = errors.New("Invalid Duration")
 	ErrInvalidSessionID = errors.New("Invalid SessionID")
