@@ -5,40 +5,44 @@
 package security
 
 import (
-	"crypto/ed25519"
-	"crypto/sha256"
-
 	"github.com/condensat/bank-core"
+
+	"github.com/condensat/bank-core/security/utils"
+	"golang.org/x/crypto/nacl/sign"
 )
 
-func Sign(key bank.SharedKey, data []byte) ([]byte, error) {
-	if !IsKeyValid(key) {
-		return nil, ErrInvalidKey
-	}
+func Sign(secretKey SignatureSecretKey, data []byte) ([]byte, error) {
 	if len(data) == 0 {
 		return nil, bank.ErrNoData
 	}
+	defer utils.Memzero(secretKey[:])
 
-	hash := sha256.Sum256(key[:])
-	priv := ed25519.NewKeyFromSeed(hash[:])
+	var privateKey [SignatureSecretKeySize]byte
+	defer utils.Memzero(privateKey[:])
+	copy(privateKey[:], secretKey[:])
 
-	return ed25519.Sign(priv, data), nil
+	s := sign.Sign(nil, data, &privateKey)
+	if len(s) == 0 {
+		return nil, ErrSignMessage
+	}
+
+	return s, nil
 }
 
-func Verify(key bank.SharedKey, data, signature []byte) bool {
-	if !IsKeyValid(key) {
-		return false
+func VerifySignature(publicKey SignaturePublicKey, signedMessage []byte) (bool, error) {
+	if len(signedMessage) <= sign.Overhead {
+		return false, ErrNoSignature
 	}
-	if len(data) == 0 {
-		return false
-	}
-	if len(signature) != ed25519.SignatureSize {
-		return false
+	defer utils.Memzero(publicKey[:])
+
+	var pubKey [SignaturePublicKeySize]byte
+	defer utils.Memzero(pubKey[:])
+	copy(pubKey[:], publicKey[:])
+
+	_, ok := sign.Open(nil, signedMessage, &pubKey)
+	if !ok {
+		return false, ErrVerifySignature
 	}
 
-	hash := sha256.Sum256(key[:])
-	priv := ed25519.NewKeyFromSeed(hash[:])
-
-	pub := priv.Public().(ed25519.PublicKey)
-	return ed25519.Verify(pub, data, signature)
+	return true, nil
 }

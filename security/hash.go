@@ -9,46 +9,53 @@ import (
 
 	"crypto/subtle"
 
-	"github.com/condensat/bank-core/appcontext"
-	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/security/utils"
+)
+
+const (
+	KeyHasherWorker = "Security.KeyHasherWorker"
 )
 
 // SaltedHash return argon2 key from salt and input
-func SaltedHash(ctx context.Context, password, salt []byte) []byte {
-	if len(password) == 0 || len(salt) < 8 {
-		logger.Logger(ctx).
-			Panic("Invalid Input")
+// do not store or reuse salt
+func SaltedHash(ctx context.Context, password []byte) []byte {
+	if len(password) == 0 {
+		panic("Invalid Input")
 	}
+	salt := PasswordHashSalt(ctx)
+	defer utils.Memzero(salt[:])
 
-	worker := appcontext.HasherWorker(ctx).(*HasherWorker)
+	worker := ctx.Value(KeyHasherWorker).(*HasherWorker)
 	if worker == nil {
-		logger.Logger(ctx).
-			Panic("Invalid HasherWorker")
+		panic("Invalid HasherWorker")
 	}
 
-	return worker.doHash(password, salt)
+	return worker.doHash(salt[:], password)
 }
 
-// SaltedHashVerify check if key correspond to argon2 hash from salt and input
-func SaltedHashVerify(ctx context.Context, password, salt []byte, key []byte) bool {
-	if len(password) == 0 || len(salt) < 8 {
+// SaltedHashVerify check if hash correspond to argon2 hash from salt and input
+// do not store or reuse salt
+func SaltedHashVerify(ctx context.Context, password []byte, hash []byte) bool {
+	if len(password) == 0 {
 		return false
 	}
+	salt := PasswordHashSalt(ctx)
+	defer utils.Memzero(salt[:])
 
-	worker := appcontext.HasherWorker(ctx).(*HasherWorker)
+	worker := ctx.Value(KeyHasherWorker).(*HasherWorker)
 	if worker == nil {
-		logger.Logger(ctx).
-			Panic("Invalid HasherWorker")
+		panic("Invalid HasherWorker")
 	}
 
 	// compute argon hash
-	dk := worker.doHash(password, salt)
+	dk := worker.doHash(salt[:], password)
+	defer utils.Memzero(dk[:])
 
 	// check if length match
-	if subtle.ConstantTimeEq(int32(len(dk)), int32(len(key))) == 0 {
+	if subtle.ConstantTimeEq(int32(len(dk)), int32(len(hash))) == 0 {
 		return false
 	}
 
 	// Compare keys content
-	return subtle.ConstantTimeCompare(dk, key) == 1
+	return subtle.ConstantTimeCompare(dk, hash) == 1
 }

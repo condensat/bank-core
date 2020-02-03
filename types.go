@@ -12,12 +12,6 @@ import (
 	logModel "github.com/condensat/bank-core/logger/model"
 )
 
-type Key []byte
-
-type PublicKey Key
-type PrivateKey Key
-type SharedKey Key
-
 type ServerOptions struct {
 	HostName string
 	Port     int

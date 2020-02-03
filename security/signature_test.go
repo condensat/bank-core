@@ -5,16 +5,18 @@
 package security
 
 import (
+	"context"
 	"testing"
 
-	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/security/utils"
 )
 
 func TestSign(t *testing.T) {
 	t.Parallel()
 
-	pub, priv, _ := NewKeys()
-	shared, _ := SharedSecret(priv, pub)
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, KeyPrivateKeySalt, utils.GenerateRandN(32))
+	key := NewKey(ctx)
 
 	var zero [0]byte
 	var data [32]byte
@@ -22,7 +24,7 @@ func TestSign(t *testing.T) {
 	var data2 [128]byte
 
 	type args struct {
-		key  bank.SharedKey
+		key  *Key
 		data []byte
 	}
 	tests := []struct {
@@ -31,19 +33,21 @@ func TestSign(t *testing.T) {
 		want    int
 		wantErr bool
 	}{
-		{"allnil", args{nil, nil}, 0, true},
-		{"nilkey", args{nil, data[:]}, 0, true},
-		{"nildata", args{shared, nil}, 0, true},
-		{"zero", args{shared, zero[:]}, 0, true},
+		{"nildata", args{key, nil}, 0, true},
+		{"zero", args{key, zero[:]}, 0, true},
 
-		{"data", args{shared, data[:]}, 64, false},
-		{"data1", args{shared, data1[:]}, 64, false},
-		{"data2", args{shared, data2[:]}, 64, false},
+		{"data", args{key, data[:]}, 96, false},
+		{"data1", args{key, data1[:]}, 128, false},
+		{"data2", args{key, data2[:]}, 192, false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := Sign(tt.args.key, tt.args.data)
+
+			privateKey := tt.args.key.privateKey(ctx)
+			signatureKey := SignatureSecretKey(privateKey)
+
+			got, err := Sign(signatureKey, tt.args.data)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Sign() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -55,52 +59,43 @@ func TestSign(t *testing.T) {
 	}
 }
 
-func TestVerify(t *testing.T) {
+func TestVerifySignature(t *testing.T) {
 	t.Parallel()
 
-	pub, priv, _ := NewKeys()
-	shared, _ := SharedSecret(priv, pub)
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, KeyPrivateKeySalt, utils.GenerateRandN(32))
+	key := NewKey(ctx)
 
 	var zero [0]byte
 	var data [32]byte
 	var data1 [64]byte
 	var data2 [128]byte
 
-	sig, _ := Sign(shared, data[:])
-	sig1, _ := Sign(shared, data1[:])
-	sig2, _ := Sign(shared, data2[:])
+	dataSig, _ := key.SignMessage(ctx, data[:])
+	dataSig1, _ := key.SignMessage(ctx, data1[:])
+	dataSig2, _ := key.SignMessage(ctx, data2[:])
 
 	type args struct {
-		key       bank.SharedKey
-		data      []byte
-		signature []byte
+		key  *Key
+		data []byte
 	}
 	tests := []struct {
 		name string
 		args args
 		want bool
 	}{
-		{"allnil", args{nil, nil, nil}, false},
-		{"nilkey", args{nil, data[:], sig[:]}, false},
-		{"nildata", args{shared[:], nil, sig[:]}, false},
-		{"nilsig", args{shared[:], data[:], nil}, false},
-		{"zero", args{shared[:], zero[:], sig[:]}, false},
+		{"nildata", args{key, nil}, false},
+		{"nilsig", args{key, data[:]}, false},
+		{"zero", args{key, zero[:]}, false},
 
-		{"sig", args{shared[:], data[:], sig[:]}, true},
-		{"sig1", args{shared[:], data1[:], sig1[:]}, true},
-		{"sig2", args{shared[:], data2[:], sig2[:]}, true},
-
-		{"datasig1", args{shared[:], data[:], sig1[:]}, false},
-		{"datasig2", args{shared[:], data[:], sig2[:]}, false},
-		{"data1sig", args{shared[:], data1[:], sig[:]}, false},
-		{"data1sig2", args{shared[:], data1[:], sig2[:]}, false},
-		{"data2sig", args{shared[:], data2[:], sig[:]}, false},
-		{"data2sig1", args{shared[:], data2[:], sig1[:]}, false},
+		{"sig", args{key, dataSig[:]}, true},
+		{"sig1", args{key, dataSig1[:]}, true},
+		{"sig2", args{key, dataSig2[:]}, true},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			if got := Verify(tt.args.key, tt.args.data, tt.args.signature); got != tt.want {
+			if got, _ := VerifySignature(tt.args.key.SignPublicKey(ctx), tt.args.data); got != tt.want {
 				t.Errorf("Verify() = %v, want %v", got, tt.want)
 			}
 		})

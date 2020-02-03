@@ -29,12 +29,11 @@ var (
 
 // Message used for all communication between components
 type Message struct {
-	Version   string // Version for compatibility
-	From      string `json:",omitempty"` // From is the public key of sender
-	Data      []byte `json:",omitempty"` // Data payload
-	Signature string `json:",omitempty"` // Signature of data with sender private key
-	Flags     uint   `json:",omitempty"` // Flags for Compressed, Encrypted, Signed
-	Error     error  `json:",omitempty"` // Error in message processing
+	Version string // Version for compatibility
+	From    string `json:",omitempty"` // From is the public key of sender
+	Data    []byte `json:",omitempty"` // Data payload
+	Flags   uint   `json:",omitempty"` // Flags for Compressed, Encrypted, Signed
+	Error   error  `json:",omitempty"` // Error in message processing
 }
 
 func NewMessage() *Message {

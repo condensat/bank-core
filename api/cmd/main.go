@@ -91,10 +91,10 @@ func testPasswordHash(ctx context.Context) {
 			var password [32]byte
 			_, _ = io.ReadFull(rand.Reader, password[:])
 
-			key := security.SaltedHash(ctx, salt[:], password[:])
+			key := security.SaltedHash(ctx, password[:])
 			fmt.Println(base58.Encode(key, base58.BitcoinAlphabet))
 
-			if !security.SaltedHashVerify(ctx, salt[:], password[:], key) {
+			if !security.SaltedHashVerify(ctx, password[:], key) {
 				logger.Logger(ctx).
 					Panic("Failed to Verify SaltedHash")
 			}
