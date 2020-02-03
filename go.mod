@@ -15,5 +15,7 @@ require (
 	github.com/onsi/gomega v1.8.1 // indirect
 	github.com/shengdoushi/base58 v1.0.0
 	github.com/sirupsen/logrus v1.4.2
+	github.com/thoas/stats v0.0.0-20190407194641-965cb2de1678
+	github.com/urfave/negroni v1.0.0
 	golang.org/x/crypto v0.0.0-20191205180655-e7c4368fe9dd
 )
