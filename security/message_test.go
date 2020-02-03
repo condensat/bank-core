@@ -5,17 +5,20 @@
 package security
 
 import (
+	"context"
 	"testing"
 
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/compression"
+	"github.com/condensat/bank-core/security/utils"
 )
 
 func TestSignMessage(t *testing.T) {
 	t.Parallel()
 
-	pub, priv, _ := NewKeys()
-	shared, _ := SharedSecret(priv, pub)
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, KeyPrivateKeySalt, utils.GenerateRandN(32))
+	key := NewKey(ctx)
 
 	var zero [0]byte
 	var data [32]byte
@@ -29,7 +32,7 @@ func TestSignMessage(t *testing.T) {
 	sign := bank.Message{
 		Data: data[:],
 	}
-	_ = SignMessage(shared, &sign)
+	_ = SignMessage(ctx, key, &sign)
 
 	compress := bank.Message{
 		Data: data[:],
@@ -39,10 +42,10 @@ func TestSignMessage(t *testing.T) {
 	encrypted := bank.Message{
 		Data: data[:],
 	}
-	_ = EncryptMessageFor(priv, pub, &encrypted)
+	_ = EncryptMessageFor(ctx, key, key.Public(ctx), &encrypted)
 
 	type args struct {
-		key     bank.SharedKey
+		key     *Key
 		message *bank.Message
 	}
 	tests := []struct {
@@ -51,23 +54,20 @@ func TestSignMessage(t *testing.T) {
 		wantErr bool
 		wantSig bool
 	}{
-		{"nil", args{nil, nil}, true, false},
-		{"nilkey", args{nil, &message}, true, false},
-		{"nilmessage", args{shared, nil}, true, false},
+		{"nilmessage", args{key, nil}, true, false},
 
-		{"zero", args{nil, new(bank.Message)}, true, false},
-		{"keyzero", args{shared, new(bank.Message)}, true, false},
-		{"messagezero", args{shared, &messageZero}, true, false},
-		{"compressed", args{shared, &compress}, true, false},
-		{"encrypted", args{shared, &encrypted}, true, false},
+		{"keyzero", args{key, new(bank.Message)}, true, false},
+		{"messagezero", args{key, &messageZero}, true, false},
+		{"compressed", args{key, &compress}, true, false},
+		{"encrypted", args{key, &encrypted}, true, false},
 
-		{"sign", args{shared, &message}, false, true},
-		{"already_sign", args{shared, &sign}, false, true},
+		{"sign", args{key, &message}, false, true},
+		{"already_sign", args{key, &sign}, false, true},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			if err := SignMessage(tt.args.key, tt.args.message); (err != nil) != tt.wantErr {
+			if err := SignMessage(ctx, tt.args.key, tt.args.message); (err != nil) != tt.wantErr {
 				t.Errorf("SignMessage() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
@@ -82,11 +82,12 @@ func TestSignMessage(t *testing.T) {
 	}
 }
 
-func TestVerifyMessage(t *testing.T) {
+func TestVerifyMessageSignature(t *testing.T) {
 	t.Parallel()
 
-	pub, priv, _ := NewKeys()
-	shared, _ := SharedSecret(priv, pub)
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, KeyPrivateKeySalt, utils.GenerateRandN(32))
+	key := NewKey(ctx)
 
 	var data [32]byte
 	message := bank.Message{
@@ -95,12 +96,7 @@ func TestVerifyMessage(t *testing.T) {
 	sign := bank.Message{
 		Data: data[:],
 	}
-	_ = SignMessage(shared, &sign)
-	wrongSign := bank.Message{
-		Data: data[:],
-	}
-	_ = SignMessage(shared, &wrongSign)
-	wrongSign.Signature = "NotAnHexaString"
+	_ = SignMessage(ctx, key, &sign)
 
 	compress := bank.Message{
 		Data: data[:],
@@ -110,10 +106,10 @@ func TestVerifyMessage(t *testing.T) {
 	encrypted := bank.Message{
 		Data: data[:],
 	}
-	_ = EncryptMessageFor(priv, pub, &encrypted)
+	_ = EncryptMessageFor(ctx, key, key.Public(ctx), &encrypted)
 
 	type args struct {
-		key     bank.SharedKey
+		key     *Key
 		message *bank.Message
 	}
 	tests := []struct {
@@ -122,22 +118,19 @@ func TestVerifyMessage(t *testing.T) {
 		want    bool
 		wantErr bool
 	}{
-		{"nil", args{nil, nil}, false, true},
-		{"nilkey", args{nil, &sign}, false, true},
-		{"nilmessage", args{shared, nil}, false, true},
+		{"nilmessage", args{key, nil}, false, true},
 
-		{"zero", args{shared, new(bank.Message)}, false, true},
-		{"compressed", args{shared, &compress}, false, true},
-		{"encrypted", args{shared, &encrypted}, false, true},
-		{"notsigned", args{shared, &message}, false, true},
-		{"wrnongsign", args{shared, &wrongSign}, false, true},
+		{"zero", args{key, new(bank.Message)}, false, true},
+		{"compressed", args{key, &compress}, false, true},
+		{"encrypted", args{key, &encrypted}, false, true},
+		{"notsigned", args{key, &message}, false, true},
 
-		{"signed", args{shared, &sign}, true, false},
+		{"signed", args{key, &sign}, true, false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := VerifyMessage(tt.args.key, tt.args.message)
+			got, err := VerifyMessageSignature(tt.args.key.SignPublicKey(ctx), tt.args.message)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("VerifyMessage() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -152,7 +145,9 @@ func TestVerifyMessage(t *testing.T) {
 func TestEncryptMessageFor(t *testing.T) {
 	t.Parallel()
 
-	pub, priv, _ := NewKeys()
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, KeyPrivateKeySalt, utils.GenerateRandN(32))
+	key := NewKey(ctx)
 
 	var data [32]byte
 
@@ -163,11 +158,10 @@ func TestEncryptMessageFor(t *testing.T) {
 	encrypted := bank.Message{
 		Data: data[:],
 	}
-	_ = EncryptMessageFor(priv, pub, &encrypted)
+	_ = EncryptMessageFor(ctx, key, key.Public(ctx), &encrypted)
 
 	type args struct {
-		from    bank.PrivateKey
-		to      bank.PublicKey
+		from    *Key
 		message *bank.Message
 	}
 	tests := []struct {
@@ -176,20 +170,16 @@ func TestEncryptMessageFor(t *testing.T) {
 		wantErr     bool
 		wantEncrypt bool
 	}{
-		{"nil", args{nil, nil, nil}, true, false},
-		{"nilmessage", args{priv, pub, nil}, true, false},
-		{"nilkeys", args{nil, nil, new(bank.Message)}, true, false},
-		{"nilkeysmessage", args{nil, nil, &message}, true, false},
-		{"nilkeysencrypted", args{nil, nil, &encrypted}, true, true},
-		{"encryptnodata", args{priv, pub, new(bank.Message)}, true, false},
+		{"nilmessage", args{key, nil}, true, false},
+		{"encryptnodata", args{key, new(bank.Message)}, true, false},
 
-		{"encrypt", args{priv, pub, &message}, false, true},
-		{"encrypted", args{priv, pub, &encrypted}, false, true},
+		{"encrypt", args{key, &message}, false, true},
+		{"encrypted", args{key, &encrypted}, false, true},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			if err := EncryptMessageFor(tt.args.from, tt.args.to, tt.args.message); (err != nil) != tt.wantErr {
+			if err := EncryptMessageFor(ctx, tt.args.from, tt.args.from.Public(ctx), tt.args.message); (err != nil) != tt.wantErr {
 				t.Errorf("EncryptMessageFor() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
@@ -204,65 +194,12 @@ func TestEncryptMessageFor(t *testing.T) {
 	}
 }
 
-func TestEncryptMessage(t *testing.T) {
-	t.Parallel()
-
-	pub, priv, _ := NewKeys()
-	shared, _ := SharedSecret(priv, pub)
-
-	var data [32]byte
-
-	message := bank.Message{
-		Data: data[:],
-	}
-
-	encrypted := bank.Message{
-		Data: data[:],
-	}
-	_ = EncryptMessageFor(priv, pub, &encrypted)
-
-	type args struct {
-		key     bank.SharedKey
-		message *bank.Message
-	}
-	tests := []struct {
-		name        string
-		args        args
-		wantErr     bool
-		wantEncrypt bool
-	}{
-		{"nil", args{nil, nil}, true, false},
-		{"nilmessage", args{shared, nil}, true, false},
-		{"nilkeys", args{shared, new(bank.Message)}, true, false},
-		{"nilkeysmessage", args{nil, &message}, true, false},
-		{"nilkeysencrypted", args{nil, &encrypted}, true, true},
-		{"encryptnodata", args{shared, new(bank.Message)}, true, false},
-
-		{"encrypt", args{shared, &message}, false, true},
-		{"encrypted", args{shared, &encrypted}, false, true},
-	}
-	for _, tt := range tests {
-		tt := tt // capture range variable
-		t.Run(tt.name, func(t *testing.T) {
-			if err := EncryptMessage(tt.args.key, tt.args.message); (err != nil) != tt.wantErr {
-				t.Errorf("EncryptMessage() error = %v, wantErr %v", err, tt.wantErr)
-			}
-
-			if tt.args.message == nil {
-				return
-			}
-
-			if tt.args.message.IsEncrypted() != tt.wantEncrypt {
-				t.Errorf("EncryptMessage() = %v, wantEncrypt %v", tt.args.message.IsEncrypted(), tt.wantEncrypt)
-			}
-		})
-	}
-}
-
 func TestDecryptMessageFrom(t *testing.T) {
 	t.Parallel()
 
-	pub, priv, _ := NewKeys()
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, KeyPrivateKeySalt, utils.GenerateRandN(32))
+	key := NewKey(ctx)
 
 	var data [32]byte
 
@@ -273,16 +210,15 @@ func TestDecryptMessageFrom(t *testing.T) {
 	encrypted := bank.Message{
 		Data: data[:],
 	}
-	_ = EncryptMessageFor(priv, pub, &encrypted)
+	_ = EncryptMessageFor(ctx, key, key.Public(ctx), &encrypted)
 	encryptedNoData := bank.Message{
 		Data: data[:],
 	}
-	_ = EncryptMessageFor(priv, pub, &encryptedNoData)
+	_ = EncryptMessageFor(ctx, key, key.Public(ctx), &encryptedNoData)
 	encryptedNoData.Data = nil
 
 	type args struct {
-		to      bank.PrivateKey
-		from    bank.PublicKey
+		to      *Key
 		message *bank.Message
 	}
 	tests := []struct {
@@ -291,80 +227,17 @@ func TestDecryptMessageFrom(t *testing.T) {
 		wantErr     bool
 		wantEncrypt bool
 	}{
-		{"nil", args{nil, nil, nil}, true, false},
-		{"nilkeys", args{nil, nil, &message}, true, false},
+		{"nilmessage", args{key, nil}, true, false},
+		{"messagenodata", args{key, new(bank.Message)}, true, false},
+		{"encryptednodata", args{key, &encryptedNoData}, true, true},
 
-		{"nilmessage", args{priv, pub, nil}, true, false},
-		{"messagenodata", args{priv, pub, new(bank.Message)}, false, false},
-		{"encryptednodata", args{priv, pub, &encryptedNoData}, true, true},
-
-		{"notencrypted", args{priv, pub, &message}, false, false},
-		{"encrypted", args{priv, pub, &encrypted}, false, false},
+		{"notencrypted", args{key, &message}, false, false},
+		{"encrypted", args{key, &encrypted}, false, false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			if err := DecryptMessageFrom(tt.args.to, tt.args.from, tt.args.message); (err != nil) != tt.wantErr {
-				t.Errorf("DecryptMessage() error = %v, wantErr %v", err, tt.wantErr)
-			}
-
-			if tt.args.message == nil {
-				return
-			}
-
-			if tt.args.message.IsEncrypted() != tt.wantEncrypt {
-				t.Errorf("DecryptMessage() = %v, wantEncrypt %v", tt.args.message.IsEncrypted(), tt.wantEncrypt)
-			}
-		})
-	}
-}
-
-func TestDecryptMessage(t *testing.T) {
-	t.Parallel()
-
-	pub, priv, _ := NewKeys()
-	shared, _ := SharedSecret(priv, pub)
-
-	var data [32]byte
-
-	message := bank.Message{
-		Data: data[:],
-	}
-
-	encrypted := bank.Message{
-		Data: data[:],
-	}
-	_ = EncryptMessageFor(priv, pub, &encrypted)
-	encryptedNoData := bank.Message{
-		Data: data[:],
-	}
-	_ = EncryptMessageFor(priv, pub, &encryptedNoData)
-	encryptedNoData.Data = nil
-
-	type args struct {
-		key     bank.SharedKey
-		message *bank.Message
-	}
-	tests := []struct {
-		name        string
-		args        args
-		wantErr     bool
-		wantEncrypt bool
-	}{
-		{"nil", args{nil, nil}, true, false},
-		{"nilkeys", args{nil, &message}, true, false},
-
-		{"nilmessage", args{shared, nil}, true, false},
-		{"messagenodata", args{shared, new(bank.Message)}, false, false},
-		{"encryptednodata", args{shared, &encryptedNoData}, true, true},
-
-		{"notencrypted", args{shared, &message}, false, false},
-		{"encrypted", args{shared, &encrypted}, false, false},
-	}
-	for _, tt := range tests {
-		tt := tt // capture range variable
-		t.Run(tt.name, func(t *testing.T) {
-			if err := DecryptMessage(tt.args.key, tt.args.message); (err != nil) != tt.wantErr {
+			if err := DecryptMessageFrom(ctx, tt.args.to, tt.args.to.Public(ctx), tt.args.message); (err != nil) != tt.wantErr {
 				t.Errorf("DecryptMessage() error = %v, wantErr %v", err, tt.wantErr)
 			}
 

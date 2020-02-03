@@ -7,8 +7,12 @@ package appcontext
 import (
 	"context"
 	"io"
+	"os"
 
 	"github.com/condensat/bank-core"
+
+	"github.com/condensat/bank-core/security"
+	"github.com/condensat/bank-core/security/utils"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -21,6 +25,9 @@ const (
 	cacheKey
 	messagingKey
 	databaseKey
+
+	privateKeySaltKey = security.KeyPrivateKeySalt
+	hasherWorkerKey   = security.KeyHasherWorker
 )
 
 // WithAppName returns a context with the Application name set
@@ -58,9 +65,28 @@ func WithDatabase(ctx context.Context, db bank.Database) context.Context {
 	return context.WithValue(ctx, databaseKey, db)
 }
 
+// WithHasherWorker returns a context with the password worker set
+func WithHasherWorker(ctx context.Context, options HasherOptions) context.Context {
+	worker := security.NewHasherWorker(ctx, options.Time, options.Memory, options.Thread)
+	go worker.Run(ctx, options.NumWorker)
+	return context.WithValue(ctx, hasherWorkerKey, worker)
+}
+
 func WithOptions(ctx context.Context, options Options) context.Context {
 	ctx = WithAppName(ctx, options.AppName)
 	ctx = WithLogLevel(ctx, options.LogLevel)
+
+	// generate random seed to hash private key and seed at runtime
+	ctx = context.WithValue(ctx, privateKeySaltKey, utils.GenerateRandN(32))
+
+	// Store PasswordHashSeed in context
+	if len(options.PasswordHashSeed) == 0 {
+		options.PasswordHashSeed = getEnv("PasswordHashSeed", "")
+	}
+	ctx = security.PasswordHashSeedContext(ctx, options.PasswordHashSeed)
+	os.Unsetenv("PasswordHashSeed")
+	options.PasswordHashSeed = ""
+
 	return ctx
 }
 
@@ -97,6 +123,13 @@ func Messaging(ctx context.Context) bank.Messaging {
 func Database(ctx context.Context) bank.Database {
 	if ctxDatabase, ok := ctx.Value(databaseKey).(bank.Database); ok {
 		return ctxDatabase
+	}
+	return nil
+}
+
+func HasherWorker(ctx context.Context) bank.Worker {
+	if ctxWorker, ok := ctx.Value(hasherWorkerKey).(bank.Worker); ok {
+		return ctxWorker
 	}
 	return nil
 }

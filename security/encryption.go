@@ -5,90 +5,48 @@
 package security
 
 import (
-	"crypto/rand"
 	"errors"
-	"io"
 
-	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/security/utils"
 
 	"golang.org/x/crypto/nacl/box"
 )
 
-var (
-	ErrNonce        = errors.New("Nonce Error")
-	ErrInvalidData  = errors.New("InvalidData Error")
-	ErrSharedSecret = errors.New("SharedSecret Error")
-	ErrDecrypt      = errors.New("Decrypt Error")
-)
+func EncryptFor(from EncryptionPrivateKey, to EncryptionPublicKey, message []byte) ([]byte, error) {
+	pubKey := [32]byte(to)
+	privKey := [32]byte(from)
+	defer utils.Memzero(pubKey[:])
+	defer utils.Memzero(privKey[:])
 
-func EncryptFor(from bank.PrivateKey, to bank.PublicKey, data []byte) ([]byte, error) {
-	if !IsKeyValid(from[:]) || !IsKeyValid(to[:]) {
-		return nil, ErrSharedSecret
-	}
-	if len(data) == 0 {
-		return nil, ErrInvalidData
-	}
-
-	sharedKey, err := SharedSecret(from, to)
+	nonce, err := GenerateNonce()
+	defer utils.Memzero(nonce[:])
 	if err != nil {
-		return nil, ErrSharedSecret
-
+		return nil, err
 	}
 
-	return Encrypt(sharedKey, data)
+	data := box.Seal(nonce[:], message[:], &nonce, &pubKey, &privKey)
+	if len(data) == 0 {
+		return nil, errors.New("Box seal failed")
+	}
+
+	return data, nil
 }
 
-func Encrypt(sharedKey bank.SharedKey, data []byte) ([]byte, error) {
-	if !IsKeyValid(sharedKey[:]) {
-		return nil, ErrSharedSecret
+func DecryptFrom(from EncryptionPublicKey, to EncryptionPrivateKey, data []byte) ([]byte, error) {
+	if len(data) <= NonceSize {
+		return nil, errors.New("Invalid data")
 	}
-	if len(data) == 0 {
-		return nil, ErrInvalidData
-	}
-	var shared [32]byte
-	copy(shared[:], sharedKey[:])
+	pubKey := [32]byte(from)
+	privKey := [32]byte(to)
+	var nonce [NonceSize]byte
+	defer utils.Memzero(pubKey[:])
+	defer utils.Memzero(privKey[:])
+	defer utils.Memzero(nonce[:])
 
-	var nonce [24]byte
-	_, err := io.ReadFull(rand.Reader, nonce[:])
-	if err != nil {
-		return nil, ErrNonce
-	}
-
-	return box.SealAfterPrecomputation(nonce[:], []byte(data), &nonce, &shared), nil
-}
-
-func DecryptFrom(to bank.PrivateKey, from bank.PublicKey, data []byte) ([]byte, error) {
-	if !IsKeyValid(from[:]) || !IsKeyValid(to[:]) {
-		return nil, ErrSharedSecret
-	}
-	if len(data) == 0 {
-		return nil, ErrInvalidData
-	}
-
-	sharedKey, err := SharedSecret(to, from)
-	if err != nil {
-		return nil, ErrSharedSecret
-
-	}
-
-	return Decrypt(sharedKey, data)
-}
-
-func Decrypt(sharedKey bank.SharedKey, data []byte) ([]byte, error) {
-	if !IsKeyValid(sharedKey[:]) {
-		return nil, ErrSharedSecret
-	}
-	if len(data) == 0 {
-		return nil, ErrInvalidData
-	}
-	var shared [32]byte
-	copy(shared[:], sharedKey[:])
-
-	var nonce [24]byte
-	copy(nonce[:], data[:24])
-	data, ok := box.OpenAfterPrecomputation(nil, data[24:], &nonce, &shared)
+	copy(nonce[:], data[:NonceSize])
+	data, ok := box.Open(nil, data[NonceSize:], &nonce, &pubKey, &privKey)
 	if !ok {
-		return nil, ErrDecrypt
+		return nil, errors.New("Fail to open box")
 	}
 
 	return data, nil
