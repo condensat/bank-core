@@ -10,7 +10,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"runtime"
 
 	"github.com/condensat/bank-core/api"
 	"github.com/condensat/bank-core/appcontext"
@@ -18,9 +17,10 @@ import (
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
 	"github.com/condensat/bank-core/security"
-	"github.com/shengdoushi/base58"
 
 	"github.com/condensat/bank-core/database"
+
+	"github.com/shengdoushi/base58"
 )
 
 type Args struct {
@@ -50,6 +50,7 @@ func main() {
 
 	ctx := context.Background()
 	ctx = appcontext.WithOptions(ctx, args.App)
+	ctx = appcontext.WithHasherWorker(ctx, args.App.Hasher)
 	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, args.Redis))
 	ctx = appcontext.WithWriter(ctx, logger.NewRedisLogger(ctx))
 	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, args.Nats))
@@ -75,13 +76,6 @@ func migrateDatabase(ctx context.Context) {
 }
 
 func testPasswordHash(ctx context.Context) {
-	// create HasherWorker
-	ctx = appcontext.WithHasherWorker(ctx, security.NewHasherWorker(ctx, 1, 256<<10, 4))
-
-	// start HasherWorker
-	numWorkers := runtime.NumCPU()
-	go appcontext.HasherWorker(ctx).Run(ctx, numWorkers)
-
 	var salt [16]byte
 	_, _ = io.ReadFull(rand.Reader, salt[:])
 
