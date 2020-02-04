@@ -32,6 +32,7 @@ func (p *Api) Run(ctx context.Context, port int) {
 
 	handler := negroni.New(&negroni.Recovery{})
 	handler.Use(services.StatsMiddleware)
+	handler.UseFunc(MiddlewarePeerRateLimiter)
 	handler.UseFunc(AddWorkerHeader)
 	handler.UseFunc(AddWorkerVersion)
 	handler.UseHandler(muxer)

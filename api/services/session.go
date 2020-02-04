@@ -29,6 +29,7 @@ const (
 var (
 	ErrInvalidCrendential    = errors.New("Invalid Credentials")
 	ErrSessionCreationFailed = errors.New("Session Creation Failed")
+	ErrTooManyOpenSession    = errors.New("Too Many Open Session")
 	ErrSessionExpired        = sessions.ErrSessionExpired
 	ErrSessionClose          = errors.New("Session Close Failed")
 )
@@ -59,15 +60,13 @@ type SessionReply struct {
 // session has a status [open, close] and a validation period
 func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, reply *SessionReply) error {
 	ctx := r.Context()
-	log := logger.Logger(ctx).
-		WithFields(logrus.Fields{
-			"Service":   "Session",
-			"Operation": "Open",
-		})
-	db, session, err := fromContext(ctx)
+	log := getServiceRequestLog(ctx, r, "Session", "Open")
+
+	// Retrieve context values
+	db, session, err := ContextValues(ctx)
 	if err != nil {
 		log.WithError(err).
-			Error("fromContext Failed")
+			Error("ContextValues Failed")
 		return ErrServiceInternalError
 	}
 
@@ -79,14 +78,20 @@ func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, repl
 		return ErrInvalidCrendential
 	}
 	if !valid {
-		log.WithFields(logrus.Fields{
-			"UserID": userID,
-		}).Warning("Session not opened")
+		log.WithError(ErrInvalidCrendential).
+			WithField("UserID", userID).
+			Warning("InvalidCrendential")
 		return ErrInvalidCrendential
 	}
 
-	// Todo - Check sessions count for userID
-	// Todo - Add MaxAllowedSessions
+	// check rate limit
+	openSessionAllowed := OpenSessionAllowed(ctx, userID)
+	if !openSessionAllowed {
+		log.WithError(ErrTooManyOpenSession).
+			WithField("UserID", userID).
+			Warning("TooMany OpenSession for user")
+		return ErrTooManyOpenSession
+	}
 
 	// Create session
 	sessionID, err := session.CreateSession(ctx, SessionDuration)
@@ -105,12 +110,13 @@ func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, repl
 		ValidUntil: makeTimestampMillis(time.Now().UTC().Add(time.Minute)),
 	}
 
-	log.WithFields(logrus.Fields{
-		"UserID":     userID,
-		"SessionID":  reply.SessionID,
-		"Status":     reply.Status,
-		"ValidUntil": fromTimestampMillis(reply.ValidUntil),
-	}).Debug("Session Opened")
+	log.WithFields(
+		logrus.Fields{
+			"UserID":     userID,
+			"SessionID":  reply.SessionID,
+			"Status":     reply.Status,
+			"ValidUntil": fromTimestampMillis(reply.ValidUntil),
+		}).Debug("Session Opened")
 
 	return nil
 }
@@ -118,15 +124,13 @@ func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, repl
 // Open operation perform check the session validity and extends the validation period
 func (p *SessionService) Renew(r *http.Request, request *SessionArgs, reply *SessionReply) error {
 	ctx := r.Context()
-	log := logger.Logger(ctx).
-		WithFields(logrus.Fields{
-			"Service":   "Session",
-			"Operation": "Renew",
-		})
-	_, session, err := fromContext(ctx)
+	log := getServiceRequestLog(ctx, r, "Session", "Renew")
+
+	// Retrieve context values
+	_, session, err := ContextValues(ctx)
 	if err != nil {
 		log.WithError(err).
-			Error("fromContext Failed")
+			Error("ContextValues Failed")
 		return ErrServiceInternalError
 	}
 
@@ -135,9 +139,8 @@ func (p *SessionService) Renew(r *http.Request, request *SessionArgs, reply *Ses
 	err = session.ExtendSession(ctx, sessionID, SessionDuration)
 	if err != nil {
 		log.WithError(err).
-			WithFields(logrus.Fields{
-				"SessionID": reply.SessionID,
-			}).Error("ExtendSession Failed")
+			WithField("SessionID", reply.SessionID).
+			Error("ExtendSession Failed")
 		return ErrSessionExpired
 	}
 
@@ -163,15 +166,13 @@ func (p *SessionService) Renew(r *http.Request, request *SessionArgs, reply *Ses
 // Close operation close the session and set status to closed
 func (p *SessionService) Close(r *http.Request, request *SessionArgs, reply *SessionReply) error {
 	ctx := r.Context()
-	log := logger.Logger(ctx).
-		WithFields(logrus.Fields{
-			"Service":   "Session",
-			"Operation": "Close",
-		})
-	_, session, err := fromContext(ctx)
+	log := getServiceRequestLog(ctx, r, "Session", "Close")
+
+	// Retrieve context values
+	_, session, err := ContextValues(ctx)
 	if err != nil {
 		log.WithError(err).
-			Error("fromContext Failed")
+			Error("ContextValues Failed")
 		return ErrServiceInternalError
 	}
 
@@ -180,14 +181,12 @@ func (p *SessionService) Close(r *http.Request, request *SessionArgs, reply *Ses
 	err = session.InvalidateSession(ctx, sessionID)
 	if err != nil {
 		log.WithError(err).
-			WithFields(logrus.Fields{
-				"SessionID": reply.SessionID,
-			}).Error("InvalidateSession Failed")
+			WithField("SessionID", reply.SessionID).
+			Error("InvalidateSession Failed")
 		return ErrSessionClose
 	}
 
 	// Reply
-
 	*reply = SessionReply{
 		SessionArgs: SessionArgs{
 			SessionID: request.SessionID,

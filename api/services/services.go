@@ -33,7 +33,7 @@ func NewSessionHandler() http.Handler {
 	return server
 }
 
-func fromContext(ctx context.Context) (db bank.Database, session *sessions.Session, err error) {
+func ContextValues(ctx context.Context) (db bank.Database, session *sessions.Session, err error) {
 	db = appcontext.Database(ctx)
 	if ctxSession, ok := ctx.Value(sessions.KeySessions).(*sessions.Session); ok {
 		session = ctxSession

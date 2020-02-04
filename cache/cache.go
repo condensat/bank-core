@@ -7,7 +7,7 @@ package cache
 import (
 	"github.com/condensat/bank-core"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v7"
 )
 
 func ToRedis(cache bank.Cache) *redis.Client {
