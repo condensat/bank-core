@@ -16,6 +16,7 @@ import (
 	"github.com/condensat/bank-core/logger"
 
 	"github.com/go-redis/redis/v7"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -24,6 +25,7 @@ const (
 
 var (
 	ErrInvalidDuration  = errors.New("Invalid Duration")
+	ErrInvalidUserID    = errors.New("Invalid UserID")
 	ErrInvalidSessionID = errors.New("Invalid SessionID")
 	ErrSessionExpired   = errors.New("Session Expired")
 	ErrEncode           = errors.New("Encode Error")
@@ -42,33 +44,34 @@ func NewSession(ctx context.Context) *Session {
 	}
 }
 
-func (s *Session) CreateSession(ctx context.Context, duration time.Duration) (SessionID, error) {
+func (s *Session) CreateSession(ctx context.Context, userID uint64, duration time.Duration) (SessionID, error) {
 	rdb := s.rdb
-	log := logger.Logger(ctx).WithField("Method", "api.Session.CreateSession")
+	log := logger.Logger(ctx).WithFields(logrus.Fields{
+		"Method":   "api.Session.CreateSession",
+		"UserID":   userID,
+		"Duration": duration,
+	})
 
-	sessionID := NewSessionID()
+	if userID == cstInvalidUserID {
+		log.Trace("Invalid userID")
+		return cstInvalidSessionID, ErrInvalidUserID
+	}
 
 	if duration < time.Second {
-		log.
-			WithField("SessionID", sessionID).
-			WithField("Duration", duration).
-			Debug("Invalid duration")
+		log.Trace("Invalid duration")
 		return cstInvalidSessionID, ErrInvalidDuration
 	}
 
-	si, err := pushSession(rdb, sessionID, duration)
+	sessionID := NewSessionID()
+	log = log.WithField("SessionID", sessionID)
+
+	si, err := pushSession(rdb, userID, sessionID, duration)
 	if err != nil {
-		log.
-			WithError(err).
-			WithField("SessionID", sessionID).
-			WithField("Duration", duration).
-			Debug("Failed to push session to cache")
+		log.Trace("Failed to push session to cache")
 		return cstInvalidSessionID, err
 	}
 
-	log.
-		WithField("SessionID", si.SessionID).
-		WithField("Expiration", si.Expiration).
+	log.WithField("Expiration", si.Expiration).
 		Trace("New session created")
 
 	return sessionID, nil
@@ -76,7 +79,11 @@ func (s *Session) CreateSession(ctx context.Context, duration time.Duration) (Se
 
 func (s *Session) IsSessionValid(ctx context.Context, sessionID SessionID) bool {
 	rdb := s.rdb
-	log := logger.Logger(ctx).WithField("Method", "api.Session.IsSessionValid")
+	log := logger.Logger(ctx).WithFields(logrus.Fields{
+		"Method":    "api.Session.IsSessionValid",
+		"SessionID": sessionID,
+	})
+
 	if sessionID == cstInvalidSessionID {
 		return false
 	}
@@ -84,69 +91,87 @@ func (s *Session) IsSessionValid(ctx context.Context, sessionID SessionID) bool 
 	// get session from cache
 	si, err := fetchSession(rdb, sessionID)
 	if err != nil {
-		log.
-			WithError(err).
-			WithField("SessionID", sessionID).
-			Error("Failed to get session from cache")
+		log.WithError(err).
+			Trace("Failed to get session from cache")
 		return false
 	}
 
 	return !si.Expired()
 }
 
-func (s *Session) ExtendSession(ctx context.Context, sessionID SessionID, duration time.Duration) error {
+func (s *Session) UserSession(ctx context.Context, sessionID SessionID) uint64 {
 	rdb := s.rdb
-	log := logger.Logger(ctx).WithField("Method", "api.Session.ExtendSession")
+	log := logger.Logger(ctx).WithFields(logrus.Fields{
+		"Method":    "api.Session.IsSessionValid",
+		"SessionID": sessionID,
+	})
 
-	if duration <= 0 {
-		log.
-			WithField("SessionID", sessionID).
-			WithField("Duration", duration).
-			Debug("Invalid duration")
-		return ErrInvalidDuration
+	if sessionID == cstInvalidSessionID {
+		return cstInvalidUserID
 	}
 
 	// get session from cache
 	si, err := fetchSession(rdb, sessionID)
 	if err != nil {
-		log.
-			WithError(err).
-			WithField("SessionID", sessionID).
-			Error("Failed to get session from cache")
-		return err
+		log.WithError(err).
+			Trace("Failed to get session from cache")
+		return cstInvalidUserID
 	}
+
+	return si.UserID
+}
+
+func (s *Session) ExtendSession(ctx context.Context, sessionID SessionID, duration time.Duration) (uint64, error) {
+	rdb := s.rdb
+	log := logger.Logger(ctx).WithFields(logrus.Fields{
+		"Method":    "api.Session.ExtendSession",
+		"SessionID": sessionID,
+	})
+
+	if duration <= 0 {
+		log.WithField("Duration", duration).
+			Trace("Invalid duration")
+		return cstInvalidUserID, ErrInvalidDuration
+	}
+
+	// get session from cache
+	si, err := fetchSession(rdb, sessionID)
+	if err != nil {
+		log.WithError(err).
+			Trace("Failed to get session from cache")
+		return cstInvalidUserID, err
+	}
+	log = log.WithFields(logrus.Fields{
+		"UserID":   si.UserID,
+		"Duration": duration,
+	})
 
 	// do not renew expired session
 	if si.Expired() {
-		log.
-			WithField("SessionID", si.SessionID).
-			WithField("Expiration", si.Expiration).
-			Debug("Session is expired")
-		return ErrSessionExpired
+		log.WithField("Expiration", si.Expiration).
+			Trace("Session is expired")
+		return cstInvalidUserID, ErrSessionExpired
 	}
 
-	si, err = pushSession(rdb, sessionID, duration)
+	si, err = pushSession(rdb, si.UserID, sessionID, duration)
 	if err != nil {
-		log.
-			WithError(err).
-			WithField("SessionID", si.SessionID).
-			WithField("Duration", duration).
-			Debug("Failed to push session to cache")
-		return err
+		log.WithError(err).
+			Trace("Failed to push session to cache")
+		return cstInvalidUserID, err
 	}
 
-	log.
-		WithField("SessionID", si.SessionID).
-		WithField("Expiration", si.Expiration).
-		WithField("Duration", duration).
+	log.WithField("Expiration", si.Expiration).
 		Trace("Session extended")
 
-	return nil
+	return si.UserID, nil
 }
 
 func (s *Session) InvalidateSession(ctx context.Context, sessionID SessionID) error {
 	rdb := s.rdb
-	log := logger.Logger(ctx).WithField("Method", "api.Session.InvalidateSession")
+	log := logger.Logger(ctx).WithFields(logrus.Fields{
+		"Method":    "api.Session.InvalidateSession",
+		"SessionID": sessionID,
+	})
 	if sessionID == cstInvalidSessionID {
 		return ErrInvalidSessionID
 	}
@@ -154,12 +179,11 @@ func (s *Session) InvalidateSession(ctx context.Context, sessionID SessionID) er
 	// get session from cache
 	si, err := fetchSession(rdb, sessionID)
 	if err != nil {
-		log.
-			WithError(err).
-			WithField("SessionID", sessionID).
-			Error("Failed to get session from cache")
+		log.WithError(err).
+			Trace("Failed to get session from cache")
 		return ErrCache
 	}
+	log = log.WithField("UserID", si.UserID)
 
 	if si.Expired() {
 		// NOOP
@@ -167,20 +191,15 @@ func (s *Session) InvalidateSession(ctx context.Context, sessionID SessionID) er
 	}
 
 	duration := time.Duration(0)
-	si, err = pushSession(rdb, sessionID, duration)
+	si, err = pushSession(rdb, cstInvalidUserID, sessionID, duration)
 	if err != nil {
-		log.
-			WithError(err).
-			WithField("SessionID", si.SessionID).
+		log.WithError(err).
 			WithField("Duration", duration).
-			Debug("Failed to push session to cache")
+			Trace("Failed to push session to cache")
 		return err
 	}
 
-	log.
-		WithField("SessionID", si.SessionID).
-		WithField("Expiration", si.Expiration).
-		WithField("Duration", duration).
+	log.WithField("Expiration", si.Expiration).
 		Trace("Session invalidated")
 
 	return nil
@@ -197,7 +216,7 @@ func sessionKey(prefix, key string, sessionID SessionID) string {
 
 }
 
-func pushSession(rdb *redis.Client, sessionID SessionID, duration time.Duration) (SessionInfo, error) {
+func pushSession(rdb *redis.Client, userID uint64, sessionID SessionID, duration time.Duration) (SessionInfo, error) {
 	now := time.Now().UTC()
 	expired := now.Add(-time.Nanosecond)
 	si := SessionInfo{SessionID: cstInvalidSessionID, Expiration: expired}
@@ -206,7 +225,13 @@ func pushSession(rdb *redis.Client, sessionID SessionID, duration time.Duration)
 		return si, ErrInvalidSessionID
 	}
 
+	// expire session for invalid userID
+	if userID == cstInvalidUserID {
+		duration = 0
+	}
+
 	// update SessionInfo
+	si.UserID = userID
 	si.SessionID = sessionID
 	si.Expiration = now.Add(duration)
 

@@ -92,13 +92,13 @@ func TestSessionInfo_Encode(t *testing.T) {
 		want    int
 		wantErr bool
 	}{
-		{"default", fields{}, 77, false},
-		{"invalid", fields{cstInvalidSessionID, time.Time{}, 0}, 77, false},
+		{"default", fields{}, 88, false},
+		{"invalid", fields{cstInvalidSessionID, time.Time{}, 0}, 88, false},
 
-		{"now", fields{NewSessionID(), time.Now(), 0}, 132, false},
-		{"utc", fields{NewSessionID(), time.Now().UTC(), 0}, 132, false},
-		{"past", fields{NewSessionID(), zero, -time.Microsecond}, 115, false},
-		{"futur", fields{NewSessionID(), zero, 1 * time.Microsecond}, 132, false},
+		{"now", fields{NewSessionID(), time.Now(), 0}, 143, false},
+		{"utc", fields{NewSessionID(), time.Now().UTC(), 0}, 143, false},
+		{"past", fields{NewSessionID(), zero, -time.Microsecond}, 126, false},
+		{"futur", fields{NewSessionID(), zero, 1 * time.Microsecond}, 143, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -130,16 +130,16 @@ func TestSessionInfo_Decode(t *testing.T) {
 	s1 := SessionInfo{}
 	d1, _ := s1.Encode()
 
-	s2 := SessionInfo{NewSessionID(), time.Now()}
+	s2 := SessionInfo{42, NewSessionID(), time.Now()}
 	d2, _ := s2.Encode()
 
-	s3 := SessionInfo{NewSessionID(), time.Now().UTC()}
+	s3 := SessionInfo{42, NewSessionID(), time.Now().UTC()}
 	d3, _ := s3.Encode()
 
-	s4 := SessionInfo{NewSessionID(), time.Now().UTC().Add(-time.Microsecond)}
+	s4 := SessionInfo{42, NewSessionID(), time.Now().UTC().Add(-time.Microsecond)}
 	d4, _ := s4.Encode()
 
-	s5 := SessionInfo{NewSessionID(), time.Now().UTC().Add(time.Microsecond)}
+	s5 := SessionInfo{42, NewSessionID(), time.Now().UTC().Add(time.Microsecond)}
 	d5, _ := s5.Encode()
 
 	var zero [0]byte
