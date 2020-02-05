@@ -116,11 +116,13 @@ func (r *RedisLogger) processEntries(ctx context.Context, datas [][]byte) {
 		for _, data := range datas {
 
 			var entry interface{}
-			err := json.Unmarshal(data, &entry)
-			if err != nil {
-				// not json, print to stdout
-				fmt.Fprint(os.Stdout, string(data))
-				continue
+			{
+				err := json.Unmarshal(data, &entry)
+				if err != nil {
+					// not json, print to stdout
+					fmt.Fprint(os.Stdout, string(data))
+					continue
+				}
 			}
 
 			m := entry.(map[string]interface{})
@@ -136,14 +138,39 @@ func (r *RedisLogger) processEntries(ctx context.Context, datas [][]byte) {
 			delete(m, "app")
 			level := m["level"].(string)
 			delete(m, "level")
+
+			var userID uint64
+			if uid, ok := m["UserID"].(float64); ok {
+				delete(m, "UserID")
+				userID = uint64(uid)
+			}
+
+			var sessionID string
+			if sid, ok := m["SessionID"].(string); ok {
+				delete(m, "SessionID")
+				sessionID = sid
+			}
+
+			var method string
+			if mtd, ok := m["Method"].(string); ok {
+				delete(m, "Method")
+				method = mtd
+			}
+
+			var err string
+			if e, ok := m["error"].(string); ok {
+				delete(m, "error")
+				err = e
+			}
+
 			msg := m["msg"].(string)
 			delete(m, "msg")
-			d, err := json.Marshal(m)
-			if err == nil {
+
+			if d, err := json.Marshal(m); err == nil {
 				data = d
 			}
 
-			logEntries = append(logEntries, ctxLogger.CreateLogEntry(timestamp, app, level, msg, string(data)))
+			logEntries = append(logEntries, ctxLogger.CreateLogEntry(timestamp, app, level, userID, sessionID, method, err, msg, string(data)))
 		}
 
 		err := ctxLogger.AddLogEntries(logEntries)

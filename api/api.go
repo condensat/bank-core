@@ -22,6 +22,8 @@ import (
 type Api int
 
 func (p *Api) Run(ctx context.Context, port int) {
+	log := logger.Logger(ctx).WithField("Method", "api.Api.Run")
+
 	muxer := http.NewServeMux()
 
 	// create session and and to context
@@ -49,14 +51,12 @@ func (p *Api) Run(ctx context.Context, port int) {
 	go func() {
 		err := server.ListenAndServe()
 		if err != nil {
-			logger.Logger(ctx).
-				WithError(err).
+			log.WithError(err).
 				Info("Http server exited")
 		}
 	}()
 
-	logger.Logger(ctx).
-		WithField("Port", port).
+	log.WithField("Port", port).
 		Info("Api Service started")
 
 	<-ctx.Done()

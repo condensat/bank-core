@@ -16,6 +16,7 @@ import (
 
 	"github.com/condensat/bank-core/api/sessions"
 	"github.com/condensat/bank-core/database"
+	"github.com/condensat/bank-core/logger"
 
 	"github.com/sirupsen/logrus"
 )
@@ -25,11 +26,11 @@ const (
 )
 
 var (
-	ErrInvalidCrendential    = errors.New("Invalid Credentials")
-	ErrSessionCreationFailed = errors.New("Session Creation Failed")
-	ErrTooManyOpenSession    = errors.New("Too Many Open Session")
+	ErrInvalidCrendential    = errors.New("InvalidCredentials")
+	ErrSessionCreationFailed = errors.New("SessionCreationFailed")
+	ErrTooManyOpenSession    = errors.New("TooManyOpenSession")
 	ErrSessionExpired        = sessions.ErrSessionExpired
-	ErrSessionClose          = errors.New("Session Close Failed")
+	ErrSessionClose          = errors.New("SessionCloseFailed")
 )
 
 // SessionService receiver
@@ -58,13 +59,14 @@ type SessionReply struct {
 // session has a status [open, close] and a validation period
 func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, reply *SessionReply) error {
 	ctx := r.Context()
-	log := getServiceRequestLog(ctx, r, "Session", "Open")
+	log := logger.Logger(ctx).WithField("Method", "services.SessionService.Open")
+	log = GetServiceRequestLog(log, r, "Session", "Open")
 
 	// Retrieve context values
 	db, session, err := ContextValues(ctx)
 	if err != nil {
 		log.WithError(err).
-			Error("ContextValues Failed")
+			Warning("Session open failed")
 		return ErrServiceInternalError
 	}
 
@@ -72,13 +74,13 @@ func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, repl
 	userID, valid, err := database.CheckCredential(ctx, db, request.Login, request.Password)
 	if err != nil {
 		log.WithError(err).
-			Error("CheckCredential Failed")
+			Warning("Session open failed")
 		return ErrInvalidCrendential
 	}
 	log = log.WithField("UserID", userID)
 	if !valid {
 		log.WithError(ErrInvalidCrendential).
-			Warning("InvalidCrendential")
+			Warning("Session open failed")
 		return ErrInvalidCrendential
 	}
 
@@ -86,7 +88,7 @@ func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, repl
 	openSessionAllowed := OpenSessionAllowed(ctx, userID)
 	if !openSessionAllowed {
 		log.WithError(ErrTooManyOpenSession).
-			Warning("TooMany OpenSession for user")
+			Warning("Session open failed")
 		return ErrTooManyOpenSession
 	}
 
@@ -94,7 +96,7 @@ func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, repl
 	sessionID, err := session.CreateSession(ctx, userID, SessionDuration)
 	if err != nil {
 		log.WithError(err).
-			Error("CreateSession Failed")
+			Warning("Session open failed")
 		return ErrSessionCreationFailed
 	}
 	log = log.WithField("SessionID", sessionID)
@@ -108,11 +110,10 @@ func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, repl
 		ValidUntil: makeTimestampMillis(time.Now().UTC().Add(time.Minute)),
 	}
 
-	log.WithFields(
-		logrus.Fields{
-			"Status":     reply.Status,
-			"ValidUntil": fromTimestampMillis(reply.ValidUntil),
-		}).Debug("Session Opened")
+	log.WithFields(logrus.Fields{
+		"Status":     reply.Status,
+		"ValidUntil": fromTimestampMillis(reply.ValidUntil),
+	}).Info("Session opened")
 
 	return nil
 }
@@ -120,13 +121,14 @@ func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, repl
 // Open operation perform check the session validity and extends the validation period
 func (p *SessionService) Renew(r *http.Request, request *SessionArgs, reply *SessionReply) error {
 	ctx := r.Context()
-	log := getServiceRequestLog(ctx, r, "Session", "Renew")
+	log := logger.Logger(ctx).WithField("Method", "services.SessionService.Renew")
+	log = GetServiceRequestLog(log, r, "Session", "Renew")
 
 	// Retrieve context values
 	_, session, err := ContextValues(ctx)
 	if err != nil {
 		log.WithError(err).
-			Error("ContextValues Failed")
+			Warning("Session renew failed")
 		return ErrServiceInternalError
 	}
 
@@ -139,7 +141,7 @@ func (p *SessionService) Renew(r *http.Request, request *SessionArgs, reply *Ses
 	})
 	if err != nil {
 		log.WithError(err).
-			Error("ExtendSession Failed")
+			Warning("Session renew failed")
 		return ErrSessionExpired
 	}
 
@@ -155,7 +157,7 @@ func (p *SessionService) Renew(r *http.Request, request *SessionArgs, reply *Ses
 	log.WithFields(logrus.Fields{
 		"Status":     reply.Status,
 		"ValidUntil": fromTimestampMillis(reply.ValidUntil),
-	}).Debug("Session Renewed")
+	}).Info("Session renewed")
 
 	return nil
 }
@@ -163,7 +165,8 @@ func (p *SessionService) Renew(r *http.Request, request *SessionArgs, reply *Ses
 // Close operation close the session and set status to closed
 func (p *SessionService) Close(r *http.Request, request *SessionArgs, reply *SessionReply) error {
 	ctx := r.Context()
-	log := getServiceRequestLog(ctx, r, "Session", "Close")
+	log := logger.Logger(ctx).WithField("Method", "services.SessionService.Close")
+	log = GetServiceRequestLog(log, r, "Session", "Close")
 
 	// Retrieve context values
 	_, session, err := ContextValues(ctx)
@@ -183,7 +186,7 @@ func (p *SessionService) Close(r *http.Request, request *SessionArgs, reply *Ses
 	err = session.InvalidateSession(ctx, sessionID)
 	if err != nil {
 		log.WithError(err).
-			Error("InvalidateSession Failed")
+			Warning("Session close failed")
 		return ErrSessionClose
 	}
 
@@ -197,10 +200,9 @@ func (p *SessionService) Close(r *http.Request, request *SessionArgs, reply *Ses
 	}
 
 	log.WithFields(logrus.Fields{
-		"SessionID":  reply.SessionID,
 		"Status":     reply.Status,
 		"ValidUntil": fromTimestampMillis(reply.ValidUntil),
-	}).Debug("Session Closed")
+	}).Info("Session closed")
 
 	return nil
 }

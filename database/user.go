@@ -14,7 +14,7 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
-func FinddOrCreateUser(ctx context.Context, database bank.Database, name, email string) (*model.User, error) {
+func FindOrCreateUser(ctx context.Context, database bank.Database, name, email string) (*model.User, error) {
 	switch db := database.DB().(type) {
 	case *gorm.DB:
 

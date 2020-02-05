@@ -45,9 +45,10 @@ func NewSession(ctx context.Context) *Session {
 }
 
 func (s *Session) CreateSession(ctx context.Context, userID uint64, duration time.Duration) (SessionID, error) {
+	log := logger.Logger(ctx).WithField("Method", "sessions.Session.CreateSession")
 	rdb := s.rdb
-	log := logger.Logger(ctx).WithFields(logrus.Fields{
-		"Method":   "api.Session.CreateSession",
+
+	log = log.WithFields(logrus.Fields{
 		"UserID":   userID,
 		"Duration": duration,
 	})
@@ -78,21 +79,19 @@ func (s *Session) CreateSession(ctx context.Context, userID uint64, duration tim
 }
 
 func (s *Session) IsSessionValid(ctx context.Context, sessionID SessionID) bool {
+	log := logger.Logger(ctx).WithField("Method", "sessions.Session.IsSessionValid")
 	rdb := s.rdb
-	log := logger.Logger(ctx).WithFields(logrus.Fields{
-		"Method":    "api.Session.IsSessionValid",
-		"SessionID": sessionID,
-	})
 
 	if sessionID == cstInvalidSessionID {
 		return false
 	}
+	log = log.WithField("SessionID", sessionID)
 
 	// get session from cache
 	si, err := fetchSession(rdb, sessionID)
 	if err != nil {
 		log.WithError(err).
-			Trace("Failed to get session from cache")
+			Trace("fetchSession failed")
 		return false
 	}
 
@@ -100,21 +99,19 @@ func (s *Session) IsSessionValid(ctx context.Context, sessionID SessionID) bool 
 }
 
 func (s *Session) UserSession(ctx context.Context, sessionID SessionID) uint64 {
+	log := logger.Logger(ctx).WithField("Method", "sessions.Session.UserSession")
 	rdb := s.rdb
-	log := logger.Logger(ctx).WithFields(logrus.Fields{
-		"Method":    "api.Session.IsSessionValid",
-		"SessionID": sessionID,
-	})
 
 	if sessionID == cstInvalidSessionID {
 		return cstInvalidUserID
 	}
+	log = log.WithField("SessionID", sessionID)
 
 	// get session from cache
 	si, err := fetchSession(rdb, sessionID)
 	if err != nil {
 		log.WithError(err).
-			Trace("Failed to get session from cache")
+			Trace("fetchSession failed")
 		return cstInvalidUserID
 	}
 
@@ -122,11 +119,13 @@ func (s *Session) UserSession(ctx context.Context, sessionID SessionID) uint64 {
 }
 
 func (s *Session) ExtendSession(ctx context.Context, sessionID SessionID, duration time.Duration) (uint64, error) {
+	log := logger.Logger(ctx).WithField("Method", "sessions.Session.ExtendSession")
 	rdb := s.rdb
-	log := logger.Logger(ctx).WithFields(logrus.Fields{
-		"Method":    "api.Session.ExtendSession",
-		"SessionID": sessionID,
-	})
+
+	if sessionID == cstInvalidSessionID {
+		return cstInvalidUserID, ErrInvalidDuration
+	}
+	log = log.WithField("SessionID", sessionID)
 
 	if duration <= 0 {
 		log.WithField("Duration", duration).
@@ -138,8 +137,8 @@ func (s *Session) ExtendSession(ctx context.Context, sessionID SessionID, durati
 	si, err := fetchSession(rdb, sessionID)
 	if err != nil {
 		log.WithError(err).
-			Trace("Failed to get session from cache")
-		return cstInvalidUserID, err
+			Trace("fetchSession failed")
+		return cstInvalidUserID, ErrInvalidSessionID
 	}
 	log = log.WithFields(logrus.Fields{
 		"UserID":   si.UserID,
@@ -167,21 +166,20 @@ func (s *Session) ExtendSession(ctx context.Context, sessionID SessionID, durati
 }
 
 func (s *Session) InvalidateSession(ctx context.Context, sessionID SessionID) error {
+	log := logger.Logger(ctx).WithField("Method", "sessions.Session.ExtendSession")
 	rdb := s.rdb
-	log := logger.Logger(ctx).WithFields(logrus.Fields{
-		"Method":    "api.Session.InvalidateSession",
-		"SessionID": sessionID,
-	})
+
 	if sessionID == cstInvalidSessionID {
 		return ErrInvalidSessionID
 	}
+	log = log.WithField("SessionID", sessionID)
 
 	// get session from cache
 	si, err := fetchSession(rdb, sessionID)
 	if err != nil {
 		log.WithError(err).
-			Trace("Failed to get session from cache")
-		return ErrCache
+			Trace("fetchSession failed")
+		return ErrInvalidSessionID
 	}
 	log = log.WithField("UserID", si.UserID)
 

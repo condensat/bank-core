@@ -58,14 +58,17 @@ func main() {
 		switch result {
 		case ResultCodeOK:
 			logger.Logger(ctx).
+				WithField("Method", "main").
 				Trace("Finished")
 		default:
 			logger.Logger(ctx).
+				WithField("Method", "main").
 				WithField("Result", result).
 				Panicf("Unknown Code")
 		}
 	case <-ctx.Done():
 		logger.Logger(ctx).
+			WithField("Method", "main").
 			Warning("Context timeout")
 
 	}
@@ -76,15 +79,15 @@ func mainAsync(ctx context.Context, args Args, resultCode chan<- ResultCode) {
 
 	userInfos, err := api.FromUserInfoFile(ctx, args.UserFile)
 	if err != nil {
-		logger.Logger(ctx).
-			WithError(err).
+		logger.Logger(ctx).WithError(err).
+			WithField("Method", "mainAsync").
 			Error("FromUserInfoFile Failed")
 		return
 	}
 	err = api.ImportUsers(ctx, userInfos...)
 	if err != nil {
-		logger.Logger(ctx).
-			WithError(err).
+		logger.Logger(ctx).WithError(err).
+			WithField("Method", "mainAsync").
 			Error("ImportUsers failed")
 		return
 	}
@@ -95,8 +98,8 @@ func migrateDatabase(ctx context.Context) {
 
 	err := db.Migrate(api.Models())
 	if err != nil {
-		logger.Logger(ctx).
-			WithError(err).
+		logger.Logger(ctx).WithError(err).
+			WithField("Method", "main.migrateDatabase").
 			Panic("Failed to migrate api models")
 	}
 }

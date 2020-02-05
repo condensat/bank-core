@@ -6,17 +6,20 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/condensat/bank-core/api/ratelimiter"
+	"github.com/condensat/bank-core/api/services"
 	"github.com/condensat/bank-core/logger"
 
 	"github.com/go-redis/redis_rate/v8"
-	"github.com/sirupsen/logrus"
 )
 
 var (
+	ErrRateLimit = errors.New("RateLimitReached")
+
 	DefaultPeerRequestPerSecond = ratelimiter.RateLimitInfo{
 		Limit: redis_rate.Limit{
 			Period: time.Second,
@@ -56,20 +59,24 @@ func MiddlewarePeerRateLimiter(rw http.ResponseWriter, r *http.Request, next htt
 	case *ratelimiter.RateLimiter:
 
 		if !limiter.Allowed(ctx, r.RemoteAddr) {
-			logger.Logger(ctx).
-				WithFields(logrus.Fields{
-					"UserAgent": r.UserAgent(),
-					"IP":        r.RemoteAddr,
-					"URI":       r.RequestURI,
-				}).Warning("RateLimit")
+			log := logger.Logger(ctx).WithField("Method", "api.MiddlewarePeerRateLimiter")
+
+			services.AppendRequestLog(log, r).
+				WithError(ErrRateLimit).
+				Warning("Too many requests")
+
 			http.Error(rw, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 			return
 		}
 		next(rw, r)
 
 	default:
-		logger.Logger(ctx).
-			Error("Limiter not found")
+		log := logger.Logger(ctx).WithField("Method", "api.MiddlewarePeerRateLimiter")
+
+		services.AppendRequestLog(log, r).
+			WithError(services.ErrServiceInternalError).
+			Error("No limiter found")
+
 		http.Error(rw, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}

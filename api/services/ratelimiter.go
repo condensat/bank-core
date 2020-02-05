@@ -19,7 +19,7 @@ func OpenSessionAllowed(ctx context.Context, userID uint64) bool {
 		return limiter.Allowed(ctx, fmt.Sprintf("UserID:%d", userID))
 
 	default:
-		logger.Logger(ctx).
+		logger.Logger(ctx).WithField("Method", "services.OpenSessionAllowed").
 			Error("Failed to get OpenSession Limiter")
 		return false
 	}

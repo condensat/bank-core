@@ -19,7 +19,7 @@ type ServerOptions struct {
 
 type Logger interface {
 	Close()
-	CreateLogEntry(timestamp time.Time, app, level, msg, data string) *logModel.LogEntry
+	CreateLogEntry(timestamp time.Time, app, level string, userID uint64, sessionID string, method, err, msg, data string) *logModel.LogEntry
 	AddLogEntries(entries []*logModel.LogEntry) error
 }
 

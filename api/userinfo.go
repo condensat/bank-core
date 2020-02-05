@@ -17,6 +17,8 @@ import (
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/logger"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -76,6 +78,7 @@ func scannerFromFileOrStdin(fileName string) (*bufio.Scanner, *os.File, error) {
 }
 
 func FromUserInfoFile(ctx context.Context, fileName string) ([]*UserInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "api.FromUserInfoFile")
 	scanner, file, err := scannerFromFileOrStdin(fileName)
 	if err != nil {
 		return nil, err
@@ -88,8 +91,7 @@ func FromUserInfoFile(ctx context.Context, fileName string) ([]*UserInfo, error)
 	for scanner.Scan() {
 		userInfo, err := ParseUserInfo(scanner.Text())
 		if err != nil {
-			logger.Logger(ctx).
-				WithError(err).
+			log.WithError(err).
 				Error("Failed to ParseUserInfo")
 			continue
 		}
@@ -99,22 +101,21 @@ func FromUserInfoFile(ctx context.Context, fileName string) ([]*UserInfo, error)
 }
 
 func ImportUsers(ctx context.Context, userInfos ...*UserInfo) error {
+	log := logger.Logger(ctx).WithField("Method", "api.ImportUsers")
 	db := appcontext.Database(ctx)
 	if db == nil {
-		logger.Logger(ctx).
-			Panic("Invalid Database")
+		log.Panic("Invalid Database")
 	}
 
 	return db.Transaction(func(tx bank.Database) error {
 		for _, userInfo := range userInfos {
-			user, err := database.FinddOrCreateUser(ctx, tx,
+			user, err := database.FindOrCreateUser(ctx, tx,
 				userInfo.Login,
 				userInfo.Email,
 			)
 			if err != nil {
-				logger.Logger(ctx).
-					WithError(err).
-					Error("Failed to FinddOrCreateUser")
+				log.WithError(err).
+					Error("Failed to FindOrCreateUser")
 				continue
 			}
 
@@ -125,8 +126,7 @@ func ImportUsers(ctx context.Context, userInfos ...*UserInfo) error {
 				"",
 			)
 			if err != nil {
-				logger.Logger(ctx).
-					WithError(err).
+				log.WithError(err).
 					Error("Failed to CreateOrUpdatedCredential")
 				continue
 			}
@@ -136,30 +136,27 @@ func ImportUsers(ctx context.Context, userInfos ...*UserInfo) error {
 				userInfo.Password,
 			)
 			if err != nil {
-				logger.Logger(ctx).
-					WithError(err).
+				log.WithError(err).
 					Error("Failed to CheckCredential")
 				continue
 			}
 
 			if !verified {
-				logger.Logger(ctx).
-					Error("Not Verified")
+				log.Error("Not Verified")
 				continue
 			}
 
 			if userID != user.ID {
-				logger.Logger(ctx).
-					Error("Wrong UserID")
+				log.Error("Wrong UserID")
 				continue
 			}
 
-			logger.Logger(ctx).
-				WithField("UserID", userID).
-				WithField("LoginHash", credential.LoginHash).
-				WithField("PasswordHash", credential.PasswordHash).
-				WithField("Verified", verified).
-				Info("User Imported")
+			log.WithFields(logrus.Fields{
+				"UserID":       userID,
+				"LoginHash":    credential.LoginHash,
+				"PasswordHash": credential.PasswordHash,
+				"Verified":     verified,
+			}).Info("User Imported")
 		}
 		return nil
 	})

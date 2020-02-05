@@ -48,12 +48,16 @@ func (p *DatabaseLogger) Close() {
 	p.db.Close()
 }
 
-func (p *DatabaseLogger) CreateLogEntry(timestamp time.Time, app, level, msg, data string) *model.LogEntry {
+func (p *DatabaseLogger) CreateLogEntry(timestamp time.Time, app, level string, userID uint64, sessionID string, method, err, msg, data string) *model.LogEntry {
 	return &model.LogEntry{
 		Timestamp: timestamp.UTC().Round(time.Second),
 		App:       app,
 		Level:     level,
-		Msg:       msg,
+		UserID:    userID,
+		SessionID: sessionID,
+		Method:    method,
+		Error:     err,
+		Message:   msg,
 		Data:      data,
 	}
 }

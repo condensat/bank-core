@@ -22,14 +22,28 @@ func fromTimestampMillis(timestamp int64) time.Time {
 	return time.Unix(0, int64(timestamp)*int64(time.Millisecond)).UTC()
 }
 
-func getServiceRequestLog(ctx context.Context, r *http.Request, service, operation string) *logrus.Entry {
-	return logger.Logger(ctx).
-		WithFields(logrus.Fields{
-			"Service":   service,
-			"Operation": operation,
-			"UserAgent": r.UserAgent(),
-			"IP":        r.RemoteAddr,
-			"URI":       r.RequestURI,
-		})
+func AppendRequestLog(log *logrus.Entry, r *http.Request) *logrus.Entry {
+	return log.WithFields(logrus.Fields{
+		"UserAgent": r.UserAgent(),
+		"IP":        r.RemoteAddr,
+		"URI":       r.RequestURI,
+	})
+}
 
+func GetRequestLog(ctx context.Context, r *http.Request) *logrus.Entry {
+	return AppendRequestLog(logger.Logger(ctx), r)
+}
+
+func GetServiceRequestLog(log *logrus.Entry, r *http.Request, service, operation string) *logrus.Entry {
+	log = AppendRequestLog(log, r)
+
+	// Optionals
+	if len(service) > 0 {
+		log = log.WithField("Service", service)
+	}
+	if len(service) > 0 {
+		log = log.WithField("Operation", operation)
+	}
+
+	return log
 }

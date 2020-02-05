@@ -83,8 +83,8 @@ func migrateDatabase(ctx context.Context) {
 
 	err := db.Migrate(api.Models())
 	if err != nil {
-		logger.Logger(ctx).
-			WithError(err).
+		logger.Logger(ctx).WithError(err).
+			WithField("Method", "main.migrateDatabase").
 			Panic("Failed to migrate api models")
 	}
 }
