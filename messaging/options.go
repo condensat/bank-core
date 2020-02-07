@@ -19,6 +19,6 @@ func OptionArgs(args *NatsOptions) {
 		panic("Invalid args options")
 	}
 
-	flag.StringVar(&args.HostName, "natsHost", "localhost", "Nats hostName (default 'localhost')")
+	flag.StringVar(&args.HostName, "natsHost", "nats", "Nats hostName (default 'nats')")
 	flag.IntVar(&args.Port, "natsPort", 4222, "Nats port (default 4222)")
 }
