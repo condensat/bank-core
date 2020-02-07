@@ -61,7 +61,7 @@ func (r *RedisLogger) Grab(ctx context.Context) {
 
 	entryChan := make(chan [][]byte)
 
-	go r.pullRedisEntries(ctx, entryChan, 256, 20*time.Millisecond)
+	go r.pullRedisEntries(ctx, entryChan, 256, time.Second)
 
 	<-ctx.Done()
 }
@@ -77,7 +77,7 @@ func (r *RedisLogger) pullRedisEntries(ctx context.Context, entryChan chan<- [][
 		}
 		if count == 0 {
 			log.Tracef("Not log entry")
-			time.Sleep(sleep)
+			<-time.After(sleep)
 			continue
 		}
 
