@@ -5,23 +5,25 @@
 package security
 
 import (
-	"encoding/hex"
+	"context"
 	"errors"
 
 	"github.com/condensat/bank-core"
 )
 
 var (
-	ErrEncrypt              = errors.New("Failed to Encrypted")
+	ErrEncrypt              = errors.New("Failed to Encrypt")
 	ErrOperationNotPermited = errors.New("Operation Not Permited")
 	ErrSignature            = errors.New("Failed to Sign message")
 	ErrNotSigned            = errors.New("Message Not Signed")
+	ErrVerifyFailed         = errors.New("Fail to verify signature")
 )
 
-func SignMessage(key bank.SharedKey, message *bank.Message) error {
-	if !IsKeyValid(key) {
+func SignMessage(ctx context.Context, key *Key, message *bank.Message) error {
+	if key == nil {
 		return ErrInvalidKey
 	}
+
 	if message == nil {
 		return bank.ErrInvalidMessage
 	}
@@ -35,22 +37,18 @@ func SignMessage(key bank.SharedKey, message *bank.Message) error {
 		return ErrOperationNotPermited
 	}
 
-	sig, err := Sign(key, message.Data)
+	dataSig, err := key.SignMessage(ctx, message.Data)
 	if err != nil {
 		return ErrSignature
 	}
+	message.Data = dataSig[:]
 
-	message.Signature = hex.EncodeToString(sig)
 	message.SetSigned(true)
 
 	return nil
-
 }
 
-func VerifyMessage(key bank.SharedKey, message *bank.Message) (bool, error) {
-	if !IsKeyValid(key) {
-		return false, ErrInvalidKey
-	}
+func VerifyMessageSignature(key SignaturePublicKey, message *bank.Message) (bool, error) {
 	if message == nil {
 		return false, bank.ErrInvalidMessage
 	}
@@ -66,27 +64,27 @@ func VerifyMessage(key bank.SharedKey, message *bank.Message) (bool, error) {
 		return false, ErrNotSigned
 	}
 
-	sig, err := hex.DecodeString(message.Signature)
+	valid, err := VerifySignature(key, message.Data)
 	if err != nil {
-		return false, ErrNotSigned
+		return false, ErrVerifyFailed
 	}
 
-	return Verify(key, message.Data, sig), nil
+	return valid, nil
 }
 
-func EncryptMessageFor(from bank.PrivateKey, to bank.PublicKey, message *bank.Message) error {
-	if !IsKeyValid(from) || !IsKeyValid(to) {
-		return ErrInvalidKey
-	}
+func EncryptMessageFor(ctx context.Context, from *Key, to EncryptionPublicKey, message *bank.Message) error {
 	if message == nil {
 		return bank.ErrInvalidMessage
+	}
+	if len(message.Data) == 0 {
+		return bank.ErrNoData
 	}
 	if message.IsEncrypted() {
 		// NOOP
 		return nil
 	}
 
-	data, err := EncryptFor(from, to, message.Data[:])
+	data, err := from.EncryptFor(ctx, to, message.Data[:])
 	if err != nil {
 		return err
 	}
@@ -96,63 +94,19 @@ func EncryptMessageFor(from bank.PrivateKey, to bank.PublicKey, message *bank.Me
 	return nil
 }
 
-func EncryptMessage(key bank.SharedKey, message *bank.Message) error {
-	if !IsKeyValid(key) {
-		return ErrInvalidKey
-	}
+func DecryptMessageFrom(ctx context.Context, to *Key, from EncryptionPublicKey, message *bank.Message) error {
 	if message == nil {
 		return bank.ErrInvalidMessage
 	}
-	if message.IsEncrypted() {
-		// NOOP
-		return nil
-	}
-
-	data, err := Encrypt(key, message.Data[:])
-	if err != nil {
-		return err
-	}
-	message.Data = data
-	message.SetEncrypted(true)
-
-	return nil
-}
-
-func DecryptMessageFrom(to bank.PrivateKey, from bank.PublicKey, message *bank.Message) error {
-	if !IsKeyValid(to) || !IsKeyValid(from) {
-		return ErrInvalidKey
-	}
-	if message == nil {
-		return bank.ErrInvalidMessage
+	if len(message.Data) == 0 {
+		return bank.ErrNoData
 	}
 	if !message.IsEncrypted() {
 		// NOOP
 		return nil
 	}
 
-	data, err := DecryptFrom(to, from, message.Data[:])
-	if err != nil {
-		return err
-	}
-	message.Data = data
-	message.SetEncrypted(false)
-
-	return nil
-}
-
-func DecryptMessage(key bank.SharedKey, message *bank.Message) error {
-	if !IsKeyValid(key) {
-		return ErrInvalidKey
-	}
-	if message == nil {
-		return bank.ErrInvalidMessage
-	}
-	if !message.IsEncrypted() {
-		// NOOP
-		return nil
-	}
-
-	data, err := Decrypt(key, message.Data[:])
+	data, err := to.DecryptFrom(ctx, from, message.Data[:])
 	if err != nil {
 		return err
 	}

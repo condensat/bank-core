@@ -5,14 +5,19 @@
 package compression
 
 import (
+	"context"
 	"testing"
 
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/security"
+	"github.com/condensat/bank-core/security/utils"
 )
 
 func TestCompressMessage(t *testing.T) {
 	t.Parallel()
+
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, security.KeyPrivateKeySalt, utils.GenerateRandN(32))
 
 	var data [32]byte
 	message := bank.Message{
@@ -26,8 +31,8 @@ func TestCompressMessage(t *testing.T) {
 	encrypted := bank.Message{
 		Data: data[:],
 	}
-	pub, priv, _ := security.NewKeys()
-	_ = security.EncryptMessageFor(priv, pub, &encrypted)
+	k := security.NewKey(ctx)
+	_ = security.EncryptMessageFor(ctx, k, k.Public(ctx), &encrypted)
 
 	type args struct {
 		message *bank.Message

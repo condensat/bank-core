@@ -12,10 +12,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger/model"
 
-	"github.com/go-redis/redis"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -24,30 +25,27 @@ const (
 )
 
 var (
-	// ErrRedisFailed
-	ErrRedisFailed = errors.New("Redis Failed")
+	ErrInvalidCache = errors.New("Invalid Cache")
 )
 
 type RedisLogger struct {
-	rdb *redis.Client
+	cache bank.Cache
 }
 
-type RedisOptions struct {
-	HostName string
-	Port     int
-}
-
-func NewRedisLogger(options RedisOptions) *RedisLogger {
+func NewRedisLogger(ctx context.Context) *RedisLogger {
+	cache := appcontext.Cache(ctx)
+	if cache == nil {
+		panic(ErrInvalidCache)
+	}
 	return &RedisLogger{
-		rdb: redis.NewClient(&redis.Options{
-			Addr: fmt.Sprintf("%s:%d", options.HostName, options.Port),
-		}),
+		cache: cache,
 	}
 }
 
 // Write implements io.Writer interface
 func (r *RedisLogger) Write(entry []byte) (int, error) {
-	_, err := r.rdb.RPush(cstRedisQueueName, entry).Result()
+	rdb := cache.ToRedis(r.cache)
+	_, err := rdb.RPush(cstRedisQueueName, entry).Result()
 	if err != nil {
 		// print missed entry and exit
 		print(string(entry))
@@ -70,7 +68,7 @@ func (r *RedisLogger) Grab(ctx context.Context) {
 
 // pullRedisEntries publish entries from redis to entryChan
 func (r *RedisLogger) pullRedisEntries(ctx context.Context, entryChan chan<- [][]byte, bulkSize int64, sleep time.Duration) {
-	rdb := r.rdb
+	rdb := cache.ToRedis(r.cache)
 	for {
 		// check for entries
 		count, err := rdb.LLen(cstRedisQueueName).Result()
@@ -118,11 +116,13 @@ func (r *RedisLogger) processEntries(ctx context.Context, datas [][]byte) {
 		for _, data := range datas {
 
 			var entry interface{}
-			err := json.Unmarshal(data, &entry)
-			if err != nil {
-				// not json, print to stdout
-				fmt.Fprint(os.Stdout, string(data))
-				continue
+			{
+				err := json.Unmarshal(data, &entry)
+				if err != nil {
+					// not json, print to stdout
+					fmt.Fprint(os.Stdout, string(data))
+					continue
+				}
 			}
 
 			m := entry.(map[string]interface{})
@@ -138,14 +138,39 @@ func (r *RedisLogger) processEntries(ctx context.Context, datas [][]byte) {
 			delete(m, "app")
 			level := m["level"].(string)
 			delete(m, "level")
+
+			var userID uint64
+			if uid, ok := m["UserID"].(float64); ok {
+				delete(m, "UserID")
+				userID = uint64(uid)
+			}
+
+			var sessionID string
+			if sid, ok := m["SessionID"].(string); ok {
+				delete(m, "SessionID")
+				sessionID = sid
+			}
+
+			var method string
+			if mtd, ok := m["Method"].(string); ok {
+				delete(m, "Method")
+				method = mtd
+			}
+
+			var err string
+			if e, ok := m["error"].(string); ok {
+				delete(m, "error")
+				err = e
+			}
+
 			msg := m["msg"].(string)
 			delete(m, "msg")
-			d, err := json.Marshal(m)
-			if err == nil {
+
+			if d, err := json.Marshal(m); err == nil {
 				data = d
 			}
 
-			logEntries = append(logEntries, ctxLogger.CreateLogEntry(timestamp, app, level, msg, string(data)))
+			logEntries = append(logEntries, ctxLogger.CreateLogEntry(timestamp, app, level, userID, sessionID, method, err, msg, string(data)))
 		}
 
 		err := ctxLogger.AddLogEntries(logEntries)

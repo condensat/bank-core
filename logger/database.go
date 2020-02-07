@@ -5,56 +5,29 @@
 package logger
 
 import (
-	"fmt"
-	syslog "log"
-	"os"
+	"context"
 	"time"
 
+	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger/model"
-
-	driver "github.com/go-sql-driver/mysql"
 
 	"github.com/jinzhu/gorm"
 	log "github.com/sirupsen/logrus"
 )
 
 type DatabaseLogger struct {
-	db *gorm.DB
+	database bank.Database
+	db       *gorm.DB
 }
 
-type DatabaseOptions struct {
-	HostName      string
-	Port          int
-	User          string
-	Password      string
-	Database      string
-	EnableLogging bool
-}
-
-func connectMyql(host string, port int, user, pass, dbname string) *gorm.DB {
-	cfg := driver.Config{
-		User:                 user,
-		Passwd:               pass,
-		Net:                  "tcp",
-		Addr:                 fmt.Sprintf("%s:%d", host, port),
-		DBName:               dbname,
-		AllowNativePasswords: true,
-		MultiStatements:      true,
-		ParseTime:            true,
-	}
-	db, err := gorm.Open("mysql", cfg.FormatDSN())
-	if err != nil {
+func NewDatabaseLogger(ctx context.Context) *DatabaseLogger {
+	database := appcontext.Database(ctx)
+	db, ok := database.DB().(*gorm.DB)
+	if !ok {
 		log.
-			WithError(err).
-			Panicln("Failed to open connection to database")
+			Panic("Database is not gorm")
 	}
-
-	return db
-}
-func NewDatabaseLogger(options DatabaseOptions) *DatabaseLogger {
-	db := connectMyql(options.HostName, options.Port, options.User, options.Password, options.Database)
-	db.LogMode(options.EnableLogging)
-	db.SetLogger(syslog.New(os.Stderr, "", 0))
 
 	err := model.Migrate(db)
 	if err != nil {
@@ -64,7 +37,8 @@ func NewDatabaseLogger(options DatabaseOptions) *DatabaseLogger {
 	}
 
 	ret := DatabaseLogger{
-		db: db,
+		database: database,
+		db:       db,
 	}
 
 	return &ret
@@ -74,12 +48,16 @@ func (p *DatabaseLogger) Close() {
 	p.db.Close()
 }
 
-func (p *DatabaseLogger) CreateLogEntry(timestamp time.Time, app, level, msg, data string) *model.LogEntry {
+func (p *DatabaseLogger) CreateLogEntry(timestamp time.Time, app, level string, userID uint64, sessionID string, method, err, msg, data string) *model.LogEntry {
 	return &model.LogEntry{
 		Timestamp: timestamp.UTC().Round(time.Second),
 		App:       app,
 		Level:     level,
-		Msg:       msg,
+		UserID:    userID,
+		SessionID: sessionID,
+		Method:    method,
+		Error:     err,
+		Message:   msg,
 		Data:      data,
 	}
 }
