@@ -58,7 +58,7 @@ func MiddlewarePeerRateLimiter(rw http.ResponseWriter, r *http.Request, next htt
 	switch limiter := ctx.Value(ratelimiter.MiddlewarePeerRequestPerSecondKey).(type) {
 	case *ratelimiter.RateLimiter:
 
-		if !limiter.Allowed(ctx, r.RemoteAddr) {
+		if !limiter.Allowed(ctx, services.RequesterIP(r)) {
 			log := logger.Logger(ctx).WithField("Method", "api.MiddlewarePeerRateLimiter")
 
 			services.AppendRequestLog(log, r).

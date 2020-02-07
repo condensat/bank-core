@@ -22,10 +22,25 @@ func fromTimestampMillis(timestamp int64) time.Time {
 	return time.Unix(0, int64(timestamp)*int64(time.Millisecond)).UTC()
 }
 
+func RequesterIP(r *http.Request) string {
+	// Header added by reverse proxy
+	const xRealIP = "X-Real-Ip"
+	const xForwardedFor = "X-Forwarded-For"
+
+	// Priority order
+	if ips, ok := r.Header[xRealIP]; ok && len(ips) > 0 {
+		return ips[0]
+	} else if ips, ok := r.Header[xForwardedFor]; ok && len(ips) > 0 {
+		return ips[0]
+	} else {
+		return r.RemoteAddr // fallback with RemoteAddr
+	}
+}
+
 func AppendRequestLog(log *logrus.Entry, r *http.Request) *logrus.Entry {
 	return log.WithFields(logrus.Fields{
 		"UserAgent": r.UserAgent(),
-		"IP":        r.RemoteAddr,
+		"IP":        RequesterIP(r),
 		"URI":       r.RequestURI,
 	})
 }
