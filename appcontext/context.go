@@ -83,7 +83,8 @@ func WithOptions(ctx context.Context, options Options) context.Context {
 	if len(options.PasswordHashSeed) == 0 {
 		options.PasswordHashSeed = getEnv("PasswordHashSeed", "")
 	}
-	ctx = security.PasswordHashSeedContext(ctx, options.PasswordHashSeed)
+
+	ctx = security.PasswordHashSeedContext(ctx, SecretOrPassword(options.PasswordHashSeed))
 	os.Unsetenv("PasswordHashSeed")
 	options.PasswordHashSeed = ""
 
