@@ -93,7 +93,8 @@ func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, repl
 	}
 
 	// Create session
-	sessionID, err := session.CreateSession(ctx, userID, SessionDuration)
+	remoteAddr := RequesterIP(r)
+	sessionID, err := session.CreateSession(ctx, userID, remoteAddr, SessionDuration)
 	if err != nil {
 		log.WithError(err).
 			Warning("Session open failed")
@@ -134,11 +135,40 @@ func (p *SessionService) Renew(r *http.Request, request *SessionArgs, reply *Ses
 
 	// Extend session
 	sessionID := sessions.SessionID(request.SessionID)
-	userID, err := session.ExtendSession(ctx, sessionID, SessionDuration)
+	remoteAddr := RequesterIP(r)
+	userID, err := session.ExtendSession(ctx, remoteAddr, sessionID, SessionDuration)
+
 	log = log.WithFields(logrus.Fields{
-		"SessionID": sessionID,
-		"UserID":    userID,
+		"SessionID":  sessionID,
+		"UserID":     userID,
+		"RemoteAddr": remoteAddr,
 	})
+	switch err {
+	case sessions.ErrRemoteAddrChanged:
+		// force session close if RemoteAddr Changed
+		err = session.InvalidateSession(ctx, sessionID)
+		if err != nil {
+			log.WithError(err).
+				Warning("Session close failed")
+			return ErrSessionClose
+		}
+
+		// Reply
+		*reply = SessionReply{
+			SessionArgs: SessionArgs{
+				SessionID: request.SessionID,
+			},
+			Status:     "closed",
+			ValidUntil: makeTimestampMillis(time.Now().UTC()),
+		}
+
+		log.WithFields(logrus.Fields{
+			"Status":     reply.Status,
+			"ValidUntil": fromTimestampMillis(reply.ValidUntil),
+		}).Info("Session closed (forced)")
+
+		return sessions.ErrRemoteAddrChanged
+	}
 	if err != nil {
 		log.WithError(err).
 			Warning("Session renew failed")

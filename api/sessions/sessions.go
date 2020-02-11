@@ -24,13 +24,15 @@ const (
 )
 
 var (
-	ErrInvalidDuration  = errors.New("Invalid Duration")
-	ErrInvalidUserID    = errors.New("Invalid UserID")
-	ErrInvalidSessionID = errors.New("Invalid SessionID")
-	ErrSessionExpired   = errors.New("Session Expired")
-	ErrEncode           = errors.New("Encode Error")
-	ErrDecode           = errors.New("Decode Error")
-	ErrCache            = errors.New("Cache Error")
+	ErrInvalidDuration   = errors.New("Invalid Duration")
+	ErrInvalidUserID     = errors.New("Invalid UserID")
+	ErrInvalidRemoteAddr = errors.New("Invalid RemoteAddr")
+	ErrRemoteAddrChanged = errors.New("RemoteAddr Changed")
+	ErrInvalidSessionID  = errors.New("Invalid SessionID")
+	ErrSessionExpired    = errors.New("Session Expired")
+	ErrEncode            = errors.New("Encode Error")
+	ErrDecode            = errors.New("Decode Error")
+	ErrCache             = errors.New("Cache Error")
 )
 
 type Session struct {
@@ -44,17 +46,23 @@ func NewSession(ctx context.Context) *Session {
 	}
 }
 
-func (s *Session) CreateSession(ctx context.Context, userID uint64, duration time.Duration) (SessionID, error) {
+func (s *Session) CreateSession(ctx context.Context, userID uint64, remoteAddr string, duration time.Duration) (SessionID, error) {
 	log := logger.Logger(ctx).WithField("Method", "sessions.Session.CreateSession")
 	rdb := s.rdb
 
 	log = log.WithFields(logrus.Fields{
-		"UserID":   userID,
-		"Duration": duration,
+		"UserID":     userID,
+		"RemoteAddr": remoteAddr,
+		"Duration":   duration,
 	})
 
 	if userID == cstInvalidUserID {
 		log.Trace("Invalid userID")
+		return cstInvalidSessionID, ErrInvalidUserID
+	}
+
+	if remoteAddr == cstInvalidRemoteAddr {
+		log.Trace("Invalid remoteAddr")
 		return cstInvalidSessionID, ErrInvalidUserID
 	}
 
@@ -66,7 +74,7 @@ func (s *Session) CreateSession(ctx context.Context, userID uint64, duration tim
 	sessionID := NewSessionID()
 	log = log.WithField("SessionID", sessionID)
 
-	si, err := pushSession(rdb, userID, sessionID, duration)
+	si, err := pushSession(rdb, userID, remoteAddr, sessionID, duration)
 	if err != nil {
 		log.Trace("Failed to push session to cache")
 		return cstInvalidSessionID, err
@@ -118,12 +126,15 @@ func (s *Session) UserSession(ctx context.Context, sessionID SessionID) uint64 {
 	return si.UserID
 }
 
-func (s *Session) ExtendSession(ctx context.Context, sessionID SessionID, duration time.Duration) (uint64, error) {
+func (s *Session) ExtendSession(ctx context.Context, remoteAddr string, sessionID SessionID, duration time.Duration) (uint64, error) {
 	log := logger.Logger(ctx).WithField("Method", "sessions.Session.ExtendSession")
 	rdb := s.rdb
 
+	if remoteAddr == cstInvalidRemoteAddr {
+		return cstInvalidUserID, ErrInvalidRemoteAddr
+	}
 	if sessionID == cstInvalidSessionID {
-		return cstInvalidUserID, ErrInvalidDuration
+		return cstInvalidUserID, ErrInvalidSessionID
 	}
 	log = log.WithField("SessionID", sessionID)
 
@@ -141,10 +152,18 @@ func (s *Session) ExtendSession(ctx context.Context, sessionID SessionID, durati
 		return cstInvalidUserID, ErrInvalidSessionID
 	}
 	log = log.WithFields(logrus.Fields{
-		"UserID":   si.UserID,
-		"Duration": duration,
+		"UserID":     si.UserID,
+		"RemoteAddr": si.RemoteAddr,
+		"Duration":   duration,
 	})
 
+	// check for IP change
+	if si.RemoteAddr != remoteAddr {
+		log.WithField("NewRemoteAddr", remoteAddr).
+			Trace("RemoteAddr has changed")
+		// return userID with error
+		return si.UserID, ErrRemoteAddrChanged
+	}
 	// do not renew expired session
 	if si.Expired() {
 		log.WithField("Expiration", si.Expiration).
@@ -152,7 +171,7 @@ func (s *Session) ExtendSession(ctx context.Context, sessionID SessionID, durati
 		return cstInvalidUserID, ErrSessionExpired
 	}
 
-	si, err = pushSession(rdb, si.UserID, sessionID, duration)
+	si, err = pushSession(rdb, si.UserID, si.RemoteAddr, sessionID, duration)
 	if err != nil {
 		log.WithError(err).
 			Trace("Failed to push session to cache")
@@ -189,7 +208,7 @@ func (s *Session) InvalidateSession(ctx context.Context, sessionID SessionID) er
 	}
 
 	duration := time.Duration(0)
-	si, err = pushSession(rdb, cstInvalidUserID, sessionID, duration)
+	si, err = pushSession(rdb, cstInvalidUserID, cstInvalidRemoteAddr, sessionID, duration)
 	if err != nil {
 		log.WithError(err).
 			WithField("Duration", duration).
@@ -214,7 +233,7 @@ func sessionKey(prefix, key string, sessionID SessionID) string {
 
 }
 
-func pushSession(rdb *redis.Client, userID uint64, sessionID SessionID, duration time.Duration) (SessionInfo, error) {
+func pushSession(rdb *redis.Client, userID uint64, remoteAddr string, sessionID SessionID, duration time.Duration) (SessionInfo, error) {
 	now := time.Now().UTC()
 	expired := now.Add(-time.Nanosecond)
 	si := SessionInfo{SessionID: cstInvalidSessionID, Expiration: expired}
@@ -228,8 +247,14 @@ func pushSession(rdb *redis.Client, userID uint64, sessionID SessionID, duration
 		duration = 0
 	}
 
+	// expire session for invalid remoteAddr
+	if remoteAddr == cstInvalidRemoteAddr {
+		duration = 0
+	}
+
 	// update SessionInfo
 	si.UserID = userID
+	si.RemoteAddr = remoteAddr
 	si.SessionID = sessionID
 	si.Expiration = now.Add(duration)
 
@@ -272,13 +297,15 @@ func fetchSession(rdb *redis.Client, sessionID SessionID) (SessionInfo, error) {
 		return SessionInfo{SessionID: cstInvalidSessionID}, ErrCache
 	}
 	var si SessionInfo
+	now := time.Now().UTC()
+	expired := now.Add(-time.Nanosecond)
 	err = si.Decode(data)
 	if err != nil {
-		return SessionInfo{SessionID: cstInvalidSessionID}, ErrDecode
+		return SessionInfo{SessionID: cstInvalidSessionID, Expiration: expired}, ErrDecode
 	}
 
 	if si.SessionID != sessionID {
-		return SessionInfo{SessionID: cstInvalidSessionID}, ErrInvalidSessionID
+		return SessionInfo{SessionID: cstInvalidSessionID, Expiration: expired}, ErrInvalidSessionID
 	}
 
 	return si, nil
