@@ -225,7 +225,7 @@ func TestSession_ExtendSession(t *testing.T) {
 	}{
 		{"default", fields{}, args{ctx, cstInvalidRemoteAddr, 0, 0}, true, 0, 0},
 
-		{"ip_changed", fields{rdb}, args{ctx, "10.0.0.1", time.Second, time.Second}, true, 0, 0},
+		{"ip_changed", fields{rdb}, args{ctx, "10.0.0.1", time.Second, time.Second}, true, 42, 0},
 		{"valid", fields{rdb}, args{ctx, cstTestRemoteAddrSample, time.Second, time.Second}, false, 42, 0},
 
 		{"negative", fields{rdb}, args{ctx, cstTestRemoteAddrSample, time.Second, -time.Second}, true, 0, 0},
@@ -252,7 +252,7 @@ func TestSession_ExtendSession(t *testing.T) {
 				t.Errorf("Session.ExtendSession() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if userID != tt.wantUserID {
-				t.Errorf("Session.ExtendSession() userID = %v, wantUserID %v", err, tt.wantErr)
+				t.Errorf("Session.ExtendSession() userID = %v, wantUserID %v", userID, tt.wantUserID)
 			}
 		})
 	}

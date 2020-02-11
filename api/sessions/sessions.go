@@ -27,6 +27,7 @@ var (
 	ErrInvalidDuration   = errors.New("Invalid Duration")
 	ErrInvalidUserID     = errors.New("Invalid UserID")
 	ErrInvalidRemoteAddr = errors.New("Invalid RemoteAddr")
+	ErrRemoteAddrChanged = errors.New("RemoteAddr Changed")
 	ErrInvalidSessionID  = errors.New("Invalid SessionID")
 	ErrSessionExpired    = errors.New("Session Expired")
 	ErrEncode            = errors.New("Encode Error")
@@ -160,7 +161,8 @@ func (s *Session) ExtendSession(ctx context.Context, remoteAddr string, sessionI
 	if si.RemoteAddr != remoteAddr {
 		log.WithField("NewRemoteAddr", remoteAddr).
 			Trace("RemoteAddr has changed")
-		return cstInvalidUserID, ErrInvalidRemoteAddr
+		// return userID with error
+		return si.UserID, ErrRemoteAddrChanged
 	}
 	// do not renew expired session
 	if si.Expired() {
