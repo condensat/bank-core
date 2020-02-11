@@ -132,8 +132,8 @@ func ImportUsers(ctx context.Context, userInfos ...*UserInfo) error {
 			}
 
 			userID, verified, err := database.CheckCredential(ctx, tx,
-				userInfo.Login,
-				userInfo.Password,
+				database.HashEntry(userInfo.Login),
+				database.HashEntry(userInfo.Password),
 			)
 			if err != nil {
 				log.WithError(err).
