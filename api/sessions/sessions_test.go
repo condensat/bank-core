@@ -15,6 +15,8 @@ import (
 	"github.com/go-redis/redis/v7"
 )
 
+const cstTestRemoteAddrSample = "127.0.0.1"
+
 func TestNewSession(t *testing.T) {
 	t.Parallel()
 
@@ -53,9 +55,10 @@ func TestSession_CreateSession(t *testing.T) {
 		rdb *redis.Client
 	}
 	type args struct {
-		ctx      context.Context
-		userID   uint64
-		duration time.Duration
+		ctx                     context.Context
+		userID                  uint64
+		cstTestRemoteAddrSample string
+		duration                time.Duration
 	}
 	tests := []struct {
 		name      string
@@ -65,19 +68,19 @@ func TestSession_CreateSession(t *testing.T) {
 		wantValid bool
 		wantErr   bool
 	}{
-		{"default", fields{rdb}, args{ctx, 0, 0}, cstInvalidSessionID, false, true},
+		{"default", fields{rdb}, args{ctx, 0, cstInvalidRemoteAddr, 0}, cstInvalidSessionID, false, true},
 
 		// invalid UserID
-		{"negative", fields{rdb}, args{ctx, 0, -time.Second}, cstInvalidSessionID, false, true},
-		{"negative2", fields{rdb}, args{ctx, 0, -2 * time.Second}, cstInvalidSessionID, false, true},
-		{"second", fields{rdb}, args{ctx, 0, time.Second}, cstInvalidSessionID, false, true},
-		{"valid", fields{rdb}, args{ctx, 0, 2 * time.Second}, "non-empty-session", false, true},
+		{"negative", fields{rdb}, args{ctx, 0, cstInvalidRemoteAddr, -time.Second}, cstInvalidSessionID, false, true},
+		{"negative2", fields{rdb}, args{ctx, 0, cstInvalidRemoteAddr, -2 * time.Second}, cstInvalidSessionID, false, true},
+		{"second", fields{rdb}, args{ctx, 0, cstInvalidRemoteAddr, time.Second}, cstInvalidSessionID, false, true},
+		{"valid", fields{rdb}, args{ctx, 0, cstInvalidRemoteAddr, 2 * time.Second}, "non-empty-session", false, true},
 
 		// with UserID
-		{"negative", fields{rdb}, args{ctx, 42, -time.Second}, cstInvalidSessionID, false, true},
-		{"negative2", fields{rdb}, args{ctx, 42, -2 * time.Second}, cstInvalidSessionID, false, true},
-		{"second", fields{rdb}, args{ctx, 42, time.Second}, cstInvalidSessionID, true, false},
-		{"valid", fields{rdb}, args{ctx, 42, 2 * time.Second}, "non-empty-session", true, false},
+		{"negative", fields{rdb}, args{ctx, 42, cstTestRemoteAddrSample, -time.Second}, cstInvalidSessionID, false, true},
+		{"negative2", fields{rdb}, args{ctx, 42, cstTestRemoteAddrSample, -2 * time.Second}, cstInvalidSessionID, false, true},
+		{"second", fields{rdb}, args{ctx, 42, cstTestRemoteAddrSample, time.Second}, cstInvalidSessionID, true, false},
+		{"valid", fields{rdb}, args{ctx, 42, cstTestRemoteAddrSample, 2 * time.Second}, "non-empty-session", true, false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
@@ -85,7 +88,7 @@ func TestSession_CreateSession(t *testing.T) {
 			s := &Session{
 				rdb: tt.fields.rdb,
 			}
-			got, err := s.CreateSession(tt.args.ctx, tt.args.userID, tt.args.duration)
+			got, err := s.CreateSession(tt.args.ctx, tt.args.userID, tt.args.cstTestRemoteAddrSample, tt.args.duration)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Session.CreateSession() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -207,9 +210,10 @@ func TestSession_ExtendSession(t *testing.T) {
 		rdb *redis.Client
 	}
 	type args struct {
-		ctx      context.Context
-		duration time.Duration
-		extend   time.Duration
+		ctx                     context.Context
+		cstTestRemoteAddrSample string
+		duration                time.Duration
+		extend                  time.Duration
 	}
 	tests := []struct {
 		name          string
@@ -219,15 +223,16 @@ func TestSession_ExtendSession(t *testing.T) {
 		wantUserID    uint64
 		waitForExpire time.Duration
 	}{
-		{"default", fields{}, args{ctx, 0, 0}, true, 0, 0},
+		{"default", fields{}, args{ctx, cstInvalidRemoteAddr, 0, 0}, true, 0, 0},
 
-		{"valid", fields{rdb}, args{ctx, time.Second, time.Second}, false, 42, 0},
+		{"ip_changed", fields{rdb}, args{ctx, "10.0.0.1", time.Second, time.Second}, true, 0, 0},
+		{"valid", fields{rdb}, args{ctx, cstTestRemoteAddrSample, time.Second, time.Second}, false, 42, 0},
 
-		{"negative", fields{rdb}, args{ctx, time.Second, -time.Second}, true, 0, 0},
+		{"negative", fields{rdb}, args{ctx, cstTestRemoteAddrSample, time.Second, -time.Second}, true, 0, 0},
 
-		{"not_expired", fields{rdb}, args{ctx, time.Second, time.Second}, false, 42, 500 * time.Millisecond},
-		{"not_expired2", fields{rdb}, args{ctx, time.Second, time.Second}, false, 42, 900 * time.Millisecond},
-		{"expired", fields{rdb}, args{ctx, time.Second, time.Second}, true, 0, 1100 * time.Millisecond},
+		{"not_expired", fields{rdb}, args{ctx, cstTestRemoteAddrSample, time.Second, time.Second}, false, 42, 500 * time.Millisecond},
+		{"not_expired2", fields{rdb}, args{ctx, cstTestRemoteAddrSample, time.Second, time.Second}, false, 42, 900 * time.Millisecond},
+		{"expired", fields{rdb}, args{ctx, cstTestRemoteAddrSample, time.Second, time.Second}, true, 0, 1100 * time.Millisecond},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
@@ -242,7 +247,7 @@ func TestSession_ExtendSession(t *testing.T) {
 				time.Sleep(tt.waitForExpire)
 			}
 
-			userID, err := s.ExtendSession(tt.args.ctx, sessionID, tt.args.extend)
+			userID, err := s.ExtendSession(tt.args.ctx, tt.args.cstTestRemoteAddrSample, sessionID, tt.args.extend)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Session.ExtendSession() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -370,10 +375,11 @@ func Test_pushSession(t *testing.T) {
 	s2 := NewSessionID()
 
 	type args struct {
-		rdb       *redis.Client
-		userID    uint64
-		sessionID SessionID
-		duration  time.Duration
+		rdb                     *redis.Client
+		userID                  uint64
+		cstTestRemoteAddrSample string
+		sessionID               SessionID
+		duration                time.Duration
 	}
 	tests := []struct {
 		name        string
@@ -382,19 +388,27 @@ func Test_pushSession(t *testing.T) {
 		wantExpired bool
 		wantErr     bool
 	}{
-		{"default", args{rdb, cstInvalidUserID, cstInvalidSessionID, 0}, cstInvalidSessionID, true, true},
+		{"default", args{rdb, cstInvalidUserID, cstInvalidRemoteAddr, cstInvalidSessionID, 0}, cstInvalidSessionID, true, true},
 
-		// InvalidUserID
-		{"expired", args{rdb, cstInvalidUserID, s1, 0}, s1, true, false},
-		{"sessionID", args{rdb, cstInvalidUserID, s2, time.Second}, s2, true, false},
+		// Invalid UserID
+		{"expired_user", args{rdb, cstInvalidUserID, cstInvalidRemoteAddr, s1, 0}, s1, true, false},
+		{"sessionID_user", args{rdb, cstInvalidUserID, cstInvalidRemoteAddr, s2, time.Second}, s2, true, false},
 
-		{"expired", args{rdb, 42, s1, 0}, s1, true, false},
-		{"sessionID", args{rdb, 42, s2, time.Second}, s2, false, false},
+		// Invalid RemoteAddr
+		{"expired_addr", args{rdb, 42, cstInvalidRemoteAddr, s1, 0}, s1, true, false},
+		{"sessionID_addr", args{rdb, 42, cstInvalidRemoteAddr, s2, time.Second}, s2, true, false},
+
+		// Invalid UserID & RemoteAddr
+		{"expired_user", args{rdb, cstInvalidUserID, cstTestRemoteAddrSample, s1, 0}, s1, true, false},
+		{"sessionID_user", args{rdb, cstInvalidUserID, cstTestRemoteAddrSample, s2, time.Second}, s2, true, false},
+
+		{"expired", args{rdb, 42, cstTestRemoteAddrSample, s1, 0}, s1, true, false},
+		{"valid", args{rdb, 42, cstTestRemoteAddrSample, s2, time.Second}, s2, false, false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := pushSession(tt.args.rdb, tt.args.userID, tt.args.sessionID, tt.args.duration)
+			got, err := pushSession(tt.args.rdb, tt.args.userID, tt.args.cstTestRemoteAddrSample, tt.args.sessionID, tt.args.duration)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("pushSession() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -463,6 +477,6 @@ func redisOptions() cache.RedisOptions {
 }
 
 func createSession(ctx context.Context, s *Session, d time.Duration) SessionID {
-	sID, _ := s.CreateSession(ctx, 42, d)
+	sID, _ := s.CreateSession(ctx, 42, cstTestRemoteAddrSample, d)
 	return sID
 }
