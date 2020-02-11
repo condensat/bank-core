@@ -15,6 +15,7 @@ require (
 	github.com/nats-io/nats.go v1.9.1
 	github.com/onsi/ginkgo v1.11.0 // indirect
 	github.com/onsi/gomega v1.8.1 // indirect
+	github.com/rs/cors v1.7.0
 	github.com/shengdoushi/base58 v1.0.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/thoas/stats v0.0.0-20190407194641-965cb2de1678

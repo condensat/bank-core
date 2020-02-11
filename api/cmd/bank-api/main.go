@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
@@ -20,7 +21,8 @@ import (
 )
 
 type Api struct {
-	Port int
+	Port              int
+	CorsAllowedDomain string
 
 	PeerRequestPerSecond ratelimiter.RateLimitInfo
 	OpenSessionPerMinute ratelimiter.RateLimitInfo
@@ -46,6 +48,7 @@ func parseArgs() Args {
 	database.OptionArgs(&args.Database)
 
 	flag.IntVar(&args.Api.Port, "port", 4242, "BankApi rpc port (default 4242)")
+	flag.StringVar(&args.Api.CorsAllowedDomain, "corsAllowedDomain", "condensat.space", "Cors Allowed Domain (default condensat.space)")
 
 	args.Api.PeerRequestPerSecond = api.DefaultPeerRequestPerSecond
 	flag.IntVar(&args.Api.PeerRequestPerSecond.Rate, "peerRateLimit", 100, "Rate limit rate, per second, per peer connection (default 100)")
@@ -75,7 +78,12 @@ func main() {
 	migrateDatabase(ctx)
 
 	var api api.Api
-	api.Run(ctx, args.Api.Port)
+	api.Run(ctx, args.Api.Port, corsAllowedOrigins(args.Api.CorsAllowedDomain))
+}
+
+func corsAllowedOrigins(corsAllowedDomain string) []string {
+	// sub-domains wildcard
+	return []string{fmt.Sprintf("https://%s.%s", "*", corsAllowedDomain)}
 }
 
 func migrateDatabase(ctx context.Context) {
