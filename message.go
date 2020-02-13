@@ -15,7 +15,7 @@ import (
 type MessageFlag uint32
 
 const (
-	cstCurrentVersion = "1.0"
+	CurrentVersion = "1.0"
 
 	flagCompressed MessageFlag = 0
 	flagEncrypted  MessageFlag = 1
@@ -38,7 +38,7 @@ type Message struct {
 
 func NewMessage() *Message {
 	return &Message{
-		Version: cstCurrentVersion,
+		Version: CurrentVersion,
 	}
 }
 
