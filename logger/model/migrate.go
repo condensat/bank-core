@@ -11,6 +11,6 @@ import (
 func Migrate(db *gorm.DB) error {
 	// Automigrate all package models
 	return db.AutoMigrate(
-		&LogEntry{},
+		new(LogEntry),
 	).Error
 }

@@ -30,11 +30,6 @@ var (
 	ErrDecoding = errors.New("Decoding error")
 )
 
-type NatsOptions struct {
-	HostName string
-	Port     int
-}
-
 type Nats struct {
 	nc *nats.Conn
 }
@@ -42,20 +37,22 @@ type Nats struct {
 // NewNats returns Nats messaging.
 // panic on connection error
 func NewNats(ctx context.Context, options NatsOptions) *Nats {
+	log := logger.Logger(ctx).WithField("Method", "messaging.NewNats")
 	url := fmt.Sprintf("nats://%s:%d", options.HostName, options.Port)
 
 	nc, err := nats.Connect(url)
 	if err != nil {
-		logger.
-			Logger(ctx).
-			WithError(err).
-			WithField("Method", "messaging.NewNats").
+		log.WithError(err).
 			WithField("URL", url).
 			Panic("Nats Connect failed")
 	}
 	return &Nats{
 		nc: nc,
 	}
+}
+
+func (n *Nats) NC() bank.NC {
+	return n.nc
 }
 
 func natsMessageHandler(ctx context.Context, log *logrus.Entry, msg *nats.Msg, handle bank.MessageHandler) {
@@ -131,9 +128,7 @@ func (n *Nats) SubscribeWorkers(ctx context.Context, subject string, workerCount
 
 // Subscribe
 func (n *Nats) Subscribe(ctx context.Context, subject string, handle bank.MessageHandler) {
-	log := logger.
-		Logger(ctx).
-		WithField("Method", "messaging.Nats.Subscribe")
+	log := logger.Logger(ctx).WithField("Method", "messaging.Nats.Subscribe")
 
 	if len(subject) == 0 {
 		log.
@@ -141,8 +136,7 @@ func (n *Nats) Subscribe(ctx context.Context, subject string, handle bank.Messag
 			Panic("Invalid subject")
 	}
 	if handle == nil {
-		log.
-			WithError(ErrInvalidHandler).
+		log.WithError(ErrInvalidHandler).
 			Panic("Invalid handler")
 	}
 
@@ -169,26 +163,21 @@ func (n *Nats) Request(ctx context.Context, subject string, message *bank.Messag
 // RequestWithTimeout perform nats Request with subject and message.
 // panic if subject or message are invalid
 func (n *Nats) RequestWithTimeout(ctx context.Context, subject string, message *bank.Message, timeout time.Duration) (*bank.Message, error) {
-	log := logger.
-		Logger(ctx).
-		WithField("Method", "messaging.Nats.Request")
+	log := logger.Logger(ctx).WithField("Method", "messaging.Nats.RequestWithTimeout")
 
 	if len(subject) == 0 {
-		log.
-			WithError(ErrInvalidSubject).
+		log.WithError(ErrInvalidSubject).
 			Panic("Invalid subject")
 	}
 	if message == nil {
-		log.
-			WithError(bank.ErrInvalidMessage).
+		log.WithError(bank.ErrInvalidMessage).
 			Panic("Invalid message")
 	}
 
 	// prepare request
 	data, err := message.Encode()
 	if err != nil {
-		log.
-			WithError(err).
+		log.WithError(err).
 			Debug("Failed to encode message")
 		return nil, ErrEncoding
 	}
@@ -196,8 +185,7 @@ func (n *Nats) RequestWithTimeout(ctx context.Context, subject string, message *
 	// perform nats request
 	msg, err := n.nc.Request(subject, data, timeout)
 	if err != nil {
-		log.
-			WithError(err).
+		log.WithError(err).
 			Debug("Nats Request failed")
 		return nil, ErrRequest
 	}
@@ -206,8 +194,7 @@ func (n *Nats) RequestWithTimeout(ctx context.Context, subject string, message *
 	resp := new(bank.Message)
 	err = resp.Decode(msg.Data)
 	if err != nil {
-		log.
-			WithError(err).
+		log.WithError(err).
 			Debug("Failed to decode response")
 		return nil, ErrDecoding
 	}

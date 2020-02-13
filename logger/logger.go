@@ -13,14 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const (
-	appKey = iota
-	databaseKey
-	writerKey
-	logLevelKey
-	messagingKey
-)
-
 func Logger(ctx context.Context) *logrus.Entry {
 	logger := logrus.New()
 	logger.SetLevel(appcontext.Level(ctx))
@@ -31,16 +23,14 @@ func Logger(ctx context.Context) *logrus.Entry {
 		return entry
 	}
 
-	if ctxApp, ok := ctx.Value(appKey).(string); ok {
-		entry = entry.WithField("app", ctxApp)
+	if appName, ok := ctx.Value(appcontext.AppKey).(string); ok {
+		entry = entry.WithField("app", appName)
 	}
-	if ctxWriter, ok := ctx.Value(writerKey).(io.Writer); ok {
-		logger.SetOutput(ctxWriter)
+	if writerKey, ok := ctx.Value(appcontext.WriterKey).(io.Writer); ok {
+		logger.SetOutput(writerKey)
 	}
-	if ctxLogLevel, ok := ctx.Value(logLevelKey).(string); ok {
-		if level, err := logrus.ParseLevel(ctxLogLevel); err == nil {
-			logger.SetLevel(level)
-		}
+	if level, ok := ctx.Value(appcontext.LogLevelKey).(logrus.Level); ok {
+		logger.SetLevel(level)
 	}
 
 	return entry

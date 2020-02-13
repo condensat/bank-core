@@ -12,11 +12,18 @@ import (
 
 type LogEntry struct {
 	ID        uint      `gorm:"primary_key"`
-	Timestamp time.Time `gorm:"type:timestamp;index:timestamp_idx"`
-	App       string    `gorm:"type:varchar(16);index:app_idx"`
-	Level     string    `gorm:"type:varchar(16);index:level_idx"`
-	Msg       string    `gorm:"type:varchar(256)"`
-	Data      string    `gorm:"type:json"`
+	Timestamp time.Time `gorm:"index;not null;type:timestamp"`
+	App       string    `gorm:"index;not null;type:varchar(16)"`
+	Level     string    `gorm:"index;not null;type:varchar(16)"`
+
+	// Optionals
+	UserID    uint64 `gorm:"index"`
+	SessionID string `gorm:"index;type:char(36)"` // UUID
+	Method    string `gorm:"index;type:varchar(32)"`
+	Error     string `gorm:"index;type:varchar(256)"`
+
+	Message string `gorm:"type:varchar(256)"`
+	Data    string `gorm:"type:json"`
 }
 
 func TxAddLogEntries(db *gorm.DB, entries []*LogEntry) error {

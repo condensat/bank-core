@@ -11,27 +11,25 @@ import (
 
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
+	"github.com/sirupsen/logrus"
 )
 
 type Args struct {
-	AppName  string
-	LogLevel string
-	Redis    logger.RedisOptions
-	Nats     messaging.NatsOptions
+	App appcontext.Options
+
+	Redis cache.RedisOptions
+	Nats  messaging.NatsOptions
 }
 
 func parseArgs() Args {
 	var args Args
-	flag.StringVar(&args.AppName, "appName", "LoggerExample", "Application Name")
-	flag.StringVar(&args.LogLevel, "log", "warning", "Log level [trace, debug, info, warning, error]")
+	appcontext.OptionArgs(&args.App, "LoggerExample")
 
-	flag.StringVar(&args.Redis.HostName, "redisHost", "localhost", "Redis hostName (default 'localhost')")
-	flag.IntVar(&args.Redis.Port, "redisPort", 6379, "Redis port (default 6379)")
-
-	flag.StringVar(&args.Nats.HostName, "natsHost", "localhost", "Nats hostName (default 'localhost')")
-	flag.IntVar(&args.Nats.Port, "natsPort", 4222, "Nats port (default 4222)")
+	cache.OptionArgs(&args.Redis)
+	messaging.OptionArgs(&args.Nats)
 
 	flag.Parse()
 
@@ -39,19 +37,22 @@ func parseArgs() Args {
 }
 
 func echoHandler(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
-	logger.Logger(ctx).
-		WithField("Subject", subject).
-		WithField("Method", "echoHandler").
-		Infof("-> %s", string(message.Data))
+	log := logger.Logger(ctx).WithField("Method", "main.echoHandler")
+
+	log.WithFields(logrus.Fields{
+		"Subject": subject,
+		"Method":  "echoHandler",
+	}).Infof("-> %s", string(message.Data))
 
 	return message, nil
 }
 
 func natsClient(ctx context.Context) {
+	log := logger.Logger(ctx).WithField("Method", "main.natsClient")
+
 	messaging := appcontext.Messaging(ctx)
 	messaging.SubscribeWorkers(ctx, "Example.Request", 8, echoHandler)
 
-	log := logger.Logger(ctx)
 	message := bank.NewMessage()
 	message.Data = []byte("Hello, World!")
 
@@ -62,18 +63,17 @@ func natsClient(ctx context.Context) {
 				WithError(err).
 				Panicf("Request failed")
 		}
-		log.
-			WithField("Method", "natsClient").
-			Infof("<- %s", string(resp.Data))
+		log.Infof("<- %s", string(resp.Data))
 	}
 }
 
 func main() {
 	args := parseArgs()
 
-	ctx := appcontext.WithAppName(context.Background(), args.AppName)
-	ctx = appcontext.WithWriter(ctx, logger.NewRedisLogger(args.Redis))
-	ctx = appcontext.WithLogLevel(ctx, args.LogLevel)
+	ctx := context.Background()
+	ctx = appcontext.WithOptions(ctx, args.App)
+	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, args.Redis))
+	ctx = appcontext.WithWriter(ctx, logger.NewRedisLogger(ctx))
 	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, args.Nats))
 
 	natsClient(ctx)
