@@ -18,7 +18,7 @@ func TestMessage_SetCompressed(t *testing.T) {
 		Data      []byte
 		Signature string
 		Flags     uint
-		Error     error
+		Error     string
 	}
 	type args struct {
 		compressed bool
@@ -62,7 +62,7 @@ func TestMessage_SetEncrypted(t *testing.T) {
 		Data      []byte
 		Signature string
 		Flags     uint
-		Error     error
+		Error     string
 	}
 	type args struct {
 		compressed bool
@@ -106,7 +106,7 @@ func TestMessage_SetSigned(t *testing.T) {
 		Data      []byte
 		Signature string
 		Flags     uint
-		Error     error
+		Error     string
 	}
 	type args struct {
 		compressed bool
@@ -152,7 +152,7 @@ func TestMessage_IsCompressed(t *testing.T) {
 		Data      []byte
 		Signature string
 		Flags     uint
-		Error     error
+		Error     string
 	}
 	tests := []struct {
 		name   string
@@ -192,7 +192,7 @@ func TestMessage_IsEncrypted(t *testing.T) {
 		Data      []byte
 		Signature string
 		Flags     uint
-		Error     error
+		Error     string
 	}
 	tests := []struct {
 		name   string
@@ -232,7 +232,7 @@ func TestMessage_IsSigned(t *testing.T) {
 		Data      []byte
 		Signature string
 		Flags     uint
-		Error     error
+		Error     string
 	}
 	tests := []struct {
 		name   string
@@ -270,7 +270,7 @@ func TestMessage_Encode(t *testing.T) {
 		Data      []byte
 		Signature string
 		Flags     uint
-		Error     error
+		Error     string
 	}
 	tests := []struct {
 		name    string
@@ -279,7 +279,7 @@ func TestMessage_Encode(t *testing.T) {
 		wantErr bool
 	}{
 		{"Default", fields{}, 76, false},
-		{"Encode", fields{"1.0", "from", nil, "", 42, nil}, 89, false},
+		{"Encode", fields{"1.0", "from", nil, "", 42, ""}, 89, false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
@@ -306,7 +306,7 @@ func TestMessage_Encode(t *testing.T) {
 func TestMessage_Decode(t *testing.T) {
 	t.Parallel()
 
-	message := Message{"1.0", "from", nil, 42, nil}
+	message := Message{"1.0", "from", nil, 42, ""}
 	data, _ := message.Encode()
 
 	type fields struct {
