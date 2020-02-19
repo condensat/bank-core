@@ -9,6 +9,7 @@ import (
 
 	"github.com/condensat/bank-core"
 
+	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/database/model"
 
 	"github.com/jinzhu/gorm"
@@ -26,6 +27,24 @@ func FindOrCreateUser(ctx context.Context, database bank.Database, name, email s
 			Where("name = ?", name).
 			Where("email = ?", email).
 			FirstOrCreate(&result).Error
+
+		return &result, err
+
+	default:
+		return nil, ErrInvalidDatabase
+	}
+}
+
+func FindUserById(ctx context.Context, userID uint64) (*model.User, error) {
+	db := appcontext.Database(ctx)
+
+	switch db := db.DB().(type) {
+	case *gorm.DB:
+
+		var result model.User
+		err := db.
+			Where(&model.User{ID: userID}).
+			First(&result).Error
 
 		return &result, err
 

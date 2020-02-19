@@ -25,12 +25,26 @@ func RegisterServices(ctx context.Context, mux *http.ServeMux, corsAllowedOrigin
 	corsHandler := CreateCorsOptions(corsAllowedOrigins)
 
 	mux.Handle("/api/v1/session", corsHandler.Handler(NewSessionHandler()))
+	mux.Handle("/api/v1/user", corsHandler.Handler(NewUserHandler()))
 }
 
 func NewSessionHandler() http.Handler {
 	server := rpc.NewServer()
 	server.RegisterCodec(json.NewCodec(), "application/json")
 	server.RegisterService(new(SessionService), "session")
+
+	return server
+}
+
+func NewUserHandler() http.Handler {
+	server := rpc.NewServer()
+	server.RegisterCodec(json.NewCodec(), "application/json")
+	server.RegisterService(new(SessionService), "session")
+
+	err := server.RegisterService(new(UserService), "user")
+	if err != nil {
+		panic(err)
+	}
 
 	return server
 }
