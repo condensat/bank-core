@@ -20,6 +20,7 @@ import (
 const (
 	AppNameKey = iota
 	LoggerKey
+	ProcessusGrabberKey
 	WriterKey
 	LogLevelKey
 	CacheKey
@@ -89,6 +90,11 @@ func WithOptions(ctx context.Context, options Options) context.Context {
 	options.PasswordHashSeed = ""
 
 	return ctx
+}
+
+func WithProcessusGrabber(ctx context.Context, grabber bank.Worker) context.Context {
+	go grabber.Run(ctx, 1)
+	return context.WithValue(ctx, ProcessusGrabberKey, grabber)
 }
 
 func AppName(ctx context.Context) string {
