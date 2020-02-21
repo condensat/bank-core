@@ -13,6 +13,7 @@ import (
 
 	"github.com/condensat/bank-core/api"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/utils"
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/negroni"
@@ -52,7 +53,7 @@ func (p *Web) Run(ctx context.Context, port int, webDirectory string) {
 	}()
 
 	log.WithFields(logrus.Fields{
-		"Hostname":     api.GetHost(),
+		"Hostname":     utils.Hostname(),
 		"Port":         port,
 		"WebDirectory": webDirectory,
 	}).Info("WebApp started")
@@ -62,7 +63,7 @@ func (p *Web) Run(ctx context.Context, port int, webDirectory string) {
 
 // AddWorkerHeader - adds header of which node actually processed request
 func AddWorkerHeader(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
-	rw.Header().Add("X-Worker", api.GetHost())
+	rw.Header().Add("X-Worker", utils.Hostname())
 	next(rw, r)
 }
 
