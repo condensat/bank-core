@@ -88,7 +88,7 @@ func natsMessageHandler(ctx context.Context, log *logrus.Entry, msg *nats.Msg, h
 	// response can be nil if handler return and error
 	if resp == nil {
 		resp = bank.NewMessage()
-		resp.Error = err
+		resp.Error = fmt.Sprintf("%s", err)
 	}
 	data, err := resp.Encode()
 	if err != nil {
