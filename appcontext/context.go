@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	AppKey = iota
+	AppNameKey = iota
 	LoggerKey
 	WriterKey
 	LogLevelKey
@@ -32,7 +32,7 @@ const (
 
 // WithAppName returns a context with the Application name set
 func WithAppName(ctx context.Context, name string) context.Context {
-	return context.WithValue(ctx, AppKey, name)
+	return context.WithValue(ctx, AppNameKey, name)
 }
 
 // WithLogger returns a context with the log Writer set
@@ -89,6 +89,13 @@ func WithOptions(ctx context.Context, options Options) context.Context {
 	options.PasswordHashSeed = ""
 
 	return ctx
+}
+
+func AppName(ctx context.Context) string {
+	if ctxAppName, ok := ctx.Value(AppNameKey).(string); ok {
+		return ctxAppName
+	}
+	return "NoAppName"
 }
 
 func Level(ctx context.Context) log.Level {

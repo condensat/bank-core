@@ -23,7 +23,7 @@ func Logger(ctx context.Context) *logrus.Entry {
 		return entry
 	}
 
-	if appName, ok := ctx.Value(appcontext.AppKey).(string); ok {
+	if appName, ok := ctx.Value(appcontext.AppNameKey).(string); ok {
 		entry = entry.WithField("app", appName)
 	}
 	if writerKey, ok := ctx.Value(appcontext.WriterKey).(io.Writer); ok {
