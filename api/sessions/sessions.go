@@ -126,6 +126,10 @@ func (s *Session) UserSession(ctx context.Context, sessionID SessionID) uint64 {
 	return si.UserID
 }
 
+func IsUserValid(userID uint64) bool {
+	return userID != cstInvalidUserID
+}
+
 func (s *Session) ExtendSession(ctx context.Context, remoteAddr string, sessionID SessionID, duration time.Duration) (uint64, error) {
 	log := logger.Logger(ctx).WithField("Method", "sessions.Session.ExtendSession")
 	rdb := s.rdb
