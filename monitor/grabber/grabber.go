@@ -11,6 +11,7 @@ import (
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/monitor"
+	"github.com/condensat/bank-core/monitor/messaging"
 	"github.com/condensat/bank-core/utils"
 
 	"github.com/condensat/bank-core/logger"
@@ -40,8 +41,9 @@ func (p *Grabber) Run(ctx context.Context) {
 func (p *Grabber) registerHandlers(ctx context.Context) {
 	log := logger.Logger(ctx).WithField("Method", "monitor.Grabber.RegisterHandlers")
 
-	messaging := appcontext.Messaging(ctx)
-	messaging.SubscribeWorkers(ctx, "Condensat.Monitor.Inbound", 4, p.onProcessInfo)
+	nats := appcontext.Messaging(ctx)
+	nats.SubscribeWorkers(ctx, messaging.InboundSubject, 4, p.onProcessInfo)
+
 	log.Debug("Monitor Grabber registered")
 }
 
