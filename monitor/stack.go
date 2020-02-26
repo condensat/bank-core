@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/condensat/bank-core/api/sessions"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/utils"
 
@@ -28,12 +27,7 @@ type StackMonitor int
 
 func (p *StackMonitor) Run(ctx context.Context, port int, corsAllowedOrigins []string) {
 	log := logger.Logger(ctx).WithField("Method", "monitor.StackMonitor.Run")
-
 	muxer := http.NewServeMux()
-
-	// create session and and to context
-	session := sessions.NewSession(ctx)
-	ctx = context.WithValue(ctx, sessions.KeySessions, session)
 
 	services.RegisterServices(ctx, muxer, corsAllowedOrigins)
 
@@ -64,7 +58,7 @@ func (p *StackMonitor) Run(ctx context.Context, port int, corsAllowedOrigins []s
 	log.WithFields(logrus.Fields{
 		"Hostname": utils.Hostname(),
 		"Port":     port,
-	}).Info("Api Service started")
+	}).Info("Stack Monintor Service started")
 
 	<-ctx.Done()
 }
