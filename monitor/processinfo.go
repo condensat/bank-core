@@ -20,7 +20,8 @@ type ProcessInfo struct {
 	MemSys        uint64 `gorm:"not null"`
 	MemLookups    uint64 `gorm:"not null"`
 
-	NumCPU       uint64 `gorm:"not null"`
-	NumGoroutine uint64 `gorm:"not null"`
-	NumCgoCall   uint64 `gorm:"not null"`
+	NumCPU       uint64  `gorm:"not null"`
+	NumGoroutine uint64  `gorm:"not null"`
+	NumCgoCall   uint64  `gorm:"not null"`
+	CPUUsage     float64 `gorm:"not null"`
 }

@@ -34,11 +34,12 @@ func NewGrabber(ctx context.Context, interval time.Duration) *Grabber {
 func (p *Grabber) Run(ctx context.Context, numWorkers int) {
 	log := logger.Logger(ctx).WithField("Method", "processus.Grabber.Run")
 
+	var clock monitor.Clock
 	for {
+		clock.Init()
 		select {
 		case <-time.After(p.interval):
-
-			processInfo := processInfo(p.appName)
+			processInfo := processInfo(p.appName, &clock)
 			err := p.sendProcessInfo(ctx, &processInfo)
 			if err != nil {
 				log.WithError(err).Error("Failed to sendProcessInfo")
@@ -53,7 +54,7 @@ func (p *Grabber) Run(ctx context.Context, numWorkers int) {
 	}
 }
 
-func processInfo(appName string) monitor.ProcessInfo {
+func processInfo(appName string, clock *monitor.Clock) monitor.ProcessInfo {
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 
@@ -71,6 +72,7 @@ func processInfo(appName string) monitor.ProcessInfo {
 		NumCPU:       uint64(runtime.NumCPU()),
 		NumGoroutine: uint64(runtime.NumGoroutine()),
 		NumCgoCall:   uint64(runtime.NumCgoCall()),
+		CPUUsage:     clock.CPU(),
 	}
 }
 
