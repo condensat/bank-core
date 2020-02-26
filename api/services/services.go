@@ -15,14 +15,25 @@ import (
 
 	"github.com/gorilla/rpc/v2"
 	"github.com/gorilla/rpc/v2/json"
+	"github.com/rs/cors"
 )
 
 var (
 	ErrServiceInternalError = errors.New("Service Internal Error")
 )
 
-func RegisterServices(ctx context.Context, mux *http.ServeMux) {
-	mux.Handle("/api/v1/session", NewSessionHandler())
+func RegisterServices(ctx context.Context, mux *http.ServeMux, corsAllowedOrigins []string) {
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins: corsAllowedOrigins,
+		AllowedHeaders: []string{"Content-Type", "Authorization", "X-Requested-With"},
+		AllowedMethods: []string{
+			http.MethodPost,
+		},
+		MaxAge:           1000,
+		AllowCredentials: true,
+	})
+
+	mux.Handle("/api/v1/session", corsHandler.Handler(NewSessionHandler()))
 }
 
 func NewSessionHandler() http.Handler {
