@@ -12,6 +12,7 @@ import (
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/api/sessions"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/logger"
 
 	"github.com/gorilla/rpc/v2"
 )
@@ -19,6 +20,15 @@ import (
 var (
 	ErrServiceInternalError = errors.New("Service Internal Error")
 )
+
+func RegisterMessageHandlers(ctx context.Context) {
+	log := logger.Logger(ctx).WithField("Method", "RegisterMessageHandlers")
+
+	nats := appcontext.Messaging(ctx)
+	nats.SubscribeWorkers(ctx, VerifySessionSubject, 4, sessions.VerifySession)
+
+	log.Debug("MessageHandlers registered")
+}
 
 func RegisterServices(ctx context.Context, mux *http.ServeMux, corsAllowedOrigins []string) {
 	corsHandler := CreateCorsOptions(corsAllowedOrigins)
@@ -57,17 +67,16 @@ func NewUserHandler(ctx context.Context) http.Handler {
 	return server
 }
 
-func ContextValues(ctx context.Context) (db bank.Database, session *sessions.Session, err error) {
-	db = appcontext.Database(ctx)
-	if ctxSession, ok := ctx.Value(sessions.KeySessions).(*sessions.Session); ok {
-		session = ctxSession
-	}
+func ContextValues(ctx context.Context) (bank.Database, *sessions.Session, error) {
+	db := appcontext.Database(ctx)
+	session, err := sessions.ContextSession(ctx)
 	if db == nil || session == nil {
-		db = nil
-		session = nil
 		err = ErrServiceInternalError
-		return
 	}
 
-	return
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return db, session, nil
 }

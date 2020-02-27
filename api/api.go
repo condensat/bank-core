@@ -31,6 +31,7 @@ func (p *Api) Run(ctx context.Context, port int, corsAllowedOrigins []string) {
 	session := sessions.NewSession(ctx)
 	ctx = context.WithValue(ctx, sessions.KeySessions, session)
 
+	services.RegisterMessageHandlers(ctx)
 	services.RegisterServices(ctx, muxer, corsAllowedOrigins)
 
 	handler := negroni.New(&negroni.Recovery{})
