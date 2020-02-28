@@ -11,8 +11,9 @@ import (
 )
 
 type StackListService struct {
-	Since    time.Duration
-	Services []string
+	Since       time.Duration
+	Services    []string
+	ProcessInfo []ProcessInfo
 }
 
 func (p *StackListService) Encode() ([]byte, error) {

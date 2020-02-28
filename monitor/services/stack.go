@@ -30,9 +30,19 @@ type StackInfoRequest struct {
 	coreService.SessionArgs
 }
 
+// ServiceInfo holds service status
+type ServiceInfo struct {
+	AppName      string  `json:"appName"`
+	ServiceCount uint64  `json:"serviceCount"`
+	Memory       uint64  `json:"memory"`
+	MemoryMax    uint64  `json:"memoryMax"`
+	ThreadCount  uint64  `json:"threadCount"`
+	CPU          float64 `json:"cpu"`
+}
+
 // StackInfoResponse holds args for start requests
 type StackInfoResponse struct {
-	Services []string `json:"services"`
+	Services []ServiceInfo `json:"services"`
 }
 
 // ServiceList operation return the list of active services
@@ -62,7 +72,24 @@ func (p *StackService) ServiceList(r *http.Request, request *StackInfoRequest, r
 	}
 
 	// Reply
-	reply.Services = listService.Services[:]
+	reply.Services = make([]ServiceInfo, len(listService.Services))
+	for i, service := range listService.Services {
+		reply.Services[i].AppName = service
+	}
+
+	for _, info := range listService.ProcessInfo {
+		for i := range reply.Services {
+			if reply.Services[i].AppName != info.AppName {
+				continue
+			}
+
+			reply.Services[i].ServiceCount++
+			reply.Services[i].Memory += info.MemAlloc
+			reply.Services[i].MemoryMax += info.MemSys
+			reply.Services[i].ThreadCount += info.NumGoroutine
+			reply.Services[i].CPU += info.CPUUsage
+		}
+	}
 
 	log.WithFields(logrus.Fields{
 		"Services": reply.Services,

@@ -89,14 +89,31 @@ func (p *Grabber) onStackList(ctx context.Context, subject string, message *bank
 		return nil, ErrInternalError
 	}
 
-	list, err := monitor.ListServices(ctx, req.Since)
+	processInfo, err := monitor.LastServicesStatus(ctx)
 	if err != nil {
-		log.WithError(err).Error("ListServices failed")
+		log.WithError(err).Error("LastServicesStatus failed")
 		return nil, ErrInternalError
 	}
 
+	// find unique names
+	var serviceMap = make(map[string]string)
+	for _, pi := range processInfo {
+		if _, ok := serviceMap[pi.AppName]; ok {
+			continue
+		}
+		serviceMap[pi.AppName] = pi.AppName
+	}
+
+	// get unique names
+	var services = make([]string, 0, len(serviceMap))
+	for appName := range serviceMap {
+		services = append(services, appName)
+	}
+
+	// create response
 	resp := common.StackListService{
-		Services: list,
+		Services:    services[:],
+		ProcessInfo: processInfo[:],
 	}
 
 	return bank.ToMessage(appcontext.AppName(ctx), &resp), nil
