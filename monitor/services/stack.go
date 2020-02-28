@@ -13,6 +13,7 @@ import (
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/monitor/common"
 	"github.com/condensat/bank-core/monitor/messaging"
 
 	coreService "github.com/condensat/bank-core/api/services"
@@ -70,12 +71,12 @@ func (p *StackService) ServiceList(r *http.Request, request *StackInfoRequest, r
 	return nil
 }
 
-func StackListServiceRequest(ctx context.Context) (StackListService, error) {
-	log := logger.Logger(ctx).WithField("Method", "services.StackService.StackListServiceRequest")
+func StackListServiceRequest(ctx context.Context) (common.StackListService, error) {
+	log := logger.Logger(ctx).WithField("Method", "StackService.StackListServiceRequest")
 	nats := appcontext.Messaging(ctx)
-	var result StackListService
+	var result common.StackListService
 
-	message := bank.ToMessage(appcontext.AppName(ctx), &StackListService{
+	message := bank.ToMessage(appcontext.AppName(ctx), &common.StackListService{
 		Since: time.Hour,
 	})
 	response, err := nats.Request(ctx, messaging.StackListSubject, message)

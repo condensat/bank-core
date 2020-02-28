@@ -14,6 +14,7 @@ import (
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/monitor"
+	"github.com/condensat/bank-core/monitor/common"
 	"github.com/condensat/bank-core/monitor/messaging"
 	"github.com/condensat/bank-core/utils"
 )
@@ -55,11 +56,11 @@ func (p *Grabber) Run(ctx context.Context, numWorkers int) {
 	}
 }
 
-func processInfo(appName string, clock *monitor.Clock) monitor.ProcessInfo {
+func processInfo(appName string, clock *monitor.Clock) common.ProcessInfo {
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 
-	return monitor.ProcessInfo{
+	return common.ProcessInfo{
 		Timestamp: time.Now().UTC().Truncate(time.Second),
 		AppName:   appName,
 		Hostname:  utils.Hostname(),
@@ -77,7 +78,7 @@ func processInfo(appName string, clock *monitor.Clock) monitor.ProcessInfo {
 	}
 }
 
-func (p *Grabber) sendProcessInfo(ctx context.Context, processInfo *monitor.ProcessInfo) error {
+func (p *Grabber) sendProcessInfo(ctx context.Context, processInfo *common.ProcessInfo) error {
 	request := bank.ToMessage(p.appName, processInfo)
 	return p.messaging.Publish(ctx, messaging.InboundSubject, request)
 }

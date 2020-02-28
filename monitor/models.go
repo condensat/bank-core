@@ -6,10 +6,11 @@ package monitor
 
 import (
 	"github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/monitor/common"
 )
 
 func Models() []model.Model {
 	return []model.Model{
-		model.Model(new(ProcessInfo)),
+		model.Model(new(common.ProcessInfo)),
 	}
 }
