@@ -77,3 +77,37 @@ func LastServicesStatus(ctx context.Context) ([]common.ProcessInfo, error) {
 
 	return result, nil
 }
+
+func LastServiceHistory(ctx context.Context, appName string, from, to time.Time, step time.Duration, round time.Duration) ([]common.ProcessInfo, error) {
+	var result []common.ProcessInfo
+	db, ok := appcontext.Database(ctx).DB().(*gorm.DB)
+	if !ok {
+		return nil, errors.New("Wrong database")
+	}
+
+	tsFrom := from.UnixNano() / int64(time.Second)
+	tsTo := to.UnixNano() / int64(time.Second)
+
+	subQuery := db.Model(&common.ProcessInfo{}).
+		Select("MAX(id) AS id, FLOOR(UNIX_TIMESTAMP(timestamp)/(?)) AS timekey", step/time.Second).
+		Where("app_name=?", appName).
+		Where("timestamp BETWEEN FROM_UNIXTIME(?) AND FROM_UNIXTIME(?)", tsFrom, tsTo).
+		Group("timekey, hostname").
+		SubQuery()
+
+	var list []*common.ProcessInfo
+	err := db.Joins("RIGHT JOIN (?) AS t1 ON process_info.id = t1.id", subQuery).
+		Order("timestamp, hostname DESC").
+		Find(&list).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, entry := range list {
+		entry.Timestamp = entry.Timestamp.Round(round)
+		result = append(result, *entry)
+	}
+
+	return result, nil
+}
