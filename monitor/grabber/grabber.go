@@ -45,6 +45,7 @@ func (p *Grabber) registerHandlers(ctx context.Context) {
 	nats := appcontext.Messaging(ctx)
 	nats.SubscribeWorkers(ctx, messaging.InboundSubject, 4, p.onProcessInfo)
 	nats.SubscribeWorkers(ctx, messaging.StackListSubject, 4, p.onStackList)
+	nats.SubscribeWorkers(ctx, messaging.StackServiceHistorySubject, 4, p.onStackServiceHistory)
 
 	log.Debug("Monitor Grabber registered")
 }
@@ -114,6 +115,34 @@ func (p *Grabber) onStackList(ctx context.Context, subject string, message *bank
 	resp := common.StackListService{
 		Services:    services[:],
 		ProcessInfo: processInfo[:],
+	}
+
+	return bank.ToMessage(appcontext.AppName(ctx), &resp), nil
+}
+
+func (p *Grabber) onStackServiceHistory(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
+	log := logger.Logger(ctx).WithField("Method", "monitor.Grabber.onStackServiceHistory")
+	log = log.WithFields(logrus.Fields{
+		"Subject": subject,
+	})
+
+	var req common.StackServiceHistory
+	err := bank.FromMessage(message, &req)
+	if err != nil {
+		log.WithError(err).Error("Message data is not StackServiceHistory")
+		return nil, ErrInternalError
+	}
+
+	history, err := monitor.LastServiceHistory(ctx, req.AppName, req.From, req.To, req.Step, req.Round)
+	if err != nil {
+		log.WithError(err).Error("LastServiceHistory failed")
+		return nil, ErrInternalError
+	}
+
+	// create response
+	resp := common.StackServiceHistory{
+		AppName: req.AppName,
+		History: history,
 	}
 
 	return bank.ToMessage(appcontext.AppName(ctx), &resp), nil
