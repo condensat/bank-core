@@ -55,6 +55,20 @@ type SessionReply struct {
 	ValidUntil int64  `json:"valid_until"`
 }
 
+func setSessionCookie(w http.ResponseWriter, reply *SessionReply) {
+	http.SetCookie(w, &http.Cookie{
+		Name:    "sessionId",
+		Value:   reply.SessionID,
+		Path:    "/api/v1/session",
+		Domain:  "condensat.space",
+		Expires: fromTimestampMillis(reply.ValidUntil),
+
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
+}
+
 // Open operation perform check regarding credentials and return a sessionID
 // session has a status [open, close] and a validation period
 func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, reply *SessionReply) error {
