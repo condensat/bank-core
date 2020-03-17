@@ -8,11 +8,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"time"
 
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
+	"github.com/condensat/bank-core/monitor/processus"
 
 	"github.com/condensat/bank-core/api"
 	"github.com/condensat/bank-core/api/ratelimiter"
@@ -71,6 +73,7 @@ func main() {
 	ctx = appcontext.WithWriter(ctx, logger.NewRedisLogger(ctx))
 	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, args.Nats))
 	ctx = appcontext.WithDatabase(ctx, database.NewDatabase(args.Database))
+	ctx = appcontext.WithProcessusGrabber(ctx, processus.NewGrabber(ctx, 15*time.Second))
 
 	ctx = api.RegisterRateLimiter(ctx, args.Api.PeerRequestPerSecond)
 	ctx = api.RegisterOpenSessionRateLimiter(ctx, args.Api.OpenSessionPerMinute)

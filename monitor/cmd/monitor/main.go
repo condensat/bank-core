@@ -15,27 +15,28 @@ import (
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
+
+	"github.com/condensat/bank-core/monitor"
+	"github.com/condensat/bank-core/monitor/grabber"
 	"github.com/condensat/bank-core/monitor/processus"
 )
 
 type Args struct {
-	App          appcontext.Options
-	WithDatabase bool
+	App appcontext.Options
 
 	Redis    cache.RedisOptions
-	Database database.Options
 	Nats     messaging.NatsOptions
+	Database database.Options
 }
 
 func parseArgs() Args {
 	var args Args
 
-	appcontext.OptionArgs(&args.App, "LogGrabber")
-	flag.BoolVar(&args.WithDatabase, "withDatabase", false, "Store log to database (default false)")
+	appcontext.OptionArgs(&args.App, "CondensatMonitor")
 
 	cache.OptionArgs(&args.Redis)
-	database.OptionArgs(&args.Database)
 	messaging.OptionArgs(&args.Nats)
+	database.OptionArgs(&args.Database)
 
 	flag.Parse()
 
@@ -48,17 +49,24 @@ func main() {
 	ctx := context.Background()
 	ctx = appcontext.WithOptions(ctx, args.App)
 	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, args.Redis))
+	ctx = appcontext.WithWriter(ctx, logger.NewRedisLogger(ctx))
 	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, args.Nats))
+	ctx = appcontext.WithDatabase(ctx, database.NewDatabase(args.Database))
 	ctx = appcontext.WithProcessusGrabber(ctx, processus.NewGrabber(ctx, 15*time.Second))
 
-	if args.WithDatabase {
-		ctx = appcontext.WithDatabase(ctx, database.NewDatabase(args.Database))
-		databaseLogger := logger.NewDatabaseLogger(ctx)
-		ctx = appcontext.WithLogger(ctx, databaseLogger)
-		defer databaseLogger.Close()
-	}
+	migrateDatabase(ctx)
 
-	logger := logger.NewRedisLogger(ctx)
-	// Start the log grabber
-	logger.Grab(ctx)
+	var grabber grabber.Grabber
+	grabber.Run(ctx)
+}
+
+func migrateDatabase(ctx context.Context) {
+	db := appcontext.Database(ctx)
+
+	err := db.Migrate(monitor.Models())
+	if err != nil {
+		logger.Logger(ctx).WithError(err).
+			WithField("Method", "main.migrateDatabase").
+			Panic("Failed to migrate monitor models")
+	}
 }

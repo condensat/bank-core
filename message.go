@@ -15,7 +15,7 @@ import (
 type MessageFlag uint32
 
 const (
-	cstCurrentVersion = "1.0"
+	CurrentVersion = "1.0"
 
 	flagCompressed MessageFlag = 0
 	flagEncrypted  MessageFlag = 1
@@ -33,12 +33,12 @@ type Message struct {
 	From    string `json:",omitempty"` // From is the public key of sender
 	Data    []byte `json:",omitempty"` // Data payload
 	Flags   uint   `json:",omitempty"` // Flags for Compressed, Encrypted, Signed
-	Error   error  `json:",omitempty"` // Error in message processing
+	Error   string `json:",omitempty"` // Error in message processing
 }
 
 func NewMessage() *Message {
 	return &Message{
-		Version: cstCurrentVersion,
+		Version: CurrentVersion,
 	}
 }
 

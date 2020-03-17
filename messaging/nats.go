@@ -88,7 +88,7 @@ func natsMessageHandler(ctx context.Context, log *logrus.Entry, msg *nats.Msg, h
 	// response can be nil if handler return and error
 	if resp == nil {
 		resp = bank.NewMessage()
-		resp.Error = err
+		resp.Error = fmt.Sprintf("%s", err)
 	}
 	data, err := resp.Encode()
 	if err != nil {
@@ -151,6 +151,38 @@ func (n *Nats) Subscribe(ctx context.Context, subject string, handle bank.Messag
 			WithField("subject", subject).
 			Panic("Nats QueueSubscribe failed")
 	}
+}
+
+// Publish perform nats Publish with subject and message.
+// panic if subject or message are invalid
+func (n *Nats) Publish(ctx context.Context, subject string, message *bank.Message) error {
+	log := logger.Logger(ctx).WithField("Method", "messaging.Nats.Publish")
+
+	if len(subject) == 0 {
+		log.WithError(ErrInvalidSubject).
+			Panic("Invalid subject")
+	}
+	if message == nil {
+		log.WithError(bank.ErrInvalidMessage).
+			Panic("Invalid message")
+	}
+
+	// prepare request
+	data, err := message.Encode()
+	if err != nil {
+		log.WithError(err).
+			Debug("Failed to encode message")
+		return ErrEncoding
+	}
+
+	// perform nats publish
+	err = n.nc.Publish(subject, data)
+	if err != nil {
+		log.WithError(err).
+			Debug("Nats Publish failed")
+		return ErrRequest
+	}
+	return nil
 }
 
 // Request perform nats Request with subject and message.
