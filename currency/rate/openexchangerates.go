@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	SourceName           = "openexchangerates"
+	SourceName           = "oxr"
 	OpenExchangeRatesURL = "https://openexchangerates.org"
 	LatestPath           = "latest.json"
 )
