@@ -17,3 +17,9 @@ func (p *Database) Migrate(models []model.Model) error {
 		interfaces...,
 	).Error
 }
+
+func CurrencyRateModel() []model.Model {
+	return []model.Model{
+		model.Model(new(model.Currency)),
+	}
+}
