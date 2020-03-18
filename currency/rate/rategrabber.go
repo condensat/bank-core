@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/utils"
 
@@ -73,9 +74,16 @@ func (p *RateGrabber) scheduledGrabber(ctx context.Context, appID string, interv
 			continue
 		}
 
+		err = database.AppendCurencyRates(ctx, currencyRates)
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to addCurencyRates")
+			continue
+		}
+
 		log.WithFields(logrus.Fields{
 			"Epoch": epoch.Truncate(time.Millisecond),
 			"Count": len(currencyRates),
-		}).Debug("Got CurrencyRates")
+		}).Debug("CurrencyRates stored")
 	}
 }
