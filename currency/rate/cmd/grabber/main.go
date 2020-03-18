@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"flag"
+	"time"
 
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
@@ -17,7 +18,9 @@ import (
 )
 
 type CurrencyRate struct {
-	AppID string
+	AppID         string
+	FetchInterval time.Duration
+	FetchDelay    time.Duration
 }
 
 type Args struct {
@@ -39,6 +42,9 @@ func parseArgs() Args {
 
 	flag.StringVar(&args.CurrencyRate.AppID, "appId", "", "OpenExchangeRates application Id")
 
+	flag.DurationVar(&args.CurrencyRate.FetchInterval, "fetchInterval", rate.DefaultInterval, "Fetch interval")
+	flag.DurationVar(&args.CurrencyRate.FetchDelay, "fetchDelay", rate.DefaultDelay, "Fetch shift delay")
+
 	flag.Parse()
 
 	return args
@@ -56,7 +62,7 @@ func main() {
 	migrateDatabase(ctx)
 
 	var rateGrabber rate.RateGrabber
-	rateGrabber.Run(ctx, args.CurrencyRate.AppID)
+	rateGrabber.Run(ctx, args.CurrencyRate.AppID, args.CurrencyRate.FetchInterval, args.CurrencyRate.FetchDelay)
 }
 
 func migrateDatabase(ctx context.Context) {
