@@ -25,7 +25,7 @@ const (
 type RateGrabber int
 
 func (p *RateGrabber) Run(ctx context.Context, appID string, interval time.Duration, delay time.Duration) {
-	log := logger.Logger(ctx).WithField("Method", "currency.rate.RateGrabber.Run")
+	log := logger.Logger(ctx).WithField("Method", "RateGrabber.Run")
 	appID = appcontext.SecretOrPassword(appID)
 
 	log.WithFields(logrus.Fields{
@@ -49,7 +49,7 @@ func checkParams(interval time.Duration, delay time.Duration) (time.Duration, ti
 }
 
 func (p *RateGrabber) scheduledGrabber(ctx context.Context, appID string, interval time.Duration, delay time.Duration) {
-	log := logger.Logger(ctx).WithField("Method", "currency.rate.RateGrabber.grabRate")
+	log := logger.Logger(ctx).WithField("Method", "RateGrabber.scheduledGrabber")
 
 	interval, delay = checkParams(interval, delay)
 
