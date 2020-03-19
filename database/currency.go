@@ -119,3 +119,15 @@ func convertCurrencyList(list []*model.Currency) []model.Currency {
 
 	return result[:]
 }
+
+const (
+	colCurrencyName      = "name"
+	colCurrencyAvailable = "available"
+)
+
+func currencyColumnNames() []string {
+	return []string{
+		colCurrencyName,
+		colCurrencyAvailable,
+	}
+}
