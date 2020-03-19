@@ -97,14 +97,14 @@ func QueryCurrencyList(ctx context.Context, name string, available int) ([]model
 // ScopeCurencyName
 func ScopeCurencyName(name string) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
-		return db.Where("name = ?", name)
+		return db.Where(reqName(), name)
 	}
 }
 
 // ScopeCurencyAvailable
 func ScopeCurencyAvailable(available int) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
-		return db.Where("available >= ?", available)
+		return db.Where(reqAvailable(), available)
 	}
 }
 
@@ -130,4 +130,23 @@ func currencyColumnNames() []string {
 		colCurrencyName,
 		colCurrencyAvailable,
 	}
+}
+
+// zero allocation requests string for scope
+func reqName() string {
+	var req [len(colCurrencyName) + len(reqEQ)]byte
+	off := 0
+	off += copy(req[off:], colCurrencyName)
+	off += copy(req[off:], reqEQ)
+
+	return string(req[:])
+}
+
+func reqAvailable() string {
+	var req [len(colCurrencyAvailable) + len(reqGTE)]byte
+	off := 0
+	off += copy(req[off:], colCurrencyAvailable)
+	off += copy(req[off:], reqGTE)
+
+	return string(req[:])
 }

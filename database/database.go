@@ -51,3 +51,9 @@ func NewDatabase(options Options) *Database {
 func (d *Database) DB() bank.DB {
 	return d.db
 }
+
+// zero allocation requests string for scope
+const (
+	reqEQ  = " = ?"
+	reqGTE = " >= ?"
+)
