@@ -4,9 +4,11 @@
 
 package model
 
-import "time"
+import (
+	"time"
+)
 
-type Currency struct {
+type CurrencyRate struct {
 	ID        uint64    `gorm:"primary_key"`
 	Timestamp time.Time `gorm:"index;not null;type:timestamp"`
 	Source    string    `gorm:"index;not null;type:varchar(16)"`

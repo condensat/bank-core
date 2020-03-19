@@ -18,8 +18,8 @@ func (p *Database) Migrate(models []model.Model) error {
 	).Error
 }
 
-func CurrencyRateModel() []model.Model {
+func CurrencyModel() []model.Model {
 	return []model.Model{
-		model.Model(new(model.Currency)),
+		model.Model(new(model.CurrencyRate)),
 	}
 }

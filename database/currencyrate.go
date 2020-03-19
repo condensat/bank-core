@@ -16,8 +16,8 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
-func AppendCurencyRates(ctx context.Context, currencyRates []model.Currency) error {
-	log := logger.Logger(ctx).WithField("Method", "currency.rate.RateGrabber.addCurencyRates")
+func AppendCurencyRates(ctx context.Context, currencyRates []model.CurrencyRate) error {
+	log := logger.Logger(ctx).WithField("Method", "database.AppendCurencyRates")
 	db := appcontext.Database(ctx)
 	if db == nil {
 		return errors.New("Invalid appcontext.Database")
@@ -33,7 +33,7 @@ func AppendCurencyRates(ctx context.Context, currencyRates []model.Currency) err
 		for _, rate := range currencyRates {
 			err := txdb.Create(&rate).Error
 			if err != nil {
-				log.WithError(err).Warning("Failed to add Currency")
+				log.WithError(err).Warning("Failed to add CurrencyRate")
 				resultErr = err // return only last error
 				continue        // continue to insert if possible
 			}
