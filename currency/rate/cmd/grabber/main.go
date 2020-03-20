@@ -74,7 +74,7 @@ func main() {
 func migrateDatabase(ctx context.Context) {
 	db := appcontext.Database(ctx)
 
-	err := db.Migrate(database.CurrencyRateModel())
+	err := db.Migrate(database.CurrencyModel())
 	if err != nil {
 		logger.Logger(ctx).WithError(err).
 			WithField("Method", "main.migrateDatabase").

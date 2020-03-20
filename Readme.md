@@ -9,7 +9,7 @@ This repository hold all the backend components for Condensat Bank.
 Log can be stored into mariadb.
 
 ```bash
-docker run --name mariadb-test -e MYSQL_RANDOM_ROOT_PASSWORD=yes -e MYSQL_USER=condensat -e MYSQL_PASSWORD=condensat -e MYSQL_DATABASE=condensat -p 3306:3306 -d mariadb:10.3
+docker run --name mariadb-test -e MYSQL_RANDOM_ROOT_PASSWORD=yes -e MYSQL_USER=condensat -e MYSQL_PASSWORD=condensat -e MYSQL_DATABASE=condensat -v $(pwd)/tests/database/permissions.sql:/docker-entrypoint-initdb.d/permissions.sql:ro -p 3306:3306 -d mariadb:10.3
 ```
 
 ### Start redis
