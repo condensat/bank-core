@@ -73,6 +73,13 @@ func TestCurrency(t *testing.T) {
 				}
 			}
 
+			// Exists Tests
+			{
+				if !CurrencyExists(ctx, tt.args.currency.Name) {
+					t.Errorf("CurrencyExists() = %s should exists", tt.args.currency.Name)
+				}
+			}
+
 			// Update Tests
 			{
 				updateCurr, err := GetCurrencyByName(ctx, tt.args.currency.Name)
