@@ -37,33 +37,33 @@ func HashEntry(entry string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func CreateOrUpdatedCredential(ctx context.Context, db bank.Database, userID uint64, login, password, otpSecret string) (*model.Credential, error) {
+func CreateOrUpdatedCredential(ctx context.Context, db bank.Database, credential model.Credential) (model.Credential, error) {
 	switch gdb := db.DB().(type) {
 	case *gorm.DB:
 
 		// perform a sha512 hex digest of login and password
-		login = HashEntry(login)
-		password = HashEntry(password)
+		login := HashEntry(credential.LoginHash)
+		password := HashEntry(credential.PasswordHash)
 		password = login + password // password prefixed with login for uniqueness
 		loginHash := security.SaltedHash(ctx, []byte(login))
 		passwordHash := security.SaltedHash(ctx, []byte(password))
 		defer utils.Memzero(loginHash)
 		defer utils.Memzero(passwordHash)
 
-		var cred model.Credential
+		var result model.Credential
 		err := gdb.
-			Where(&model.Credential{UserID: userID}).
+			Where(&model.Credential{UserID: credential.UserID}).
 			Assign(&model.Credential{
 				LoginHash:    base58.Encode(loginHash, base58.BitcoinAlphabet),
 				PasswordHash: base58.Encode(passwordHash, base58.BitcoinAlphabet),
-				TOTPSecret:   otpSecret,
+				TOTPSecret:   credential.TOTPSecret,
 			}).
-			FirstOrCreate(&cred).Error
+			FirstOrCreate(&result).Error
 
-		return &cred, err
+		return result, err
 
 	default:
-		return nil, ErrInvalidDatabase
+		return model.Credential{}, ErrInvalidDatabase
 	}
 }
 

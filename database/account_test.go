@@ -176,13 +176,13 @@ type AccountTestData struct {
 func createTestAccountData(db bank.Database) AccountTestData {
 	var data AccountTestData
 
-	userTest1, _ := FindOrCreateUser(db, "test1", "test1@condensat.tech")
-	userTest2, _ := FindOrCreateUser(db, "test2", "test2@condensat.tech")
+	userTest1, _ := FindOrCreateUser(db, model.User{Name: "test1", Email: "test1@condensat.tech"})
+	userTest2, _ := FindOrCreateUser(db, model.User{Name: "test2", Email: "test2@condensat.tech"})
 	currTest1, _ := AddOrUpdateCurrency(db, model.NewCurrency("TBTC1", FlagCurencyAvailable))
 	currTest2, _ := AddOrUpdateCurrency(db, model.NewCurrency("TBTC2", FlagCurencyAvailable))
 
-	data.Users = append(data.Users, *userTest1)
-	data.Users = append(data.Users, *userTest2)
+	data.Users = append(data.Users, userTest1)
+	data.Users = append(data.Users, userTest2)
 	data.Currencies = append(data.Currencies, currTest1)
 	data.Currencies = append(data.Currencies, currTest2)
 	data.Names = append(data.Names, "") // empty account name is "default"
