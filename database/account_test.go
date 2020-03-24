@@ -93,12 +93,65 @@ func TestAccountsExists(t *testing.T) {
 		{"InvalidUserIDCurrency", args{ctx, 0, "", refAccount.Name}, false},
 		{"InvalidCurrencyName", args{ctx, refAccount.UserID, "", "not-default"}, false},
 		{"InvalidUserIDName", args{ctx, 0, refAccount.CurrencyName, "not-default"}, false},
+
+		{"ValidWildcard", args{ctx, refAccount.UserID, refAccount.CurrencyName, AccountNameWildcard}, true},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
 			if got := AccountsExists(tt.args.ctx, tt.args.userID, tt.args.currency, tt.args.name); got != tt.want {
 				t.Errorf("AccountsExists() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestQueryAccountList(t *testing.T) {
+	const databaseName = "TestQueryAccountList"
+	t.Parallel()
+
+	ctx := setup(context.Background(), databaseName, AccountModel())
+	defer teardown(ctx, databaseName)
+
+	data := createTestAccountData(ctx)
+
+	refAccount := model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[0].Name, Name: data.Names[1]}
+	_, _ = CreateAccount(ctx, refAccount)
+
+	refAccount = model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[0].Name, Name: data.Names[0]}
+	_, _ = CreateAccount(ctx, refAccount)
+
+	type args struct {
+		ctx      context.Context
+		userID   uint64
+		currency string
+		name     string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		count   int
+		wantErr bool
+	}{
+		{"Default", args{ctx, 0, "", ""}, 0, true},
+		{"Valid", args{ctx, refAccount.UserID, refAccount.CurrencyName, refAccount.Name}, 1, false},
+
+		{"InvalidUserID", args{ctx, 0, refAccount.Name, refAccount.Name}, 0, true},
+		{"InvalidCurrency", args{ctx, refAccount.UserID, "", refAccount.Name}, 0, false},
+		{"InvalidName", args{ctx, refAccount.UserID, refAccount.CurrencyName, "not-default"}, 0, false},
+
+		{"ValidWildcard", args{ctx, refAccount.UserID, refAccount.CurrencyName, AccountNameWildcard}, 2, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := QueryAccountList(tt.args.ctx, tt.args.userID, tt.args.currency, tt.args.name)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("QueryAccountList() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if len(got) != tt.count {
+				t.Errorf("QueryAccountList() = %v, want %v", len(got), tt.count)
 			}
 		})
 	}
