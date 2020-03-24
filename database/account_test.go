@@ -52,6 +52,54 @@ func TestCreateAccount(t *testing.T) {
 			if (got.ID != 0) != tt.validID {
 				t.Errorf("CreateAccount() = %v, unexpected ID", got.ID)
 			}
+			if !tt.wantErr && len(tt.args.account.Name) == 0 && got.Name != AccountNameDefault {
+				t.Errorf("CreateAccount() = %v, unexpected default account name", got.ID)
+			}
+		})
+	}
+}
+
+func TestAccountsExists(t *testing.T) {
+	const databaseName = "TestAccountsExists"
+	t.Parallel()
+
+	ctx := setup(context.Background(), databaseName, AccountModel())
+	defer teardown(ctx, databaseName)
+
+	data := createTestAccountData(ctx)
+
+	refAccount := model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[0].Name, Name: data.Names[0]}
+
+	_, _ = CreateAccount(ctx, refAccount)
+
+	type args struct {
+		ctx      context.Context
+		userID   uint64
+		currency string
+		name     string
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{"Default", args{ctx, 0, "", ""}, false},
+		{"Valid", args{ctx, refAccount.UserID, refAccount.CurrencyName, refAccount.Name}, true},
+
+		{"InvalidUserID", args{ctx, 0, refAccount.Name, refAccount.Name}, false},
+		{"InvalidCurrency", args{ctx, refAccount.UserID, "", refAccount.Name}, false},
+		{"InvalidName", args{ctx, refAccount.UserID, refAccount.CurrencyName, "not-default"}, false},
+
+		{"InvalidUserIDCurrency", args{ctx, 0, "", refAccount.Name}, false},
+		{"InvalidCurrencyName", args{ctx, refAccount.UserID, "", "not-default"}, false},
+		{"InvalidUserIDName", args{ctx, 0, refAccount.CurrencyName, "not-default"}, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			if got := AccountsExists(tt.args.ctx, tt.args.userID, tt.args.currency, tt.args.name); got != tt.want {
+				t.Errorf("AccountsExists() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
@@ -75,7 +123,7 @@ func createTestAccountData(ctx context.Context) AccountTestData {
 	data.Users = append(data.Users, *userTest2)
 	data.Currencies = append(data.Currencies, currTest1)
 	data.Currencies = append(data.Currencies, currTest2)
-	data.Names = append(data.Names, "Main")
+	data.Names = append(data.Names, "") // empty account name is "default"
 	data.Names = append(data.Names, "Vault")
 
 	return data
