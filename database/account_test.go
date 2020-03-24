@@ -5,12 +5,11 @@
 package database
 
 import (
-	"context"
 	"reflect"
 	"sort"
 	"testing"
 
-	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/database/model"
 )
 
@@ -30,13 +29,12 @@ func TestCreateAccount(t *testing.T) {
 	const databaseName = "TestCreateAccount"
 	t.Parallel()
 
-	ctx := setup(context.Background(), databaseName, AccountModel())
-	defer teardown(ctx, databaseName)
+	db := setup(databaseName, AccountModel())
+	defer teardown(db, databaseName)
 
-	data := createTestAccountData(ctx)
+	data := createTestAccountData(db)
 
 	type args struct {
-		ctx     context.Context
 		account model.Account
 	}
 	tests := []struct {
@@ -45,20 +43,20 @@ func TestCreateAccount(t *testing.T) {
 		validID bool
 		wantErr bool
 	}{
-		{"Default", args{ctx, model.Account{}}, false, true},
-		{"Valid", args{ctx, model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[0].Name, Name: data.Names[0]}}, true, false},
-		{"Duplicate", args{ctx, model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[0].Name, Name: data.Names[0]}}, false, true},
+		{"Default", args{model.Account{}}, false, true},
+		{"Valid", args{model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[0].Name, Name: data.Names[0]}}, true, false},
+		{"Duplicate", args{model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[0].Name, Name: data.Names[0]}}, false, true},
 
-		{"SameUser", args{ctx, model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[0].Name, Name: data.Names[1]}}, true, false},
-		{"SecondCurr", args{ctx, model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[1].Name, Name: data.Names[0]}}, true, false},
+		{"SameUser", args{model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[0].Name, Name: data.Names[1]}}, true, false},
+		{"SecondCurr", args{model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[1].Name, Name: data.Names[0]}}, true, false},
 
-		{"SecondUser", args{ctx, model.Account{UserID: data.Users[1].ID, CurrencyName: data.Currencies[0].Name, Name: data.Names[0]}}, true, false},
-		{"SecondUserSecondCurr", args{ctx, model.Account{UserID: data.Users[1].ID, CurrencyName: data.Currencies[1].Name, Name: data.Names[0]}}, true, false},
+		{"SecondUser", args{model.Account{UserID: data.Users[1].ID, CurrencyName: data.Currencies[0].Name, Name: data.Names[0]}}, true, false},
+		{"SecondUserSecondCurr", args{model.Account{UserID: data.Users[1].ID, CurrencyName: data.Currencies[1].Name, Name: data.Names[0]}}, true, false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := CreateAccount(tt.args.ctx, tt.args.account)
+			got, err := CreateAccount(db, tt.args.account)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateAccount() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -77,17 +75,16 @@ func TestAccountsExists(t *testing.T) {
 	const databaseName = "TestAccountsExists"
 	t.Parallel()
 
-	ctx := setup(context.Background(), databaseName, AccountModel())
-	defer teardown(ctx, databaseName)
+	db := setup(databaseName, AccountModel())
+	defer teardown(db, databaseName)
 
-	data := createTestAccountData(ctx)
+	data := createTestAccountData(db)
 
 	refAccount := model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[0].Name, Name: data.Names[0]}
 
-	_, _ = CreateAccount(ctx, refAccount)
+	_, _ = CreateAccount(db, refAccount)
 
 	type args struct {
-		ctx      context.Context
 		userID   uint64
 		currency string
 		name     string
@@ -97,23 +94,23 @@ func TestAccountsExists(t *testing.T) {
 		args args
 		want bool
 	}{
-		{"Default", args{ctx, 0, "", ""}, false},
-		{"Valid", args{ctx, refAccount.UserID, refAccount.CurrencyName, refAccount.Name}, true},
+		{"Default", args{0, "", ""}, false},
+		{"Valid", args{refAccount.UserID, refAccount.CurrencyName, refAccount.Name}, true},
 
-		{"InvalidUserID", args{ctx, 0, refAccount.Name, refAccount.Name}, false},
-		{"InvalidCurrency", args{ctx, refAccount.UserID, "", refAccount.Name}, false},
-		{"InvalidName", args{ctx, refAccount.UserID, refAccount.CurrencyName, "not-default"}, false},
+		{"InvalidUserID", args{0, refAccount.Name, refAccount.Name}, false},
+		{"InvalidCurrency", args{refAccount.UserID, "", refAccount.Name}, false},
+		{"InvalidName", args{refAccount.UserID, refAccount.CurrencyName, "not-default"}, false},
 
-		{"InvalidUserIDCurrency", args{ctx, 0, "", refAccount.Name}, false},
-		{"InvalidCurrencyName", args{ctx, refAccount.UserID, "", "not-default"}, false},
-		{"InvalidUserIDName", args{ctx, 0, refAccount.CurrencyName, "not-default"}, false},
+		{"InvalidUserIDCurrency", args{0, "", refAccount.Name}, false},
+		{"InvalidCurrencyName", args{refAccount.UserID, "", "not-default"}, false},
+		{"InvalidUserIDName", args{0, refAccount.CurrencyName, "not-default"}, false},
 
-		{"ValidWildcard", args{ctx, refAccount.UserID, refAccount.CurrencyName, AccountNameWildcard}, true},
+		{"ValidWildcard", args{refAccount.UserID, refAccount.CurrencyName, AccountNameWildcard}, true},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			if got := AccountsExists(tt.args.ctx, tt.args.userID, tt.args.currency, tt.args.name); got != tt.want {
+			if got := AccountsExists(db, tt.args.userID, tt.args.currency, tt.args.name); got != tt.want {
 				t.Errorf("AccountsExists() = %v, want %v", got, tt.want)
 			}
 		})
@@ -124,19 +121,18 @@ func TestQueryAccountList(t *testing.T) {
 	const databaseName = "TestQueryAccountList"
 	t.Parallel()
 
-	ctx := setup(context.Background(), databaseName, AccountModel())
-	defer teardown(ctx, databaseName)
+	db := setup(databaseName, AccountModel())
+	defer teardown(db, databaseName)
 
-	data := createTestAccountData(ctx)
+	data := createTestAccountData(db)
 
 	refAccount := model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[0].Name, Name: data.Names[1]}
-	_, _ = CreateAccount(ctx, refAccount)
+	_, _ = CreateAccount(db, refAccount)
 
 	refAccount = model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[0].Name, Name: data.Names[0]}
-	_, _ = CreateAccount(ctx, refAccount)
+	_, _ = CreateAccount(db, refAccount)
 
 	type args struct {
-		ctx      context.Context
 		userID   uint64
 		currency string
 		name     string
@@ -147,19 +143,19 @@ func TestQueryAccountList(t *testing.T) {
 		count   int
 		wantErr bool
 	}{
-		{"Default", args{ctx, 0, "", ""}, 0, true},
-		{"Valid", args{ctx, refAccount.UserID, refAccount.CurrencyName, refAccount.Name}, 1, false},
+		{"Default", args{0, "", ""}, 0, true},
+		{"Valid", args{refAccount.UserID, refAccount.CurrencyName, refAccount.Name}, 1, false},
 
-		{"InvalidUserID", args{ctx, 0, refAccount.Name, refAccount.Name}, 0, true},
-		{"InvalidCurrency", args{ctx, refAccount.UserID, "", refAccount.Name}, 0, false},
-		{"InvalidName", args{ctx, refAccount.UserID, refAccount.CurrencyName, "not-default"}, 0, false},
+		{"InvalidUserID", args{0, refAccount.Name, refAccount.Name}, 0, true},
+		{"InvalidCurrency", args{refAccount.UserID, "", refAccount.Name}, 0, false},
+		{"InvalidName", args{refAccount.UserID, refAccount.CurrencyName, "not-default"}, 0, false},
 
-		{"ValidWildcard", args{ctx, refAccount.UserID, refAccount.CurrencyName, AccountNameWildcard}, 2, false},
+		{"ValidWildcard", args{refAccount.UserID, refAccount.CurrencyName, AccountNameWildcard}, 2, false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := QueryAccountList(tt.args.ctx, tt.args.userID, tt.args.currency, tt.args.name)
+			got, err := QueryAccountList(db, tt.args.userID, tt.args.currency, tt.args.name)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("QueryAccountList() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -177,14 +173,13 @@ type AccountTestData struct {
 	Names      []string
 }
 
-func createTestAccountData(ctx context.Context) AccountTestData {
+func createTestAccountData(db bank.Database) AccountTestData {
 	var data AccountTestData
 
-	db := appcontext.Database(ctx)
-	userTest1, _ := FindOrCreateUser(ctx, db, "test1", "test1@condensat.tech")
-	userTest2, _ := FindOrCreateUser(ctx, db, "test2", "test2@condensat.tech")
-	currTest1, _ := AddOrUpdateCurrency(ctx, model.NewCurrency("TBTC1", FlagCurencyAvailable))
-	currTest2, _ := AddOrUpdateCurrency(ctx, model.NewCurrency("TBTC2", FlagCurencyAvailable))
+	userTest1, _ := FindOrCreateUser(db, "test1", "test1@condensat.tech")
+	userTest2, _ := FindOrCreateUser(db, "test2", "test2@condensat.tech")
+	currTest1, _ := AddOrUpdateCurrency(db, model.NewCurrency("TBTC1", FlagCurencyAvailable))
+	currTest2, _ := AddOrUpdateCurrency(db, model.NewCurrency("TBTC2", FlagCurencyAvailable))
 
 	data.Users = append(data.Users, *userTest1)
 	data.Users = append(data.Users, *userTest2)

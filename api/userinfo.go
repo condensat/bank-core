@@ -104,12 +104,12 @@ func ImportUsers(ctx context.Context, userInfos ...*UserInfo) error {
 	log := logger.Logger(ctx).WithField("Method", "api.ImportUsers")
 	db := appcontext.Database(ctx)
 	if db == nil {
-		log.Panic("Invalid Database")
+		return errors.New("Invalid Database")
 	}
 
 	return db.Transaction(func(tx bank.Database) error {
 		for _, userInfo := range userInfos {
-			user, err := database.FindOrCreateUser(ctx, tx,
+			user, err := database.FindOrCreateUser(tx,
 				userInfo.Login,
 				userInfo.Email,
 			)

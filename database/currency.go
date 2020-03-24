@@ -5,10 +5,9 @@
 package database
 
 import (
-	"context"
 	"errors"
 
-	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/database/model"
 
 	"github.com/jinzhu/gorm"
@@ -24,14 +23,14 @@ var (
 )
 
 // AddOrUpdateCurrency
-func AddOrUpdateCurrency(ctx context.Context, currency model.Currency) (model.Currency, error) {
+func AddOrUpdateCurrency(db bank.Database, currency model.Currency) (model.Currency, error) {
 	var result model.Currency
-	db := appcontext.Database(ctx).DB().(*gorm.DB)
+	gdb := db.DB().(*gorm.DB)
 	if db == nil {
 		return result, errors.New("Invalid appcontext.Database")
 	}
 
-	err := db.
+	err := gdb.
 		Where(model.Currency{
 			Name: currency.Name,
 		}).
@@ -42,17 +41,17 @@ func AddOrUpdateCurrency(ctx context.Context, currency model.Currency) (model.Cu
 }
 
 // CurrencyExists
-func CurrencyExists(ctx context.Context, name string) bool {
-	entry, err := GetCurrencyByName(ctx, name)
+func CurrencyExists(db bank.Database, name string) bool {
+	entry, err := GetCurrencyByName(db, name)
 
 	return err == nil && entry.Name == name
 }
 
 // GetCurrencyByName
-func GetCurrencyByName(ctx context.Context, name string) (model.Currency, error) {
+func GetCurrencyByName(db bank.Database, name string) (model.Currency, error) {
 	var result model.Currency
 
-	list, err := QueryCurrencyList(ctx, name, FlagCurencyAll)
+	list, err := QueryCurrencyList(db, name, FlagCurencyAll)
 	if len(list) > 0 {
 		result = list[0]
 	}
@@ -61,30 +60,30 @@ func GetCurrencyByName(ctx context.Context, name string) (model.Currency, error)
 }
 
 // CountCurrencies
-func CountCurrencies(ctx context.Context) int {
-	db := appcontext.Database(ctx).DB().(*gorm.DB)
-	if db == nil {
+func CountCurrencies(db bank.Database) int {
+	gdb := db.DB().(*gorm.DB)
+	if gdb == nil {
 		return 0
 	}
 
 	var count int
-	db.Model(&model.Currency{}).Count(&count)
+	gdb.Model(&model.Currency{}).Count(&count)
 	return count
 }
 
 // ListAllCurrency
-func ListAllCurrency(ctx context.Context) ([]model.Currency, error) {
-	return QueryCurrencyList(ctx, "", FlagCurencyAll)
+func ListAllCurrency(db bank.Database) ([]model.Currency, error) {
+	return QueryCurrencyList(db, "", FlagCurencyAll)
 }
 
 // ListAvailableCurrency
-func ListAvailableCurrency(ctx context.Context) ([]model.Currency, error) {
-	return QueryCurrencyList(ctx, "", FlagCurencyAvailable)
+func ListAvailableCurrency(db bank.Database) ([]model.Currency, error) {
+	return QueryCurrencyList(db, "", FlagCurencyAvailable)
 }
 
 // QueryCurrencyList
-func QueryCurrencyList(ctx context.Context, name string, available int) ([]model.Currency, error) {
-	db := appcontext.Database(ctx).DB().(*gorm.DB)
+func QueryCurrencyList(db bank.Database, name string, available int) ([]model.Currency, error) {
+	gdb := db.DB().(*gorm.DB)
 	if db == nil {
 		return nil, errors.New("Invalid appcontext.Database")
 	}
@@ -98,7 +97,7 @@ func QueryCurrencyList(ctx context.Context, name string, available int) ([]model
 	}
 
 	var list []*model.Currency
-	err := db.Model(&model.Currency{}).
+	err := gdb.Model(&model.Currency{}).
 		Scopes(filters...).
 		Find(&list).Error
 

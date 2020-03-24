@@ -37,8 +37,8 @@ func HashEntry(entry string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func CreateOrUpdatedCredential(ctx context.Context, database bank.Database, userID uint64, login, password, otpSecret string) (*model.Credential, error) {
-	switch db := database.DB().(type) {
+func CreateOrUpdatedCredential(ctx context.Context, db bank.Database, userID uint64, login, password, otpSecret string) (*model.Credential, error) {
+	switch gdb := db.DB().(type) {
 	case *gorm.DB:
 
 		// perform a sha512 hex digest of login and password
@@ -51,7 +51,7 @@ func CreateOrUpdatedCredential(ctx context.Context, database bank.Database, user
 		defer utils.Memzero(passwordHash)
 
 		var cred model.Credential
-		err := db.
+		err := gdb.
 			Where(&model.Credential{UserID: userID}).
 			Assign(&model.Credential{
 				LoginHash:    base58.Encode(loginHash, base58.BitcoinAlphabet),
@@ -67,8 +67,8 @@ func CreateOrUpdatedCredential(ctx context.Context, database bank.Database, user
 	}
 }
 
-func CheckCredential(ctx context.Context, database bank.Database, login, password string) (uint64, bool, error) {
-	switch db := database.DB().(type) {
+func CheckCredential(ctx context.Context, db bank.Database, login, password string) (uint64, bool, error) {
+	switch gdb := db.DB().(type) {
 	case *gorm.DB:
 
 		// client should send a sha512 hex digest of the password
@@ -80,7 +80,7 @@ func CheckCredential(ctx context.Context, database bank.Database, login, passwor
 		defer utils.Memzero(loginHash)
 
 		var cred model.Credential
-		err := db.
+		err := gdb.
 			Where(&model.Credential{LoginHash: base58.Encode(loginHash, base58.BitcoinAlphabet)}).
 			First(&cred).Error
 		if err != nil {

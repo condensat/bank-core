@@ -5,10 +5,9 @@
 package database
 
 import (
-	"context"
 	"errors"
 
-	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/database/model"
 
 	"github.com/jinzhu/gorm"
@@ -23,29 +22,28 @@ var (
 	ErrAccountExists = errors.New("Account Exists")
 )
 
-func CreateAccount(ctx context.Context, account model.Account) (model.Account, error) {
-	db := appcontext.Database(ctx)
-	switch db := db.DB().(type) {
+func CreateAccount(db bank.Database, account model.Account) (model.Account, error) {
+	switch gdb := db.DB().(type) {
 	case *gorm.DB:
 
 		if len(account.Name) == 0 {
 			account.Name = AccountNameDefault
 		}
 
-		if !UserExists(ctx, account.UserID) {
+		if !UserExists(db, account.UserID) {
 			return model.Account{}, ErrUserNotFound
 		}
 
-		if !CurrencyExists(ctx, account.CurrencyName) {
+		if !CurrencyExists(db, account.CurrencyName) {
 			return model.Account{}, ErrCurrencyNotFound
 		}
 
-		if AccountsExists(ctx, account.UserID, account.CurrencyName, account.Name) {
+		if AccountsExists(db, account.UserID, account.CurrencyName, account.Name) {
 			return model.Account{}, ErrAccountExists
 		}
 
 		var result model.Account
-		err := db.
+		err := gdb.
 			Where(model.Account{
 				UserID:       account.UserID,
 				CurrencyName: account.CurrencyName,
@@ -62,21 +60,21 @@ func CreateAccount(ctx context.Context, account model.Account) (model.Account, e
 }
 
 // AccountsExists
-func AccountsExists(ctx context.Context, userID uint64, currency, name string) bool {
-	entries, err := GetAccountsByUserAndCurrencyAndName(ctx, userID, currency, name)
+func AccountsExists(db bank.Database, userID uint64, currency, name string) bool {
+	entries, err := GetAccountsByUserAndCurrencyAndName(db, userID, currency, name)
 
 	return err == nil && len(entries) > 0
 }
 
 // GetAccountsByNameAndCurrency
-func GetAccountsByUserAndCurrencyAndName(ctx context.Context, userID uint64, currency, name string) ([]model.Account, error) {
-	return QueryAccountList(ctx, userID, currency, name)
+func GetAccountsByUserAndCurrencyAndName(db bank.Database, userID uint64, currency, name string) ([]model.Account, error) {
+	return QueryAccountList(db, userID, currency, name)
 }
 
 // QueryAccountList
-func QueryAccountList(ctx context.Context, userID uint64, currency, name string) ([]model.Account, error) {
-	db := appcontext.Database(ctx).DB().(*gorm.DB)
-	if db == nil {
+func QueryAccountList(db bank.Database, userID uint64, currency, name string) ([]model.Account, error) {
+	gdb := db.DB().(*gorm.DB)
+	if gdb == nil {
 		return nil, errors.New("Invalid appcontext.Database")
 	}
 
@@ -98,7 +96,7 @@ func QueryAccountList(ctx context.Context, userID uint64, currency, name string)
 	}
 
 	var list []*model.Account
-	err := db.Model(&model.Account{}).
+	err := gdb.Model(&model.Account{}).
 		Scopes(filters...).
 		Find(&list).Error
 

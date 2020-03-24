@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/condensat/bank-core/api/sessions"
+	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/logger"
 
@@ -30,6 +31,7 @@ type UserInfoResponse struct {
 // Info operation return user's email
 func (p *UserService) Info(r *http.Request, request *UserInfoRequest, reply *UserInfoResponse) error {
 	ctx := r.Context()
+	db := appcontext.Database(ctx)
 	log := logger.Logger(ctx).WithField("Method", "services.UserService.Info")
 	log = GetServiceRequestLog(log, r, "User", "Info")
 
@@ -55,7 +57,7 @@ func (p *UserService) Info(r *http.Request, request *UserInfoRequest, reply *Use
 	})
 
 	// Request UserID from email
-	user, err := database.FindUserById(ctx, userID)
+	user, err := database.FindUserById(db, userID)
 	if err != nil {
 		log.WithError(err).
 			Error("database.FindUserById Failed")
