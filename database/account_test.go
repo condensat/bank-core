@@ -32,13 +32,14 @@ func TestCreateAccount(t *testing.T) {
 		wantErr bool
 	}{
 		{"Default", args{ctx, model.Account{}}, false, true},
-		{"Valid", args{ctx, model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[0].Name}}, true, false},
+		{"Valid", args{ctx, model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[0].Name, Name: data.Names[0]}}, true, false},
+		{"Duplicate", args{ctx, model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[0].Name, Name: data.Names[0]}}, false, true},
 
-		{"SameUser", args{ctx, model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[0].Name}}, true, false},
-		{"SecondCurr", args{ctx, model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[1].Name}}, true, false},
+		{"SameUser", args{ctx, model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[0].Name, Name: data.Names[1]}}, true, false},
+		{"SecondCurr", args{ctx, model.Account{UserID: data.Users[0].ID, CurrencyName: data.Currencies[1].Name, Name: data.Names[0]}}, true, false},
 
-		{"SecondUser", args{ctx, model.Account{UserID: data.Users[1].ID, CurrencyName: data.Currencies[0].Name}}, true, false},
-		{"SecondUserSecondCurr", args{ctx, model.Account{UserID: data.Users[1].ID, CurrencyName: data.Currencies[1].Name}}, true, false},
+		{"SecondUser", args{ctx, model.Account{UserID: data.Users[1].ID, CurrencyName: data.Currencies[0].Name, Name: data.Names[0]}}, true, false},
+		{"SecondUserSecondCurr", args{ctx, model.Account{UserID: data.Users[1].ID, CurrencyName: data.Currencies[1].Name, Name: data.Names[0]}}, true, false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
@@ -58,6 +59,7 @@ func TestCreateAccount(t *testing.T) {
 type AccountTestData struct {
 	Users      []model.User
 	Currencies []model.Currency
+	Names      []string
 }
 
 func createTestAccountData(ctx context.Context) AccountTestData {
@@ -73,6 +75,8 @@ func createTestAccountData(ctx context.Context) AccountTestData {
 	data.Users = append(data.Users, *userTest2)
 	data.Currencies = append(data.Currencies, currTest1)
 	data.Currencies = append(data.Currencies, currTest2)
+	data.Names = append(data.Names, "Main")
+	data.Names = append(data.Names, "Vault")
 
 	return data
 }
