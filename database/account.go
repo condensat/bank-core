@@ -139,13 +139,15 @@ func convertAccountList(list []*model.Account) []model.Account {
 }
 
 const (
+	colID                  = "id"
 	colUserID              = "user_id"
 	colAccountCurrencyName = "currency_name"
 	colAccountName         = "name"
 )
 
-func currencyUserID() []string {
+func accountColumnNames() []string {
 	return []string{
+		colID,
 		colUserID,
 		colAccountCurrencyName,
 		colAccountName,

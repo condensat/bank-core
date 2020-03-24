@@ -6,11 +6,25 @@ package database
 
 import (
 	"context"
+	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/database/model"
 )
+
+func Test_accountColumnNames(t *testing.T) {
+	t.Parallel()
+
+	fields := getSortedTypeFileds(reflect.TypeOf(model.Account{}))
+	names := accountColumnNames()
+	sort.Strings(names)
+
+	if !reflect.DeepEqual(names, fields) {
+		t.Errorf("columnsNames() = %v, want %v", names, fields)
+	}
+}
 
 func TestCreateAccount(t *testing.T) {
 	const databaseName = "TestCreateAccount"
