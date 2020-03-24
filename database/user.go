@@ -32,13 +32,13 @@ func FindOrCreateUser(db bank.Database, user model.User) (model.User, error) {
 	}
 }
 
-func UserExists(db bank.Database, userID uint64) bool {
+func UserExists(db bank.Database, userID model.UserID) bool {
 	entry, err := FindUserById(db, userID)
 
 	return err == nil && entry.ID > 0
 }
 
-func FindUserById(db bank.Database, userID uint64) (model.User, error) {
+func FindUserById(db bank.Database, userID model.UserID) (model.User, error) {
 	switch gdb := db.DB().(type) {
 	case *gorm.DB:
 

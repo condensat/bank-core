@@ -4,15 +4,18 @@
 
 package model
 
+type CurrencyName String
+type CurrencyAvailable ZeroInt
+
 type Currency struct {
-	Name      string `gorm:"primary_key;type:varchar(16)"` // [PK] Currency
-	Available *int   `gorm:"default:0;not null"`
+	Name      CurrencyName `gorm:"primary_key;type:varchar(16)"` // [PK] Currency
+	Available ZeroInt      `gorm:"default:0;not null"`
 }
 
-func NewCurrency(name string, available int) Currency {
+func NewCurrency(name CurrencyName, available int) Currency {
 	return Currency{
 		Name:      name,
-		Available: &available,
+		Available: ZeroInt(&available),
 	}
 }
 

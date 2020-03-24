@@ -60,19 +60,19 @@ func CreateAccount(db bank.Database, account model.Account) (model.Account, erro
 }
 
 // AccountsExists
-func AccountsExists(db bank.Database, userID uint64, currency, name string) bool {
+func AccountsExists(db bank.Database, userID model.UserID, currency model.CurrencyName, name model.AccountName) bool {
 	entries, err := GetAccountsByUserAndCurrencyAndName(db, userID, currency, name)
 
 	return err == nil && len(entries) > 0
 }
 
 // GetAccountsByNameAndCurrency
-func GetAccountsByUserAndCurrencyAndName(db bank.Database, userID uint64, currency, name string) ([]model.Account, error) {
+func GetAccountsByUserAndCurrencyAndName(db bank.Database, userID model.UserID, currency model.CurrencyName, name model.AccountName) ([]model.Account, error) {
 	return QueryAccountList(db, userID, currency, name)
 }
 
 // QueryAccountList
-func QueryAccountList(db bank.Database, userID uint64, currency, name string) ([]model.Account, error) {
+func QueryAccountList(db bank.Database, userID model.UserID, currency model.CurrencyName, name model.AccountName) ([]model.Account, error) {
 	gdb := db.DB().(*gorm.DB)
 	if gdb == nil {
 		return nil, errors.New("Invalid appcontext.Database")
@@ -104,21 +104,21 @@ func QueryAccountList(db bank.Database, userID uint64, currency, name string) ([
 }
 
 // ScopeUserID
-func ScopeUserID(userID uint64) func(db *gorm.DB) *gorm.DB {
+func ScopeUserID(userID model.UserID) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(reqUserID(), userID)
 	}
 }
 
 // ScopeCurencyName
-func ScopeAccountCurrencyName(name string) func(db *gorm.DB) *gorm.DB {
+func ScopeAccountCurrencyName(name model.CurrencyName) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(reqAccountCurrencyName(), name)
 	}
 }
 
 // ScopeAccountName
-func ScopeAccountName(name string) func(db *gorm.DB) *gorm.DB {
+func ScopeAccountName(name model.AccountName) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(reqAccountName(), name)
 	}

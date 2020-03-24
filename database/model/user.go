@@ -4,8 +4,12 @@
 
 package model
 
+type UserID ID
+type UserName String
+type UserEmail String
+
 type User struct {
-	ID    uint64 `gorm:"primary_key"`
-	Name  string `gorm:"size:64;unique;not null"`
-	Email string `gorm:"size:256;unique;not null"`
+	ID    UserID    `gorm:"primary_key"`
+	Name  UserName  `gorm:"size:64;unique;not null"`
+	Email UserEmail `gorm:"size:256;unique;not null"`
 }

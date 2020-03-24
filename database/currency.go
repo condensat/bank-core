@@ -41,14 +41,14 @@ func AddOrUpdateCurrency(db bank.Database, currency model.Currency) (model.Curre
 }
 
 // CurrencyExists
-func CurrencyExists(db bank.Database, name string) bool {
+func CurrencyExists(db bank.Database, name model.CurrencyName) bool {
 	entry, err := GetCurrencyByName(db, name)
 
 	return err == nil && entry.Name == name
 }
 
 // GetCurrencyByName
-func GetCurrencyByName(db bank.Database, name string) (model.Currency, error) {
+func GetCurrencyByName(db bank.Database, name model.CurrencyName) (model.Currency, error) {
 	var result model.Currency
 
 	list, err := QueryCurrencyList(db, name, FlagCurencyAll)
@@ -82,7 +82,7 @@ func ListAvailableCurrency(db bank.Database) ([]model.Currency, error) {
 }
 
 // QueryCurrencyList
-func QueryCurrencyList(db bank.Database, name string, available int) ([]model.Currency, error) {
+func QueryCurrencyList(db bank.Database, name model.CurrencyName, available int) ([]model.Currency, error) {
 	gdb := db.DB().(*gorm.DB)
 	if db == nil {
 		return nil, errors.New("Invalid appcontext.Database")
@@ -105,7 +105,7 @@ func QueryCurrencyList(db bank.Database, name string, available int) ([]model.Cu
 }
 
 // ScopeCurencyName
-func ScopeCurencyName(name string) func(db *gorm.DB) *gorm.DB {
+func ScopeCurencyName(name model.CurrencyName) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(reqName(), name)
 	}

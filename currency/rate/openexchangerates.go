@@ -63,11 +63,11 @@ func parseRate(jsonBody string) ([]model.CurrencyRate, error) {
 	var result []model.CurrencyRate
 
 	var info struct {
-		Disclaimer string                 `json:"disclaimer"`
-		Licence    string                 `json:"licence"`
-		Timestamp  int64                  `json:"timestamp"`
-		Base       string                 `json:"base"`
-		Rates      map[string]interface{} `json:"rates"`
+		Disclaimer string                             `json:"disclaimer"`
+		Licence    string                             `json:"licence"`
+		Timestamp  int64                              `json:"timestamp"`
+		Base       model.CurrencyName                 `json:"base"`
+		Rates      map[model.CurrencyName]interface{} `json:"rates"`
 	}
 
 	err := json.Unmarshal([]byte(jsonBody), &info)
@@ -83,7 +83,7 @@ func parseRate(jsonBody string) ([]model.CurrencyRate, error) {
 				Source:    SourceName,
 				Base:      info.Base,
 				Name:      name,
-				Rate:      rate,
+				Rate:      model.CurrencyRateValue(rate),
 			})
 
 		default:

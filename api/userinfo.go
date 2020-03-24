@@ -111,8 +111,8 @@ func ImportUsers(ctx context.Context, userInfos ...UserInfo) error {
 	return db.Transaction(func(tx bank.Database) error {
 		for _, userInfo := range userInfos {
 			user, err := database.FindOrCreateUser(tx, model.User{
-				Name:  userInfo.Login,
-				Email: userInfo.Email,
+				Name:  model.UserName(userInfo.Login),
+				Email: model.UserEmail(userInfo.Email),
 			})
 			if err != nil {
 				log.WithError(err).
@@ -123,8 +123,8 @@ func ImportUsers(ctx context.Context, userInfos ...UserInfo) error {
 			credential, err := database.CreateOrUpdatedCredential(ctx, tx,
 				model.Credential{
 					UserID:       user.ID,
-					LoginHash:    userInfo.Login,
-					PasswordHash: userInfo.Password,
+					LoginHash:    model.Base58(userInfo.Login),
+					PasswordHash: model.Base58(userInfo.Password),
 					TOTPSecret:   "",
 				},
 			)
@@ -135,8 +135,8 @@ func ImportUsers(ctx context.Context, userInfos ...UserInfo) error {
 			}
 
 			userID, verified, err := database.CheckCredential(ctx, tx,
-				database.HashEntry(userInfo.Login),
-				database.HashEntry(userInfo.Password),
+				database.HashEntry(model.Base58(userInfo.Login)),
+				database.HashEntry(model.Base58(userInfo.Password)),
 			)
 			if err != nil {
 				log.WithError(err).
