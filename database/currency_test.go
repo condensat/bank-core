@@ -14,6 +14,8 @@ import (
 )
 
 func Test_currencyColumnNames(t *testing.T) {
+	t.Parallel()
+
 	fields := getSortedTypeFileds(reflect.TypeOf(model.Currency{}))
 	names := currencyColumnNames()
 	sort.Strings(names)
