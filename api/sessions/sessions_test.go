@@ -279,16 +279,16 @@ func TestSession_InvalidateSession(t *testing.T) {
 		wantErr       bool
 		waitForExpire time.Duration
 	}{
-		// {"default", fields{rdb}, args{ctx, 0}, true, 0},
-		// {"negative", fields{rdb}, args{ctx, -time.Second}, true, 0},
+		{"default", fields{rdb}, args{ctx, 0}, true, 0},
+		{"negative", fields{rdb}, args{ctx, -time.Second}, true, 0},
 
 		{"valid", fields{rdb}, args{ctx, time.Second}, false, 0},
 
-		// {"not_expired", fields{rdb}, args{ctx, time.Second}, false, 500 * time.Millisecond},
-		// {"not_expired2", fields{rdb}, args{ctx, time.Second}, false, 900 * time.Millisecond},
+		{"not_expired", fields{rdb}, args{ctx, time.Second}, false, 500 * time.Millisecond},
+		{"not_expired2", fields{rdb}, args{ctx, time.Second}, false, 900 * time.Millisecond},
 
-		// // invalidate expired session must not return an error
-		// {"expired", fields{rdb}, args{ctx, time.Second}, false, 1100 * time.Millisecond},
+		// invalidate expired session must not return an error
+		{"expired", fields{rdb}, args{ctx, time.Second}, false, 1100 * time.Millisecond},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
