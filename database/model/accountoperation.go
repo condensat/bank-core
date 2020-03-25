@@ -11,15 +11,13 @@ import (
 
 type AccountOperationID ID
 
-type SynchroneousType String
-
 // AccountOperation model
 type AccountOperation struct {
 	ID        AccountOperationID `gorm:"primary_key"`    // [PK] AccountOperation
 	PrevID    AccountOperationID `gorm:"index;not null"` // [FK] Reference to previous AccountOperation (0 mean first operation)
 	AccountID AccountID          `gorm:"index;not null"` // [FK] Reference to Account table
 
-	SynchroneousType SynchroneousType `gorm:"index;not null;type:varchar(16)"` // [enum] Operation synchroneous type (sync, async_start, async_end)
+	SynchroneousType SynchroneousType `gorm:"index;not null;type:varchar(16)"` // [enum] Operation synchroneous type (sync, async-start, async-end)
 	OperationType    OperationType    `gorm:"index;not null;type:varchar(16)"` // [enum] Determine table for ReferenceID (deposit, withdraw, transfert, adjustment, none, other)
 	ReferenceID      RefID            `gorm:"index;not null"`                  // [optional - FK] Reference to related table with OperationType
 
@@ -57,7 +55,7 @@ func (p *AccountOperation) IsValid() bool {
 
 		// check enums
 		p.OperationType.Valid() &&
-		len(p.SynchroneousType) > 0 &&
+		p.SynchroneousType.Valid() &&
 
 		// check pointers
 		p.Amount != nil && p.Balance != nil &&
