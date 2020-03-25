@@ -12,7 +12,6 @@ import (
 type AccountOperationID ID
 
 type SynchroneousType String
-type OperationType String
 
 // AccountOperation model
 type AccountOperation struct {
@@ -21,7 +20,7 @@ type AccountOperation struct {
 	AccountID AccountID          `gorm:"index;not null"` // [FK] Reference to Account table
 
 	SynchroneousType SynchroneousType `gorm:"index;not null;type:varchar(16)"` // [enum] Operation synchroneous type (sync, async_start, async_end)
-	OperationType    OperationType    `gorm:"index;not null;type:varchar(16)"` // [enum] Determine table for ReferenceID (none, other)
+	OperationType    OperationType    `gorm:"index;not null;type:varchar(16)"` // [enum] Determine table for ReferenceID (deposit, withdraw, transfert, adjustment, none, other)
 	ReferenceID      RefID            `gorm:"index;not null"`                  // [optional - FK] Reference to related table with OperationType
 
 	Timestamp time.Time `gorm:"index;not null;type:timestamp"` // Operation timestamp
@@ -57,7 +56,7 @@ func (p *AccountOperation) IsValid() bool {
 		p.AccountID > 0 &&
 
 		// check enums
-		len(p.OperationType) > 0 &&
+		p.OperationType.Valid() &&
 		len(p.SynchroneousType) > 0 &&
 
 		// check pointers

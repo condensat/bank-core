@@ -20,7 +20,7 @@ func refAccountOperation() AccountOperation {
 		PrevID:           0,
 		AccountID:        3,
 		SynchroneousType: "SynchroneousType",
-		OperationType:    "OperationType",
+		OperationType:    OperationTypeDeposit,
 		ReferenceID:      4,
 		Timestamp:        time.Now().UTC().Truncate(time.Second),
 		Amount:           newFloat(1.0),
@@ -87,14 +87,14 @@ func TestAccountOperation_IsValid(t *testing.T) {
 		want   bool
 	}{
 		{"Default", fields{AccountOperation{}}, false},
-		{"Valid", fields{NewAccountOperation(1, 0, 42, "none", "sync", 0, time.Now(), 1.0, 1.0, 1.0, 1.0)}, true},
-		{"ValidUTC", fields{NewAccountOperation(1, 0, 42, "none", "sync", 0, time.Now().UTC(), 1.0, 1.0, 1.0, 1.0)}, true},
+		{"Valid", fields{NewAccountOperation(1, 0, 42, "sync", OperationTypeNone, 0, time.Now(), 1.0, 1.0, 1.0, 1.0)}, true},
+		{"ValidUTC", fields{NewAccountOperation(1, 0, 42, "sync", OperationTypeNone, 0, time.Now().UTC(), 1.0, 1.0, 1.0, 1.0)}, true},
 
-		{"InvalidID", fields{NewAccountOperation(0, 0, 42, "none", "sync", 0, time.Now(), 1.0, 1.0, 0.0, 0.0)}, false},
-		{"InvalidPrevID", fields{NewAccountOperation(1, 1, 42, "none", "sync", 0, time.Now(), 1.0, 1.0, 0.0, 0.0)}, false},
-		{"InvalidAccountID", fields{NewAccountOperation(1, 0, 0, "none", "sync", 0, time.Now(), 1.0, 1.0, 0.0, 0.0)}, false},
-		{"InvalidSynchroneousType", fields{NewAccountOperation(1, 0, 42, "none", "", 0, time.Now(), 1.0, 1.0, 0.0, 0.0)}, false},
-		{"InvalidOperationType", fields{NewAccountOperation(1, 0, 42, "", "sync", 0, time.Now(), 1.0, 1.0, 0.0, 0.0)}, false},
+		{"InvalidID", fields{NewAccountOperation(0, 0, 42, "sync", OperationTypeNone, 0, time.Now(), 1.0, 1.0, 0.0, 0.0)}, false},
+		{"InvalidPrevID", fields{NewAccountOperation(1, 1, 42, "sync", OperationTypeNone, 0, time.Now(), 1.0, 1.0, 0.0, 0.0)}, false},
+		{"InvalidAccountID", fields{NewAccountOperation(1, 0, 0, "sync", OperationTypeNone, 0, time.Now(), 1.0, 1.0, 0.0, 0.0)}, false},
+		{"InvalidSynchroneousType", fields{NewAccountOperation(1, 0, 42, "", OperationTypeNone, 0, time.Now(), 1.0, 1.0, 0.0, 0.0)}, false},
+		{"InvalidOperationType", fields{NewAccountOperation(1, 0, 42, "sync", OperationTypeInvalid, 0, time.Now(), 1.0, 1.0, 0.0, 0.0)}, false},
 
 		// test with amount and lock
 		{"ValidNegativeAmount", fields{amountAccountOperation(-1.0, 1.0, 0.0, 1.0)}, true},
