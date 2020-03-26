@@ -26,6 +26,10 @@ func AccountModel() []model.Model {
 	}
 }
 
+func AccountStateModel() []model.Model {
+	return append(AccountModel(), new(model.AccountState))
+}
+
 func CurrencyModel() []model.Model {
 	return []model.Model{
 		model.Model(new(model.Currency)),
