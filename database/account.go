@@ -180,7 +180,7 @@ func reqAccountID() string {
 	var req [len(colID) + len(reqEQ)]byte
 	off := 0
 	off += copy(req[off:], colID)
-	off += copy(req[off:], reqEQ)
+	copy(req[off:], reqEQ)
 
 	return string(req[:])
 }
@@ -190,7 +190,7 @@ func reqUserID() string {
 	var req [len(colUserID) + len(reqEQ)]byte
 	off := 0
 	off += copy(req[off:], colUserID)
-	off += copy(req[off:], reqEQ)
+	copy(req[off:], reqEQ)
 
 	return string(req[:])
 }
@@ -199,7 +199,7 @@ func reqAccountCurrencyName() string {
 	var req [len(colAccountCurrencyName) + len(reqEQ)]byte
 	off := 0
 	off += copy(req[off:], colAccountCurrencyName)
-	off += copy(req[off:], reqEQ)
+	copy(req[off:], reqEQ)
 
 	return string(req[:])
 }
@@ -208,7 +208,7 @@ func reqAccountName() string {
 	var req [len(colAccountName) + len(reqEQ)]byte
 	off := 0
 	off += copy(req[off:], colAccountName)
-	off += copy(req[off:], reqEQ)
+	copy(req[off:], reqEQ)
 
 	return string(req[:])
 }

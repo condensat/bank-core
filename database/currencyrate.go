@@ -25,7 +25,7 @@ func AppendCurencyRates(ctx context.Context, currencyRates []model.CurrencyRate)
 
 	return db.Transaction(func(tx bank.Database) error {
 		txdb := tx.DB().(*gorm.DB)
-		if db == nil {
+		if txdb == nil {
 			return errors.New("Invalid tx Database")
 		}
 

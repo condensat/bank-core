@@ -25,13 +25,6 @@ var (
 	ErrDatabaseError       = errors.New("Invalid PasswordHash")
 )
 
-func saltCredentials(ctx context.Context, login, password string) ([]byte, []byte) {
-	loginHash := security.SaltedHash(ctx, []byte(login))
-	passwordHash := security.SaltedHash(ctx, []byte(login+password))
-
-	return loginHash, passwordHash
-}
-
 func HashEntry(entry model.Base58) model.Base58 {
 	hash := utils.HashBytes([]byte(entry))
 	return model.Base58(hex.EncodeToString(hash[:]))
