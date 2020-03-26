@@ -6,6 +6,7 @@ package database
 
 import (
 	"errors"
+	"time"
 
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/database/model"
@@ -114,4 +115,65 @@ func GetLastAccountOperation(db bank.Database, accountID model.AccountID) (model
 		Last(&result).Error
 
 	return result, err
+}
+
+func GeAccountHistory(db bank.Database, accountID model.AccountID) ([]model.AccountOperation, error) {
+	gdb := getGormDB(db)
+	if gdb == nil {
+		return nil, errors.New("Invalid appcontext.Database")
+	}
+
+	if accountID == 0 {
+		return nil, ErrInvalidAccountID
+	}
+
+	var list []*model.AccountOperation
+	err := gdb.
+		Where(model.AccountOperation{
+			AccountID: accountID,
+		}).
+		Order("id ASC").
+		Find(&list).Error
+
+	return convertAccountOperationList(list), err
+}
+
+func GeAccountHistoryRange(db bank.Database, accountID model.AccountID, from, to time.Time) ([]model.AccountOperation, error) {
+	gdb := getGormDB(db)
+	if gdb == nil {
+		return nil, errors.New("Invalid appcontext.Database")
+	}
+
+	if accountID == 0 {
+		return nil, ErrInvalidAccountID
+	}
+
+	from = from.UTC().Truncate(time.Second)
+	to = to.UTC().Truncate(time.Second)
+
+	if from.After(to) {
+		from, to = to, from
+	}
+
+	var list []*model.AccountOperation
+	err := gdb.
+		Where(model.AccountOperation{
+			AccountID: accountID,
+		}).
+		Where("timestamp BETWEEN ? AND ?", from, to).
+		Order("id ASC").
+		Find(&list).Error
+
+	return convertAccountOperationList(list), err
+}
+
+func convertAccountOperationList(list []*model.AccountOperation) []model.AccountOperation {
+	var result []model.AccountOperation
+	for _, curr := range list {
+		if curr != nil {
+			result = append(result, *curr)
+		}
+	}
+
+	return result[:]
 }
