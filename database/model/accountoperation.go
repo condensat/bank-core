@@ -75,3 +75,14 @@ func (p *AccountOperation) IsValid() bool {
 		// Check for void operation
 		(math.Abs(float64(*p.Amount)) > 0.0 || math.Abs(float64(*p.LockAmount)) > 0.0)
 }
+
+func (p *AccountOperation) PreCheck() bool {
+	// deepcopy
+	operation := *p
+	// overwite operation IDs
+	operation.ID = 2
+	operation.PrevID = 1
+
+	// operation should be valid
+	return operation.IsValid()
+}

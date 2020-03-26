@@ -122,3 +122,55 @@ func TestAccountOperation_IsValid(t *testing.T) {
 		})
 	}
 }
+
+func TestAccountOperation_PreCheck(t *testing.T) {
+	t.Parallel()
+
+	type fields struct {
+		p AccountOperation
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   bool
+	}{
+		{"Default", fields{AccountOperation{}}, false},
+		{"Valid", fields{NewAccountOperation(1, 0, 42, SynchroneousTypeSync, OperationTypeNone, 0, time.Now(), 1.0, 1.0, 1.0, 1.0)}, true},
+		{"ValidUTC", fields{NewAccountOperation(1, 0, 42, SynchroneousTypeSync, OperationTypeNone, 0, time.Now().UTC(), 1.0, 1.0, 1.0, 1.0)}, true},
+
+		// Valid PreCheck
+		{"InvalidID", fields{NewAccountOperation(0, 0, 42, SynchroneousTypeSync, OperationTypeNone, 0, time.Now(), 1.0, 1.0, 0.0, 0.0)}, true},
+		{"InvalidPrevID", fields{NewAccountOperation(1, 1, 42, SynchroneousTypeSync, OperationTypeNone, 0, time.Now(), 1.0, 1.0, 0.0, 0.0)}, true},
+
+		// Invvalid PreCheck
+		{"InvalidAccountID", fields{NewAccountOperation(1, 0, 0, SynchroneousTypeSync, OperationTypeNone, 0, time.Now(), 1.0, 1.0, 0.0, 0.0)}, false},
+		{"InvalidSynchroneousType", fields{NewAccountOperation(1, 0, 42, SynchroneousTypeInvalid, OperationTypeNone, 0, time.Now(), 1.0, 1.0, 0.0, 0.0)}, false},
+		{"InvalidOperationType", fields{NewAccountOperation(1, 0, 42, SynchroneousTypeSync, OperationTypeInvalid, 0, time.Now(), 1.0, 1.0, 0.0, 0.0)}, false},
+
+		// test with amount and lock
+		{"ValidNegativeAmount", fields{amountAccountOperation(-1.0, 1.0, 0.0, 1.0)}, true},
+		{"ValidNegativeTotalLocked", fields{amountAccountOperation(0.0, 1.0, -1.0, 1.0)}, true},
+
+		{"InvalidTotalLockedAndBalance", fields{amountAccountOperation(0.0, 1.0, 0.0, 2.0)}, false},
+		{"InvalidBalance", fields{amountAccountOperation(0.0, -1.0, 0.0, 0.0)}, false},
+		{"InvalidLockTotalLocked", fields{amountAccountOperation(0.0, 1.0, 0.0, -1.0)}, false},
+		{"InvalidTooManyLocked", fields{amountAccountOperation(0.0, 1.0, 0.0, 2.0)}, false},
+
+		{"InvalidBalanceToLow", fields{amountAccountOperation(2.0, 1.0, 0.0, 0.0)}, false},
+		{"InvalidTotalLockedToLow", fields{amountAccountOperation(0.0, 0.0, 2.0, 1.0)}, false},
+
+		// test void operation
+		{"InvalidZero", fields{amountAccountOperation(0.0, 0.0, 0.0, 0.0)}, false},
+		{"InvalidVoidOperation", fields{amountAccountOperation(0.0, 1.0, 0.0, 1.0)}, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			p := tt.fields.p
+
+			if got := p.PreCheck(); got != tt.want {
+				t.Errorf("AccountOperation.PreCheck() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
