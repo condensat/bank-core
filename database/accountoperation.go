@@ -76,6 +76,23 @@ func AppendAccountOperation(db bank.Database, operation model.AccountOperation) 
 		}
 		operation.PrevID = previousOperation.ID
 
+		// compute Balance with last operation and new Amount
+		*operation.Balance = *operation.Amount
+		if previousOperation.Balance != nil {
+			*operation.Balance += *previousOperation.Balance
+		}
+
+		// compute TotalLocked with last operation and new LockAmount
+		*operation.TotalLocked = *operation.LockAmount
+		if previousOperation.TotalLocked != nil {
+			*operation.TotalLocked += *previousOperation.TotalLocked
+		}
+
+		// pre-check operation with newupdated values
+		if !operation.PreCheck() {
+			return ErrInvalidAccountOperation
+		}
+
 		// store operation
 		gdb := getGormDB(db)
 		if gdb != nil {

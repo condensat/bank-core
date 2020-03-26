@@ -23,6 +23,9 @@ func TestAppendAccountOperation(t *testing.T) {
 	data := createTestAccountOperationData(db)
 	refAccountOperation := createOperation(data.Accounts[0].ID, 0, 1.0, 1.0)
 
+	first := lastLinkedOperation(createLinkedOperations(db, data.Accounts[0].ID, 1, 1.0))
+	nextAccountOperation := createOperation(first.AccountID, first.ID, -0.5, 0.5)
+
 	refInvalidAccountID := cloneOperation(refAccountOperation)
 	refInvalidAccountID.AccountID = 0
 
@@ -52,6 +55,7 @@ func TestAppendAccountOperation(t *testing.T) {
 		{"InvalidPreCheck", args{db, refInvalidPreCheck}, model.AccountOperation{}, true},
 
 		{"Valid", args{db, refAccountOperation}, refAccountOperation, false},
+		{"Next", args{db, nextAccountOperation}, nextAccountOperation, false},
 
 		{"CurrencyDisabled", args{db, refCurrencyDisabled}, model.AccountOperation{}, true},
 		{"AccountOperation", args{db, refAccountDisabled}, model.AccountOperation{}, true},
@@ -66,6 +70,7 @@ func TestAppendAccountOperation(t *testing.T) {
 			}
 
 			tt.want.ID = got.ID
+			tt.want.PrevID = got.PrevID
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("AppendAccountOperation() = %v, want %v", got, tt.want)
 			}
