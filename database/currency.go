@@ -19,7 +19,8 @@ const (
 )
 
 var (
-	ErrCurrencyNotFound = errors.New("Currency not found")
+	ErrCurrencyNotFound     = errors.New("Currency Not found")
+	ErrCurrencyNotAvailable = errors.New("Currency Not Available")
 )
 
 // AddOrUpdateCurrency

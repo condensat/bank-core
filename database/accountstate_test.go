@@ -131,6 +131,8 @@ func createTestAccountStateData(db bank.Database) AccountStateTestData {
 	currTest2, _ := AddOrUpdateCurrency(db, model.NewCurrency("TBTC2", FlagCurencyAvailable))
 	accountTest1, _ := CreateAccount(db, model.Account{UserID: userTest1.ID, CurrencyName: currTest1.Name, Name: "accountTest1"})
 	accountTest2, _ := CreateAccount(db, model.Account{UserID: userTest1.ID, CurrencyName: currTest2.Name, Name: "accountTest2"})
+	accountTest3, _ := CreateAccount(db, model.Account{UserID: userTest2.ID, CurrencyName: currTest1.Name, Name: "accountTest3"})
+	accountTest4, _ := CreateAccount(db, model.Account{UserID: userTest2.ID, CurrencyName: currTest2.Name, Name: "accountTest4"})
 
 	data.Users = append(data.Users, userTest1)
 	data.Users = append(data.Users, userTest2)
@@ -138,6 +140,8 @@ func createTestAccountStateData(db bank.Database) AccountStateTestData {
 	data.Currencies = append(data.Currencies, currTest2)
 	data.Accounts = append(data.Accounts, accountTest1)
 	data.Accounts = append(data.Accounts, accountTest2)
+	data.Accounts = append(data.Accounts, accountTest3)
+	data.Accounts = append(data.Accounts, accountTest4)
 
 	return data
 }

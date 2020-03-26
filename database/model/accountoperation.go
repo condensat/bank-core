@@ -13,9 +13,9 @@ type AccountOperationID ID
 
 // AccountOperation model
 type AccountOperation struct {
-	ID        AccountOperationID `gorm:"primary_key"`    // [PK] AccountOperation
-	PrevID    AccountOperationID `gorm:"index;not null"` // [FK] Reference to previous AccountOperation (0 mean first operation)
-	AccountID AccountID          `gorm:"index;not null"` // [FK] Reference to Account table
+	ID        AccountOperationID `gorm:"primary_key;unique_index:idx_id_previd;"` // [PK] AccountOperation
+	PrevID    AccountOperationID `gorm:"unique_index:idx_id_previd;not null"`     // [FK] Reference to previous AccountOperation (0 mean first operation)
+	AccountID AccountID          `gorm:"index;not null"`                          // [FK] Reference to Account table
 
 	SynchroneousType SynchroneousType `gorm:"index;not null;type:varchar(16)"` // [enum] Operation synchroneous type (sync, async-start, async-end)
 	OperationType    OperationType    `gorm:"index;not null;type:varchar(16)"` // [enum] Determine table for ReferenceID (deposit, withdraw, transfert, adjustment, none, other)
@@ -39,7 +39,7 @@ func NewAccountOperation(ID, prevID AccountOperationID, accountID AccountID, syn
 		OperationType:    operationType,
 		ReferenceID:      referenceID,
 
-		Timestamp: timestamp.UTC(),
+		Timestamp: timestamp.UTC().Truncate(time.Second),
 		Amount:    &amount,
 		Balance:   &balance,
 

@@ -19,7 +19,8 @@ const (
 )
 
 var (
-	ErrAccountExists = errors.New("Account Exists")
+	ErrAccountExists   = errors.New("Account Exists")
+	ErrAccountNotFound = errors.New("Account Not Found")
 )
 
 func CreateAccount(db bank.Database, account model.Account) (model.Account, error) {
@@ -66,6 +67,21 @@ func AccountsExists(db bank.Database, userID model.UserID, currency model.Curren
 	return err == nil && len(entries) > 0
 }
 
+func GetAccountByID(db bank.Database, accountID model.AccountID) (model.Account, error) {
+	var result model.Account
+
+	gdb := db.DB().(*gorm.DB)
+	if gdb == nil {
+		return result, errors.New("Invalid appcontext.Database")
+	}
+
+	err := gdb.Model(&model.Account{}).
+		Scopes(ScopeAccountID(accountID)).
+		First(&result).Error
+
+	return result, err
+}
+
 // GetAccountsByNameAndCurrency
 func GetAccountsByUserAndCurrencyAndName(db bank.Database, userID model.UserID, currency model.CurrencyName, name model.AccountName) ([]model.Account, error) {
 	return QueryAccountList(db, userID, currency, name)
@@ -101,6 +117,13 @@ func QueryAccountList(db bank.Database, userID model.UserID, currency model.Curr
 		Find(&list).Error
 
 	return convertAccountList(list), err
+}
+
+// ScopeAccountID
+func ScopeAccountID(accountID model.AccountID) func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		return db.Where(reqAccountID(), accountID)
+	}
 }
 
 // ScopeUserID
@@ -153,11 +176,21 @@ func accountColumnNames() []string {
 }
 
 // zero allocation requests string for scope
+func reqAccountID() string {
+	var req [len(colID) + len(reqEQ)]byte
+	off := 0
+	off += copy(req[off:], colID)
+	off += copy(req[off:], reqEQ)
+
+	return string(req[:])
+}
+
+// zero allocation requests string for scope
 func reqUserID() string {
-	var req [len(colUserID) + len(reqGTE)]byte
+	var req [len(colUserID) + len(reqEQ)]byte
 	off := 0
 	off += copy(req[off:], colUserID)
-	off += copy(req[off:], reqGTE)
+	off += copy(req[off:], reqEQ)
 
 	return string(req[:])
 }
