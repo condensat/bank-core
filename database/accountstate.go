@@ -17,6 +17,7 @@ var (
 	ErrAccountStateNotFound = errors.New("Account State Not Found")
 	ErrInvalidAccountID     = errors.New("Invalid AccountID")
 	ErrInvalidAccountState  = errors.New("Invalid Account State")
+	ErrAccountIsDisabled    = errors.New("Account Is Disabled")
 )
 
 // AddOrUpdateAccountState

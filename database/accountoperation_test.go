@@ -32,6 +32,9 @@ func TestAppendAccountOperation(t *testing.T) {
 	refInvalidPreCheck := cloneOperation(refAccountOperation)
 	*refInvalidPreCheck.Balance = 0.0
 
+	refCurrencyDisabled := createOperation(data.Accounts[1].ID, 0, 1.0, 1.0)
+	refAccountDisabled := createOperation(data.Accounts[2].ID, 0, 1.0, 1.0)
+
 	type args struct {
 		db        bank.Database
 		operation model.AccountOperation
@@ -49,6 +52,9 @@ func TestAppendAccountOperation(t *testing.T) {
 		{"InvalidPreCheck", args{db, refInvalidPreCheck}, model.AccountOperation{}, true},
 
 		{"Valid", args{db, refAccountOperation}, refAccountOperation, false},
+
+		{"CurrencyDisabled", args{db, refCurrencyDisabled}, model.AccountOperation{}, true},
+		{"AccountOperation", args{db, refAccountDisabled}, model.AccountOperation{}, true},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
@@ -294,9 +300,13 @@ func createTestAccountOperationData(db bank.Database) AccountOperationTestData {
 	var data AccountOperationTestData
 	data.AccountStateTestData = createTestAccountStateData(db)
 
+	// Disable 2nd currency
+	*data.Currencies[1].Available = FlagCurencyDisable
+	_, _ = AddOrUpdateCurrency(db, data.Currencies[1])
+
 	accountState1, _ := AddOrUpdateAccountState(db, model.AccountState{AccountID: data.Accounts[0].ID, State: model.AccountStatusNormal})
 	accountState2, _ := AddOrUpdateAccountState(db, model.AccountState{AccountID: data.Accounts[1].ID, State: model.AccountStatusNormal})
-	accountState3, _ := AddOrUpdateAccountState(db, model.AccountState{AccountID: data.Accounts[2].ID, State: model.AccountStatusNormal})
+	accountState3, _ := AddOrUpdateAccountState(db, model.AccountState{AccountID: data.Accounts[2].ID, State: model.AccountStatusDisabled}) // disable 3rd account
 	accountState4, _ := AddOrUpdateAccountState(db, model.AccountState{AccountID: data.Accounts[3].ID, State: model.AccountStatusNormal})
 
 	data.AccountStates = append(data.AccountStates, accountState1)
