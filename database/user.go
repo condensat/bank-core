@@ -35,6 +35,12 @@ func FindOrCreateUser(ctx context.Context, database bank.Database, name, email s
 	}
 }
 
+func UserExists(ctx context.Context, userID uint64) bool {
+	entry, err := FindUserById(ctx, userID)
+
+	return err == nil && entry != nil && entry.ID > 0
+}
+
 func FindUserById(ctx context.Context, userID uint64) (*model.User, error) {
 	db := appcontext.Database(ctx)
 
