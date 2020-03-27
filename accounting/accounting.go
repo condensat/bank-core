@@ -41,10 +41,51 @@ func (p *Accounting) registerHandlers(ctx context.Context) {
 	log := logger.Logger(ctx).WithField("Method", "Accounting.RegisterHandlers")
 
 	nats := appcontext.Messaging(ctx)
+	nats.SubscribeWorkers(ctx, messaging.InboundSubject, 8, p.onCreateAccount)
 	nats.SubscribeWorkers(ctx, messaging.InboundSubject, 8, p.onUserAccounts)
 	nats.SubscribeWorkers(ctx, messaging.InboundSubject, 8, p.onAccountHistory)
 
 	log.Debug("Bank Accounting registered")
+}
+
+func (p *Accounting) onCreateAccount(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
+	log := logger.Logger(ctx).WithField("Method", "Accounting.onUserAccounts")
+	log = log.WithFields(logrus.Fields{
+		"Subject": subject,
+	})
+
+	var req AccountCreation
+	err := bank.FromMessage(message, &req)
+	if err != nil {
+		log.WithError(err).Error("Message data is not AccountInfo")
+		return nil, ErrInternalError
+	}
+
+	log = log.WithFields(logrus.Fields{
+		"UserID":   req.UserID,
+		"Currency": req.Info.Currency,
+		"Name":     req.Info.Name,
+		"Status":   req.Info.Status,
+	})
+
+	account, err := CreateUserAccount(ctx, req.UserID, req.Info)
+	if err != nil {
+		log.WithError(err).Errorf("Failed to CreateUserAccount")
+		return nil, ErrInternalError
+	}
+
+	log = log.WithFields(logrus.Fields{
+		"AccountID": account.AccountID,
+	})
+
+	log.Info("Account Created")
+
+	resp := AccountCreation{
+		UserID: req.UserID,
+		Info:   account,
+	}
+
+	return bank.ToMessage(appcontext.AppName(ctx), &resp), nil
 }
 
 func (p *Accounting) onUserAccounts(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
