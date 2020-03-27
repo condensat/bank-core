@@ -23,6 +23,10 @@ const (
 	MaximumLockTTL = 5 * time.Minute
 )
 
+var (
+	ErrRedisMutexNotFound = errors.New("RedisMutex Not Found")
+)
+
 type Lock interface {
 	Unlock()
 }
@@ -102,26 +106,18 @@ func lockKeyAccountID(accountID uint64) string {
 	return lockKeyString("lock.Account", accountID)
 }
 
-func LockUser(ctx context.Context, userID uint64) Lock {
+func LockUser(ctx context.Context, userID uint64) (Lock, error) {
 	mutex := RedisMutexFromContext(ctx)
 	if mutex == nil {
-		return nil
+		return nil, ErrRedisMutexNotFound
 	}
-	lock, err := mutex.Lock(ctx, lockKeyUserID(userID), DefaultLockTTL)
-	if err != nil {
-		return nil
-	}
-	return lock
+	return mutex.Lock(ctx, lockKeyUserID(userID), DefaultLockTTL)
 }
 
-func LockAccount(ctx context.Context, accountID uint64) Lock {
+func LockAccount(ctx context.Context, accountID uint64) (Lock, error) {
 	mutex := RedisMutexFromContext(ctx)
 	if mutex == nil {
-		return nil
+		return nil, ErrRedisMutexNotFound
 	}
-	lock, err := mutex.Lock(ctx, lockKeyAccountID(accountID), DefaultLockTTL)
-	if err != nil {
-		return nil
-	}
-	return lock
+	return mutex.Lock(ctx, lockKeyAccountID(accountID), DefaultLockTTL)
 }
