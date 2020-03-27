@@ -6,6 +6,7 @@ package accounting
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/condensat/bank-core"
@@ -16,6 +17,12 @@ import (
 
 func ListUserAccounts(ctx context.Context, userID uint64) ([]AccountInfo, error) {
 	var result []AccountInfo
+
+	lock := LockUser(ctx, userID)
+	if lock == nil {
+		return result, errors.New("Failed to lock user")
+	}
+	defer lock.Unlock()
 
 	db := appcontext.Database(ctx)
 	err := db.Transaction(func(db bank.Database) error {
@@ -46,6 +53,11 @@ func ListUserAccounts(ctx context.Context, userID uint64) ([]AccountInfo, error)
 
 func GetAccountHistory(ctx context.Context, accountID uint64, from, to time.Time) ([]AccountEntry, error) {
 	var result []AccountEntry
+	lock := LockAccount(ctx, accountID)
+	if lock == nil {
+		return result, errors.New("Failed to lock account")
+	}
+	defer lock.Unlock()
 
 	db := appcontext.Database(ctx)
 	err := db.Transaction(func(db bank.Database) error {

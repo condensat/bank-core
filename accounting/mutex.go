@@ -84,3 +84,44 @@ func (p *RedisMutex) Lock(ctx context.Context, key string, ttl time.Duration) (L
 		lock: lock,
 	}, err
 }
+
+// Helper functions
+
+func lockKeyString(prefix string, value interface{}) string {
+	if prefix == "" {
+		prefix = "lock"
+	}
+	return fmt.Sprintf("%s.%v", prefix, value)
+}
+
+func lockKeyUserID(userID uint64) string {
+	return lockKeyString("lock.User", userID)
+}
+
+func lockKeyAccountID(accountID uint64) string {
+	return lockKeyString("lock.Account", accountID)
+}
+
+func LockUser(ctx context.Context, userID uint64) Lock {
+	mutex := RedisMutexFromContext(ctx)
+	if mutex == nil {
+		return nil
+	}
+	lock, err := mutex.Lock(ctx, lockKeyUserID(userID), DefaultLockTTL)
+	if err != nil {
+		return nil
+	}
+	return lock
+}
+
+func LockAccount(ctx context.Context, accountID uint64) Lock {
+	mutex := RedisMutexFromContext(ctx)
+	if mutex == nil {
+		return nil
+	}
+	lock, err := mutex.Lock(ctx, lockKeyAccountID(accountID), DefaultLockTTL)
+	if err != nil {
+		return nil
+	}
+	return lock
+}
