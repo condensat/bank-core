@@ -3,8 +3,9 @@ module github.com/condensat/bank-core
 go 1.14
 
 require (
+	github.com/bsm/redislock v0.5.0
 	github.com/emef/bitfield v0.0.0-20170503144143-7d3f8f823065
-	github.com/go-redis/redis/v7 v7.0.0-beta.4
+	github.com/go-redis/redis/v7 v7.2.0
 	github.com/go-redis/redis_rate/v8 v8.0.0
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/google/uuid v1.1.1
