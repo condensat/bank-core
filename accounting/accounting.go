@@ -28,7 +28,7 @@ type Accounting int
 func (p *Accounting) Run(ctx context.Context) {
 	log := logger.Logger(ctx).WithField("Method", "Accounting.Run")
 
-	p.registerHandlers(ctx)
+	p.registerHandlers(RedisMutexContext(ctx))
 
 	log.WithFields(logrus.Fields{
 		"Hostname": utils.Hostname(),

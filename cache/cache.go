@@ -11,6 +11,9 @@ import (
 )
 
 func ToRedis(cache bank.Cache) *redis.Client {
+	if cache == nil {
+		return nil
+	}
 	rdb := cache.RDB()
 	return rdb.(*redis.Client)
 }
