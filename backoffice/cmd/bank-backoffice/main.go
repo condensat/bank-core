@@ -13,7 +13,7 @@ import (
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/monitor"
-	"github.com/condensat/bank-core/security/secureid"
+	"github.com/condensat/bank-core/security"
 
 	"github.com/condensat/bank-core/backoffice"
 
@@ -68,7 +68,7 @@ func main() {
 	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, args.Nats))
 	ctx = appcontext.WithDatabase(ctx, database.New(args.Database))
 	ctx = appcontext.WithProcessusGrabber(ctx, monitor.NewProcessusGrabber(ctx, 15*time.Second))
-	ctx = appcontext.WithSecureID(ctx, secureid.FromFile(args.BackOffice.SecureID))
+	ctx = appcontext.WithSecureID(ctx, security.SecureIDFromFile(args.BackOffice.SecureID))
 
 	migrateDatabase(ctx)
 
