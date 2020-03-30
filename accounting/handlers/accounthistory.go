@@ -2,77 +2,27 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package accounting
+package handlers
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/accounting/common"
+	"github.com/condensat/bank-core/accounting/internal"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/messaging"
 
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	ErrLockError = errors.New("Failed to acquire lock")
-)
-
-func ListUserAccounts(ctx context.Context, userID uint64) ([]AccountInfo, error) {
-	log := logger.Logger(ctx).WithField("Method", "accounting.ListUserAccounts")
-	var result []AccountInfo
-
-	log = log.WithField("UserID", userID)
-
-	// Acquire Lock
-	lock, err := LockUser(ctx, userID)
-	if err != nil {
-		log.WithError(err).
-			Error("Failed to lock user")
-		return result, ErrLockError
-	}
-	defer lock.Unlock()
-
-	// Database Query
-	db := appcontext.Database(ctx)
-	err = db.Transaction(func(db bank.Database) error {
-		accounts, err := database.GetAccountsByUserAndCurrencyAndName(db, model.UserID(userID), "*", "*")
-		if err != nil {
-			return err
-		}
-
-		for _, account := range accounts {
-			accountState, err := database.GetAccountStatusByAccountID(db, account.ID)
-			if err != nil {
-				return err
-			}
-
-			result = append(result, AccountInfo{
-				AccountID: uint64(account.ID),
-				Currency:  string(account.CurrencyName),
-				Name:      string(account.Name),
-				Status:    string(accountState.State),
-			})
-		}
-
-		return nil
-	})
-
-	if err == nil {
-		log.WithField("Count", len(result)).
-			Debug("User accounts retrieved")
-	}
-
-	return result, err
-}
-
-func GetAccountHistory(ctx context.Context, accountID uint64, from, to time.Time) ([]AccountEntry, error) {
-	log := logger.Logger(ctx).WithField("Method", "accounting.GetAccountHistory")
-	var result []AccountEntry
+func AccountHistory(ctx context.Context, accountID uint64, from, to time.Time) ([]common.AccountEntry, error) {
+	log := logger.Logger(ctx).WithField("Method", "accounting.AccountHistory")
+	var result []common.AccountEntry
 
 	log = log.WithFields(logrus.Fields{
 		"AccountID": accountID,
@@ -81,11 +31,11 @@ func GetAccountHistory(ctx context.Context, accountID uint64, from, to time.Time
 	})
 
 	// Acquire Lock
-	lock, err := LockAccount(ctx, accountID)
+	lock, err := internal.LockAccount(ctx, accountID)
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to lock account")
-		return result, ErrLockError
+		return result, internal.ErrLockError
 	}
 	defer lock.Unlock()
 
@@ -107,7 +57,7 @@ func GetAccountHistory(ctx context.Context, accountID uint64, from, to time.Time
 				return database.ErrInvalidAccountOperation
 			}
 
-			result = append(result, AccountEntry{
+			result = append(result, common.AccountEntry{
 				AccountID: uint64(op.AccountID),
 				Currency:  string(account.CurrencyName),
 
@@ -134,4 +84,35 @@ func GetAccountHistory(ctx context.Context, accountID uint64, from, to time.Time
 	}
 
 	return result, err
+}
+
+func OnAccountHistory(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
+	log := logger.Logger(ctx).WithField("Method", "Accounting.OnAccountHistory")
+	log = log.WithFields(logrus.Fields{
+		"Subject": subject,
+	})
+
+	var request common.AccountHistory
+	return messaging.HandleRequest(ctx, message, &request,
+		func(ctx context.Context, _ bank.BankObject) (bank.BankObject, error) {
+			log = log.WithFields(logrus.Fields{
+				"AccountID": request.AccountID,
+			})
+
+			history, err := AccountHistory(ctx, request.AccountID, request.From, request.To)
+			if err != nil {
+				log.WithError(err).
+					Errorf("Failed to get AccountHistory")
+				return nil, internal.ErrInternalError
+			}
+
+			// create & return response
+			return &common.AccountHistory{
+				AccountID: request.AccountID,
+				From:      request.From,
+				To:        request.To,
+
+				History: history,
+			}, nil
+		})
 }
