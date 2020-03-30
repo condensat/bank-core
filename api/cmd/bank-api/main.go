@@ -18,6 +18,7 @@ import (
 
 	"github.com/condensat/bank-core/api"
 	"github.com/condensat/bank-core/api/ratelimiter"
+	"github.com/condensat/bank-core/api/secureid"
 
 	"github.com/condensat/bank-core/database"
 )
@@ -25,6 +26,8 @@ import (
 type Api struct {
 	Port              int
 	CorsAllowedDomain string
+
+	SecureID string
 
 	PeerRequestPerSecond ratelimiter.RateLimitInfo
 	OpenSessionPerMinute ratelimiter.RateLimitInfo
@@ -52,6 +55,8 @@ func parseArgs() Args {
 	flag.IntVar(&args.Api.Port, "port", 4242, "BankApi rpc port (default 4242)")
 	flag.StringVar(&args.Api.CorsAllowedDomain, "corsAllowedDomain", "condensat.space", "Cors Allowed Domain (default condensat.space)")
 
+	flag.StringVar(&args.Api.SecureID, "secureId", "secureid.json", "SecureID json file")
+
 	args.Api.PeerRequestPerSecond = api.DefaultPeerRequestPerSecond
 	flag.IntVar(&args.Api.PeerRequestPerSecond.Rate, "peerRateLimit", 100, "Rate limit rate, per second, per peer connection (default 100)")
 
@@ -74,6 +79,7 @@ func main() {
 	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, args.Nats))
 	ctx = appcontext.WithDatabase(ctx, database.NewDatabase(args.Database))
 	ctx = appcontext.WithProcessusGrabber(ctx, processus.NewGrabber(ctx, 15*time.Second))
+	ctx = appcontext.WithSecureID(ctx, secureid.FromFile(args.Api.SecureID))
 
 	ctx = api.RegisterRateLimiter(ctx, args.Api.PeerRequestPerSecond)
 	ctx = api.RegisterOpenSessionRateLimiter(ctx, args.Api.OpenSessionPerMinute)

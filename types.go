@@ -10,6 +10,8 @@ import (
 
 	"github.com/condensat/bank-core/database/model"
 	logModel "github.com/condensat/bank-core/logger/model"
+
+	"github.com/condensat/secureid"
 )
 
 type BankObject interface {
@@ -63,4 +65,9 @@ type Cache interface {
 
 type Worker interface {
 	Run(ctx context.Context, numWorkers int)
+}
+
+type SecureID interface {
+	ToSecureID(value secureid.Value) (secureid.SecureID, error)
+	FromSecureID(secureID secureid.SecureID) (secureid.Value, error)
 }
