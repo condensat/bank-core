@@ -40,7 +40,7 @@ func ListUserAccounts(ctx context.Context, userID uint64) ([]AccountInfo, error)
 	// Database Query
 	db := appcontext.Database(ctx)
 	err = db.Transaction(func(db bank.Database) error {
-		accounts, err := database.GetAccountsByUserAndCurrencyAndName(db, model.UserID(userID), "", "*")
+		accounts, err := database.GetAccountsByUserAndCurrencyAndName(db, model.UserID(userID), "*", "*")
 		if err != nil {
 			return err
 		}
