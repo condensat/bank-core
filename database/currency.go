@@ -104,7 +104,11 @@ func QueryCurrencyList(db bank.Database, name model.CurrencyName, available int)
 		Scopes(filters...).
 		Find(&list).Error
 
-	return convertCurrencyList(list), err
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return convertCurrencyList(list), nil
 }
 
 // ScopeCurencyName

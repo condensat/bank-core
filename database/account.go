@@ -118,7 +118,11 @@ func QueryAccountList(db bank.Database, userID model.UserID, currency model.Curr
 		Scopes(filters...).
 		Find(&list).Error
 
-	return convertAccountList(list), err
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return convertAccountList(list), nil
 }
 
 // ScopeAccountID

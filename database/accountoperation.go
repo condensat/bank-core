@@ -155,7 +155,11 @@ func GeAccountHistory(db bank.Database, accountID model.AccountID) ([]model.Acco
 		Order("id ASC").
 		Find(&list).Error
 
-	return convertAccountOperationList(list), err
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return convertAccountOperationList(list), nil
 }
 
 func GeAccountHistoryRange(db bank.Database, accountID model.AccountID, from, to time.Time) ([]model.AccountOperation, error) {
@@ -184,7 +188,11 @@ func GeAccountHistoryRange(db bank.Database, accountID model.AccountID, from, to
 		Order("id ASC").
 		Find(&list).Error
 
-	return convertAccountOperationList(list), err
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return convertAccountOperationList(list), nil
 }
 
 func convertAccountOperationList(list []*model.AccountOperation) []model.AccountOperation {
