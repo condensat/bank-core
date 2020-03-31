@@ -76,6 +76,14 @@ func (p *CurrencyInfo) Decode(data []byte) error {
 	return bank.DecodeObject(data, bank.BankObject(p))
 }
 
+func (p *AccountInfo) Encode() ([]byte, error) {
+	return bank.EncodeObject(p)
+}
+
+func (p *AccountInfo) Decode(data []byte) error {
+	return bank.DecodeObject(data, bank.BankObject(p))
+}
+
 func (p *AccountCreation) Encode() ([]byte, error) {
 	return bank.EncodeObject(p)
 }

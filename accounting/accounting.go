@@ -43,6 +43,7 @@ func (p *Accounting) registerHandlers(ctx context.Context) {
 	nats.SubscribeWorkers(ctx, common.AccountCreateSubject, 8, handlers.OnAccountCreate)
 	nats.SubscribeWorkers(ctx, common.AccountListSubject, 8, handlers.OnAccountList)
 	nats.SubscribeWorkers(ctx, common.AccountHistorySubject, 8, handlers.OnAccountHistory)
+	nats.SubscribeWorkers(ctx, common.AccountSetStatusSubject, 8, handlers.OnAccountSetStatus)
 
 	log.Debug("Bank Accounting registered")
 }
