@@ -38,6 +38,7 @@ func (p *Accounting) registerHandlers(ctx context.Context) {
 
 	nats.SubscribeWorkers(ctx, common.CurrencyCreateSubject, 8, handlers.OnCurrencyCreate)
 	nats.SubscribeWorkers(ctx, common.CurrencyListSubject, 8, handlers.OnCurrencyList)
+	nats.SubscribeWorkers(ctx, common.CurrencySetAvailableSubject, 8, handlers.OnCurrencySetAvailable)
 
 	nats.SubscribeWorkers(ctx, common.AccountCreateSubject, 8, handlers.OnAccountCreate)
 	nats.SubscribeWorkers(ctx, common.AccountListSubject, 8, handlers.OnAccountList)
