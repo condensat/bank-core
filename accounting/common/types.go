@@ -10,6 +10,11 @@ import (
 	"github.com/condensat/bank-core"
 )
 
+type CurrencyInfo struct {
+	Name      string
+	Available bool
+}
+
 type AccountInfo struct {
 	AccountID uint64
 	Currency  string
@@ -49,6 +54,14 @@ type AccountHistory struct {
 	To        time.Time
 
 	History []AccountEntry
+}
+
+func (p *CurrencyInfo) Encode() ([]byte, error) {
+	return bank.EncodeObject(p)
+}
+
+func (p *CurrencyInfo) Decode(data []byte) error {
+	return bank.DecodeObject(data, bank.BankObject(p))
 }
 
 func (p *AccountCreation) Encode() ([]byte, error) {

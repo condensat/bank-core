@@ -35,6 +35,9 @@ func (p *Accounting) registerHandlers(ctx context.Context) {
 	log := logger.Logger(ctx).WithField("Method", "Accounting.RegisterHandlers")
 
 	nats := appcontext.Messaging(ctx)
+
+	nats.SubscribeWorkers(ctx, common.CurrencyCreateSubject, 8, handlers.OnCurrencyCreate)
+
 	nats.SubscribeWorkers(ctx, common.AccountCreateSubject, 8, handlers.OnAccountCreate)
 	nats.SubscribeWorkers(ctx, common.AccountListSubject, 8, handlers.OnAccountList)
 	nats.SubscribeWorkers(ctx, common.AccountHistorySubject, 8, handlers.OnAccountHistory)
