@@ -81,7 +81,7 @@ func (p *RedisMutex) Lock(ctx context.Context, key string, ttl time.Duration) (L
 	const keyPrefix = "accounting.RedisMutex"
 
 	lock, err := p.locker.Obtain(fmt.Sprintf("%s.%s", keyPrefix, key), ttl, &redislock.Options{
-		RetryStrategy: redislock.LimitRetry(redislock.LinearBackoff(200*time.Millisecond), 5),
+		RetryStrategy: redislock.LimitRetry(redislock.LinearBackoff(100*time.Millisecond), 100),
 		Metadata:      keyPrefix,
 	})
 
