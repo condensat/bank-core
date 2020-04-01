@@ -88,6 +88,13 @@ func AppendAccountOperation(db bank.Database, operation model.AccountOperation) 
 			*operation.TotalLocked += *previousOperation.TotalLocked
 		}
 
+		// To fixed precision
+		*operation.Amount = model.ToFixedFloat(*operation.Amount)
+		*operation.Balance = model.ToFixedFloat(*operation.Balance)
+
+		*operation.LockAmount = model.ToFixedFloat(*operation.LockAmount)
+		*operation.TotalLocked = model.ToFixedFloat(*operation.TotalLocked)
+
 		// pre-check operation with newupdated values
 		if !operation.PreCheck() {
 			return ErrInvalidAccountOperation
