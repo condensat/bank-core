@@ -107,3 +107,74 @@ func AccountWithdraw(ctx context.Context, accountID, referenceID uint64, amount 
 
 	return result, nil
 }
+
+func AccountTransfert(ctx context.Context, srcAccountID, dstAccountID, referenceID uint64, currency string, amount float64, label string) (common.AccountTransfert, error) {
+	log := logger.Logger(ctx).WithField("Method", "Client.AccountTransfert")
+
+	if srcAccountID == 0 || dstAccountID == 0 {
+		return common.AccountTransfert{}, internal.ErrInternalError
+	}
+	if srcAccountID == dstAccountID {
+		return common.AccountTransfert{}, internal.ErrInternalError
+	}
+
+	// currency must be valid
+	if len(currency) == 0 {
+		return common.AccountTransfert{}, internal.ErrInternalError
+	}
+
+	// deposit amount must be positive
+	if amount <= 0.0 {
+		return common.AccountTransfert{}, internal.ErrInternalError
+	}
+
+	log = log.WithFields(logrus.Fields{
+		"SrcAccountID": srcAccountID,
+		"DstAccountID": dstAccountID,
+
+		"Amount":   amount,
+		"Currency": currency,
+	})
+
+	request := common.AccountTransfert{
+		Source: common.AccountEntry{
+			AccountID: srcAccountID,
+			Currency:  currency,
+		},
+		Destination: common.AccountEntry{
+			AccountID: dstAccountID,
+
+			OperationType:    "transfert",
+			SynchroneousType: "sync",
+			ReferenceID:      referenceID,
+
+			Timestamp: time.Now(),
+			Amount:    amount,
+
+			Label: label,
+
+			LockAmount: 0.0, // no lock on sync account transfert
+			Currency:   currency,
+		},
+	}
+
+	var result common.AccountTransfert
+	err := messaging.RequestMessage(ctx, common.AccountTransfertSubject, &request, &result)
+	if err != nil {
+		log.WithError(err).
+			Error("RequestMessage failed")
+		return common.AccountTransfert{}, messaging.ErrRequestFailed
+	}
+
+	log.WithFields(logrus.Fields{
+		"SrcID":      result.Source.OperationID,
+		"SrcPrevID":  result.Source.OperationPrevID,
+		"SrcBalance": result.Source.Balance,
+
+		"DstID":      result.Destination.OperationID,
+		"DstPrevID":  result.Destination.OperationPrevID,
+		"DstBalance": result.Destination.Balance,
+	}).Debug("Account amount")
+
+	return result, nil
+}
