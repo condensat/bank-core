@@ -22,7 +22,6 @@ import (
 
 func AccountHistory(ctx context.Context, accountID uint64, from, to time.Time) ([]common.AccountEntry, error) {
 	log := logger.Logger(ctx).WithField("Method", "accounting.AccountHistory")
-	var result []common.AccountEntry
 
 	log = log.WithFields(logrus.Fields{
 		"AccountID": accountID,
@@ -30,60 +29,51 @@ func AccountHistory(ctx context.Context, accountID uint64, from, to time.Time) (
 		"To":        to,
 	})
 
-	// Acquire Lock
-	lock, err := internal.LockAccount(ctx, accountID)
-	if err != nil {
-		log.WithError(err).
-			Error("Failed to lock account")
-		return result, internal.ErrLockError
-	}
-	defer lock.Unlock()
-
 	// Database Query
 	db := appcontext.Database(ctx)
-	err = db.Transaction(func(db bank.Database) error {
-		account, err := database.GetAccountByID(db, model.AccountID(accountID))
-		if err != nil {
-			return err
-		}
-
-		operations, err := database.GeAccountHistoryRange(db, account.ID, from, to)
-		if err != nil {
-			return err
-		}
-
-		for _, op := range operations {
-			if !op.IsValid() {
-				return database.ErrInvalidAccountOperation
-			}
-
-			result = append(result, common.AccountEntry{
-				AccountID: uint64(op.AccountID),
-				Currency:  string(account.CurrencyName),
-
-				OperationType:    string(op.OperationType),
-				SynchroneousType: string(op.SynchroneousType),
-
-				Timestamp: op.Timestamp,
-				Label:     "N/A",
-				Amount:    float64(*op.Amount),
-				Balance:   float64(*op.Balance),
-
-				LockAmount:  float64(*op.LockAmount),
-				TotalLocked: float64(*op.TotalLocked),
-			})
-		}
-
-		return nil
-	})
-
-	if err == nil {
-		log.
-			WithField("Count", len(result)).
-			Debug("Account history retrieved")
+	account, err := database.GetAccountByID(db, model.AccountID(accountID))
+	if err != nil {
+		return nil, err
 	}
 
-	return result, err
+	operations, err := database.GeAccountHistoryRange(db, account.ID, from, to)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []common.AccountEntry
+	for _, op := range operations {
+		if !op.IsValid() {
+			log.WithError(database.ErrInvalidAccountOperation).
+				Warn("Invalid operation in history")
+			continue
+		}
+
+		result = append(result, common.AccountEntry{
+			OperationID:     uint64(op.ID),
+			OperationPrevID: uint64(op.PrevID),
+
+			AccountID: uint64(op.AccountID),
+			Currency:  string(account.CurrencyName),
+
+			OperationType:    string(op.OperationType),
+			SynchroneousType: string(op.SynchroneousType),
+
+			Timestamp: op.Timestamp,
+			Label:     "N/A",
+			Amount:    float64(*op.Amount),
+			Balance:   float64(*op.Balance),
+
+			LockAmount:  float64(*op.LockAmount),
+			TotalLocked: float64(*op.TotalLocked),
+		})
+	}
+
+	log.
+		WithField("Count", len(result)).
+		Debug("Account history retrieved")
+
+	return result, nil
 }
 
 func OnAccountHistory(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
