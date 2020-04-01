@@ -19,36 +19,53 @@ var (
 )
 
 func AppendAccountOperation(db bank.Database, operation model.AccountOperation) (model.AccountOperation, error) {
-	var result model.AccountOperation
+	result, err := AppendAccountOperationSlice(db, operation)
+	if err != nil {
+		return model.AccountOperation{}, err
+	}
+	if len(result) != 1 {
+		return model.AccountOperation{}, ErrInvalidAccountOperation
+	}
+	return result[0], nil
+}
+
+func AppendAccountOperationSlice(db bank.Database, operations ...model.AccountOperation) ([]model.AccountOperation, error) {
 	if db == nil {
-		return result, ErrInvalidDatabase
+		return nil, ErrInvalidDatabase
 	}
 
-	// check for valid accountID
-	accountID := operation.AccountID
-	if accountID == 0 {
-		return result, ErrInvalidAccountID
-	}
+	// pre-check all operations
+	for _, operation := range operations {
+		// check for valid accountID
+		accountID := operation.AccountID
+		if accountID == 0 {
+			return nil, ErrInvalidAccountID
+		}
 
-	// UTC timestamp
-	operation.Timestamp = operation.Timestamp.UTC().Truncate(time.Second)
+		// UTC timestamp
+		operation.Timestamp = operation.Timestamp.UTC().Truncate(time.Second)
 
-	// pre-check operation with ids
-	if !operation.PreCheck() {
-		return result, ErrInvalidAccountOperation
+		// pre-check operation with ids
+		if !operation.PreCheck() {
+			return nil, ErrInvalidAccountOperation
+		}
 	}
 
 	// within a db transaction
-	// returning error will cause rollback
+	var result []model.AccountOperation
 	err := db.Transaction(func(db bank.Database) error {
-		return func() error {
+
+		// append all operations in same transaction
+		// returning error will cause rollback
+		for _, operation := range operations {
 			op, err := txApppendAccountOperation(db, operation)
-			if err == nil {
-				// write output result
-				result = op
+			if err != nil {
+				return err
 			}
-			return err
-		}()
+			result = append(result, op)
+		}
+
+		return nil
 	})
 
 	// return result with error
