@@ -15,4 +15,5 @@ const (
 	AccountListSubject      = chanPrefix + "Account.List"
 	AccountHistorySubject   = chanPrefix + "Account.History"
 	AccountSetStatusSubject = chanPrefix + "Account.SetStatus"
+	AccountOperationSubject = chanPrefix + "Account.Operation"
 )
