@@ -20,11 +20,13 @@ type CurrencyList struct {
 }
 
 type AccountInfo struct {
-	Timestamp time.Time
-	AccountID uint64
-	Currency  string
-	Name      string
-	Status    string
+	Timestamp   time.Time
+	AccountID   uint64
+	Currency    string
+	Name        string
+	Status      string
+	Balance     float64
+	TotalLocked float64
 }
 
 type AccountCreation struct {
