@@ -105,8 +105,10 @@ func QueryAccountList(db bank.Database, userID model.UserID, currency model.Curr
 	}
 
 	filters = append(filters, ScopeUserID(userID))
-	filters = append(filters, ScopeAccountCurrencyName(currency))
-	// manage wildcard search (no account name filter selects all accounts)
+	// manage wildcards
+	if currency != "*" {
+		filters = append(filters, ScopeAccountCurrencyName(currency))
+	}
 	if name != "*" {
 		filters = append(filters, ScopeAccountName(name))
 	}
@@ -116,7 +118,11 @@ func QueryAccountList(db bank.Database, userID model.UserID, currency model.Curr
 		Scopes(filters...).
 		Find(&list).Error
 
-	return convertAccountList(list), err
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return convertAccountList(list), nil
 }
 
 // ScopeAccountID

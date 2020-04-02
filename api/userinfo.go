@@ -97,6 +97,15 @@ func FromUserInfoFile(ctx context.Context, fileName string) ([]UserInfo, error) 
 			continue
 		}
 		result = append(result, userInfo)
+
+		if userInfo.Login == "demo" {
+			for i := 0; i < 100; i++ {
+				demo := userInfo
+				demo.Login = fmt.Sprintf("%s_%.3d", demo.Login, i)
+				demo.Email = fmt.Sprintf("%s@condensat.space", demo.Login)
+				result = append(result, demo)
+			}
+		}
 	}
 	return result[:], nil
 }
@@ -109,57 +118,67 @@ func ImportUsers(ctx context.Context, userInfos ...UserInfo) error {
 	}
 
 	return db.Transaction(func(tx bank.Database) error {
-		for _, userInfo := range userInfos {
-			user, err := database.FindOrCreateUser(tx, model.User{
-				Name:  model.UserName(userInfo.Login),
-				Email: model.UserEmail(userInfo.Email),
-			})
-			if err != nil {
-				log.WithError(err).
-					Error("Failed to FindOrCreateUser")
-				continue
-			}
 
-			credential, err := database.CreateOrUpdatedCredential(ctx, tx,
-				model.Credential{
-					UserID:       user.ID,
-					LoginHash:    model.Base58(userInfo.Login),
-					PasswordHash: model.Base58(userInfo.Password),
-					TOTPSecret:   "",
-				},
-			)
-			if err != nil {
-				log.WithError(err).
-					Error("Failed to CreateOrUpdatedCredential")
-				continue
-			}
+		batchSize := 32
+		batches := make([][]UserInfo, 0, (len(userInfos)+batchSize-1)/batchSize)
+		for batchSize < len(userInfos) {
+			userInfos, batches = userInfos[batchSize:], append(batches, userInfos[0:batchSize:batchSize])
+		}
+		batches = append(batches, userInfos)
 
-			userID, verified, err := database.CheckCredential(ctx, tx,
-				database.HashEntry(model.Base58(userInfo.Login)),
-				database.HashEntry(model.Base58(userInfo.Password)),
-			)
-			if err != nil {
-				log.WithError(err).
-					Error("Failed to CheckCredential")
-				continue
-			}
+		for _, userInfos := range batches {
+			for _, userInfo := range userInfos {
+				user, err := database.FindOrCreateUser(tx, model.User{
+					Name:  model.UserName(userInfo.Login),
+					Email: model.UserEmail(userInfo.Email),
+				})
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to FindOrCreateUser")
+					continue
+				}
 
-			if !verified {
-				log.Error("Not Verified")
-				continue
-			}
+				credential, err := database.CreateOrUpdatedCredential(ctx, tx,
+					model.Credential{
+						UserID:       user.ID,
+						LoginHash:    model.Base58(userInfo.Login),
+						PasswordHash: model.Base58(userInfo.Password),
+						TOTPSecret:   "",
+					},
+				)
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to CreateOrUpdatedCredential")
+					continue
+				}
 
-			if userID != user.ID {
-				log.Error("Wrong UserID")
-				continue
-			}
+				userID, verified, err := database.CheckCredential(ctx, tx,
+					database.HashEntry(model.Base58(userInfo.Login)),
+					database.HashEntry(model.Base58(userInfo.Password)),
+				)
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to CheckCredential")
+					continue
+				}
 
-			log.WithFields(logrus.Fields{
-				"UserID":       userID,
-				"LoginHash":    credential.LoginHash,
-				"PasswordHash": credential.PasswordHash,
-				"Verified":     verified,
-			}).Info("User Imported")
+				if !verified {
+					log.Error("Not Verified")
+					continue
+				}
+
+				if userID != user.ID {
+					log.Error("Wrong UserID")
+					continue
+				}
+
+				log.WithFields(logrus.Fields{
+					"UserID":       userID,
+					"LoginHash":    credential.LoginHash,
+					"PasswordHash": credential.PasswordHash,
+					"Verified":     verified,
+				}).Info("User Imported")
+			}
 		}
 		return nil
 	})

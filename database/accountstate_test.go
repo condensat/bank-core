@@ -40,6 +40,7 @@ func TestAddOrUpdateAccountState(t *testing.T) {
 		{"InvlalidAccountID", args{createAccountState(0, model.AccountStatusInvalid)}, model.AccountState{}, true},
 		{"InvlalidStatus", args{createAccountState(data.Accounts[0].ID, model.AccountStatusInvalid)}, model.AccountState{}, true},
 
+		{"Created", args{createAccountState(data.Accounts[0].ID, model.AccountStatusCreated)}, createAccountState(data.Accounts[0].ID, model.AccountStatusCreated), false},
 		{"Normal", args{createAccountState(data.Accounts[0].ID, model.AccountStatusNormal)}, createAccountState(data.Accounts[0].ID, model.AccountStatusNormal), false},
 		{"Locked", args{createAccountState(data.Accounts[0].ID, model.AccountStatusLocked)}, createAccountState(data.Accounts[0].ID, model.AccountStatusLocked), false},
 		{"Disabled", args{createAccountState(data.Accounts[0].ID, model.AccountStatusDisabled)}, createAccountState(data.Accounts[0].ID, model.AccountStatusDisabled), false},

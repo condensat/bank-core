@@ -21,6 +21,7 @@ func TestAccountStatus_Valid(t *testing.T) {
 		{"Invalid", AccountStatus("invalid"), false},
 		{"NotValid", AccountStatus("not-valid"), false},
 
+		{"Created", AccountStatus("created"), true},
 		{"Normal", AccountStatus("normal"), true},
 		{"Locked", AccountStatus("locked"), true},
 		{"Disabled", AccountStatus("disabled"), true},
@@ -52,6 +53,7 @@ func TestParseAccountStatus(t *testing.T) {
 		{"Invalid", args{"invalid"}, AccountStatusInvalid},
 		{"NotValid", args{"not-valid"}, AccountStatusInvalid},
 
+		{"Created", args{"created"}, AccountStatusCreated},
 		{"Normal", args{"normal"}, AccountStatusNormal},
 		{"Locked", args{"locked"}, AccountStatusLocked},
 		{"Disabled", args{"disabled"}, AccountStatusDisabled},
@@ -80,6 +82,7 @@ func TestAccountStatus_String(t *testing.T) {
 		{"Invalid", AccountStatus("invalid"), ""},
 		{"NotValid", AccountStatus("not-valid"), ""},
 
+		{"Created", AccountStatusCreated, "created"},
 		{"Normal", AccountStatusNormal, "normal"},
 		{"Locked", AccountStatusLocked, "locked"},
 		{"Disabled", AccountStatusDisabled, "disabled"},
@@ -104,6 +107,7 @@ func Test_knownAccountStatus(t *testing.T) {
 	knownEnums := []string{
 		"", // AccountStatusInvalid
 
+		"created",  // AccountStatusCreated
 		"normal",   // AccountStatusNormal
 		"locked",   // AccountStatusAsyncLocked
 		"disabled", // AccountStatusDisabled
