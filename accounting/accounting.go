@@ -36,16 +36,18 @@ func (p *Accounting) registerHandlers(ctx context.Context) {
 
 	nats := appcontext.Messaging(ctx)
 
-	nats.SubscribeWorkers(ctx, common.CurrencyCreateSubject, 8, handlers.OnCurrencyCreate)
-	nats.SubscribeWorkers(ctx, common.CurrencyListSubject, 8, handlers.OnCurrencyList)
-	nats.SubscribeWorkers(ctx, common.CurrencySetAvailableSubject, 8, handlers.OnCurrencySetAvailable)
+	const concurencyLevel = 8
 
-	nats.SubscribeWorkers(ctx, common.AccountCreateSubject, 8, handlers.OnAccountCreate)
-	nats.SubscribeWorkers(ctx, common.AccountListSubject, 8, handlers.OnAccountList)
-	nats.SubscribeWorkers(ctx, common.AccountHistorySubject, 8, handlers.OnAccountHistory)
-	nats.SubscribeWorkers(ctx, common.AccountSetStatusSubject, 8, handlers.OnAccountSetStatus)
-	nats.SubscribeWorkers(ctx, common.AccountOperationSubject, 16, handlers.OnAccountOperation)
-	nats.SubscribeWorkers(ctx, common.AccountTransfertSubject, 16, handlers.OnAccountTransfert)
+	nats.SubscribeWorkers(ctx, common.CurrencyCreateSubject, 2*concurencyLevel, handlers.OnCurrencyCreate)
+	nats.SubscribeWorkers(ctx, common.CurrencyListSubject, 2*concurencyLevel, handlers.OnCurrencyList)
+	nats.SubscribeWorkers(ctx, common.CurrencySetAvailableSubject, 2*concurencyLevel, handlers.OnCurrencySetAvailable)
+
+	nats.SubscribeWorkers(ctx, common.AccountCreateSubject, 2*concurencyLevel, handlers.OnAccountCreate)
+	nats.SubscribeWorkers(ctx, common.AccountListSubject, 2*concurencyLevel, handlers.OnAccountList)
+	nats.SubscribeWorkers(ctx, common.AccountHistorySubject, 2*concurencyLevel, handlers.OnAccountHistory)
+	nats.SubscribeWorkers(ctx, common.AccountSetStatusSubject, 2*concurencyLevel, handlers.OnAccountSetStatus)
+	nats.SubscribeWorkers(ctx, common.AccountOperationSubject, 8*concurencyLevel, handlers.OnAccountOperation)
+	nats.SubscribeWorkers(ctx, common.AccountTransfertSubject, 8*concurencyLevel, handlers.OnAccountTransfert)
 
 	log.Debug("Bank Accounting registered")
 }
