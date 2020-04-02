@@ -130,7 +130,7 @@ func createAndListAccount(ctx context.Context, currencies []common.CurrencyInfo,
 
 		log.WithFields(logrus.Fields{
 			"AccountID": account.AccountID,
-			"Count":     len(history.History),
+			"Count":     len(history.Entries),
 		}).Infof("Account history")
 	}
 }

@@ -34,7 +34,7 @@ func AccountHistory(ctx context.Context, accountID uint64, from, to time.Time) (
 
 	log.WithFields(logrus.Fields{
 		"AccountID": result.AccountID,
-		"Count":     len(result.History),
+		"Count":     len(result.Entries),
 	}).Debug("Account History")
 
 	return result, nil
