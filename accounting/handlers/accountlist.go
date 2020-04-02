@@ -48,7 +48,13 @@ func AccountList(ctx context.Context, userID uint64) ([]common.AccountInfo, erro
 				return err
 			}
 
+			last, err := database.GetLastAccountOperation(db, account.ID)
+			if err != nil {
+				return err
+			}
+
 			result = append(result, common.AccountInfo{
+				Timestamp: last.Timestamp,
 				AccountID: uint64(account.ID),
 				Currency:  string(account.CurrencyName),
 				Name:      string(account.Name),

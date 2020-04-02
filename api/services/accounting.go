@@ -26,6 +26,7 @@ type AccountRequest struct {
 
 // AccountInfo holds account information
 type AccountInfo struct {
+	Timestamp int64    `json:"timestamp"`
 	AccountID SecureID `json:"accountId"`
 	Currency  string   `json:"currency"`
 	Name      string   `json:"name"`
@@ -83,6 +84,7 @@ func (p *AccountingService) List(r *http.Request, request *AccountRequest, reply
 	for _, account := range list.Accounts {
 		// create SecureID from AccountID
 		result = append(result, AccountInfo{
+			Timestamp: makeTimestampMillis(account.Timestamp),
 			AccountID: secureAccountID(account.AccountID),
 			Currency:  account.Currency,
 			Name:      account.Name,
