@@ -15,6 +15,7 @@ import (
 	"github.com/condensat/bank-core/accounting/common"
 	"github.com/condensat/bank-core/api/sessions"
 
+	"github.com/shengdoushi/base58"
 	"github.com/sirupsen/logrus"
 )
 
@@ -230,8 +231,14 @@ func (p *AccountingService) History(r *http.Request, request *AccountHistoryRequ
 type SecureID string
 
 // Todo use SecureID package
+func secureIDString(prefix string, operationId uint64) SecureID {
+	hash := utils.HashString(fmt.Sprintf("%s:%d", prefix, operationId))
+	return SecureID(base58.Encode(hash, base58.BitcoinAlphabet))
+}
+
+// Todo use SecureID package
 func secureAccountID(accountID uint64) SecureID {
-	return SecureID(utils.HashString(fmt.Sprintf("a:%d", accountID)))
+	return secureIDString("a", accountID)
 }
 
 // Todo use SecureID package
@@ -247,5 +254,5 @@ func accountIDFromSecureID(sID SecureID, accounts []common.AccountInfo) uint64 {
 
 // Todo use SecureID package
 func secureOperationID(operationId uint64) SecureID {
-	return SecureID(utils.HashString(fmt.Sprintf("o:%d", operationId)))
+	return secureIDString("o", operationId)
 }
