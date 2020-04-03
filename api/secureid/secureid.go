@@ -6,14 +6,20 @@ package secureid
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io/ioutil"
+	"sync"
 
 	"github.com/condensat/bank-core"
+
 	"github.com/condensat/secureid"
 
-	sid "github.com/condensat/secureid"
-
 	"github.com/shengdoushi/base58"
+)
+
+var (
+	ErrInvalidKeys = errors.New("Invalid SecureID Keys")
 )
 
 type Options struct {
@@ -22,8 +28,14 @@ type Options struct {
 	KeyID   uint   `json:"keyId"`
 }
 
+type KeysMap map[string]*secureid.Keys
+
 type SecureIDKeys struct {
-	keys *sid.Keys
+	sync.Mutex
+	info  secureid.SecureInfo
+	keyID secureid.KeyID
+
+	subKeys KeysMap
 }
 
 func FromFile(filename string) bank.SecureID {
@@ -57,14 +69,48 @@ func New(info secureid.SecureInfo, keyID secureid.KeyID) bank.SecureID {
 		panic("Invalid SecureID")
 	}
 	return &SecureIDKeys{
-		keys: keys,
+		info:  info,
+		keyID: keyID,
+
+		subKeys: make(KeysMap),
 	}
 }
 
-func (p *SecureIDKeys) ToSecureID(value secureid.Value) (secureid.SecureID, error) {
-	return p.keys.SecureIDFromValue(value)
+func (p *SecureIDKeys) SubKey(context string) *secureid.Keys {
+	p.Lock()
+	defer p.Unlock()
+
+	if len(context) == 0 {
+		context = "default"
+	}
+
+	keys, ok := p.subKeys[context]
+	if !ok {
+		// create sub key with context if not found
+		info := secureid.SecureInfo{
+			Seed:    p.info.Seed,
+			Context: fmt.Sprintf("%s:%s", p.info.Context, context),
+		}
+		// return new keys
+		keys = secureid.DefaultKeys(info, p.keyID)
+		p.subKeys[context] = keys
+	}
+
+	return keys
 }
 
-func (p *SecureIDKeys) FromSecureID(secureID secureid.SecureID) (secureid.Value, error) {
-	return p.keys.ValueFromSecureID(secureID)
+func (p *SecureIDKeys) ToSecureID(context string, value secureid.Value) (secureid.SecureID, error) {
+	keys := p.SubKey(context)
+	if keys == nil {
+		return secureid.SecureID{}, ErrInvalidKeys
+	}
+	return keys.SecureIDFromValue(value)
+}
+
+func (p *SecureIDKeys) FromSecureID(context string, secureID secureid.SecureID) (secureid.Value, error) {
+	keys := p.SubKey(context)
+	if keys == nil {
+		return secureid.Value(0), ErrInvalidKeys
+	}
+	return keys.ValueFromSecureID(secureID)
 }
