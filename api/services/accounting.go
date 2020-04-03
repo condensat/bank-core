@@ -5,17 +5,18 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
+	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
-	"github.com/condensat/bank-core/security/utils"
+	"github.com/condensat/secureid"
 
 	"github.com/condensat/bank-core/accounting/client"
-	"github.com/condensat/bank-core/accounting/common"
 	"github.com/condensat/bank-core/api/sessions"
 
-	"github.com/shengdoushi/base58"
 	"github.com/sirupsen/logrus"
 )
 
@@ -28,13 +29,13 @@ type AccountRequest struct {
 
 // AccountInfo holds account information
 type AccountInfo struct {
-	Timestamp   int64    `json:"timestamp"`
-	AccountID   SecureID `json:"accountId"`
-	Currency    string   `json:"currency"`
-	Name        string   `json:"name"`
-	Status      string   `json:"status"`
-	Balance     float64  `json:"balance"`
-	TotalLocked float64  `json:"totalLocked"`
+	Timestamp   int64   `json:"timestamp"`
+	AccountID   string  `json:"accountId"`
+	Currency    string  `json:"currency"`
+	Name        string  `json:"name"`
+	Status      string  `json:"status"`
+	Balance     float64 `json:"balance"`
+	TotalLocked float64 `json:"totalLocked"`
 }
 
 // AccountResponse holds args for accounting requests
@@ -89,7 +90,7 @@ func (p *AccountingService) List(r *http.Request, request *AccountRequest, reply
 		// create SecureID from AccountID
 		result = append(result, AccountInfo{
 			Timestamp:   makeTimestampMillis(account.Timestamp),
-			AccountID:   secureAccountID(account.AccountID),
+			AccountID:   getSecureIDString(ctx, "account", account.AccountID),
 			Currency:    account.Currency,
 			Name:        account.Name,
 			Status:      account.Status,
@@ -113,24 +114,24 @@ func (p *AccountingService) List(r *http.Request, request *AccountRequest, reply
 // AccountHistoryRequest holds args for accounting history requests
 type AccountHistoryRequest struct {
 	SessionArgs
-	AccountID SecureID `json:"accountId"`
-	From      int64    `json:"from"`
-	To        int64    `json:"to"`
+	AccountID string `json:"accountId"`
+	From      int64  `json:"from"`
+	To        int64  `json:"to"`
 }
 
 // AccountOperation holds account operation
 type AccountOperation struct {
-	Timestamp   int64    `json:"timestamp"`
-	OperationID SecureID `json:"operationId"`
-	Amount      float64  `json:"amount"`
-	Balance     float64  `json:"balance"`
-	LockAmount  float64  `json:"lockAmount"`
-	TotalLocked float64  `json:"totalLocked"`
+	Timestamp   int64   `json:"timestamp"`
+	OperationID string  `json:"operationId"`
+	Amount      float64 `json:"amount"`
+	Balance     float64 `json:"balance"`
+	LockAmount  float64 `json:"lockAmount"`
+	TotalLocked float64 `json:"totalLocked"`
 }
 
 // AccountHistoryResponse holds args for accounting requests
 type AccountHistoryResponse struct {
-	AccountID  SecureID           `json:"accountId"`
+	AccountID  string             `json:"accountId"`
 	Currency   string             `json:"currency"`
 	From       int64              `json:"from"`
 	To         int64              `json:"to"`
@@ -177,8 +178,7 @@ func (p *AccountingService) History(r *http.Request, request *AccountHistoryRequ
 		return sessions.ErrInternalError
 	}
 
-	// Todo use SecureID package
-	accountID := accountIDFromSecureID(request.AccountID, list.Accounts)
+	accountID := getIDFromSecureIDString(ctx, "account", request.AccountID)
 
 	// call internal API
 	from := fromTimestampMillis(request.From)
@@ -215,7 +215,7 @@ func (p *AccountingService) History(r *http.Request, request *AccountHistoryRequ
 		// create SecureID from OperationID
 		result = append(result, AccountOperation{
 			Timestamp:   makeTimestampMillis(entry.Timestamp),
-			OperationID: secureOperationID(entry.OperationID),
+			OperationID: getSecureIDString(ctx, "operation", entry.OperationID),
 			Amount:      entry.Amount,
 			Balance:     entry.Balance,
 			LockAmount:  entry.LockAmount,
@@ -242,32 +242,41 @@ func (p *AccountingService) History(r *http.Request, request *AccountHistoryRequ
 	return nil
 }
 
-// Todo use SecureID package
-type SecureID string
+func getSecureIDString(ctx context.Context, prefix string, value uint64) string {
+	log := logger.Logger(ctx).WithField("Method", "getSecureIDString")
+	sID := appcontext.SecureID(ctx)
 
-// Todo use SecureID package
-func secureIDString(prefix string, operationId uint64) SecureID {
-	hash := utils.HashString(fmt.Sprintf("%s:%d", prefix, operationId))
-	return SecureID(base58.Encode(hash, base58.BitcoinAlphabet))
-}
-
-// Todo use SecureID package
-func secureAccountID(accountID uint64) SecureID {
-	return secureIDString("a", accountID)
-}
-
-// Todo use SecureID package
-func accountIDFromSecureID(sID SecureID, accounts []common.AccountInfo) uint64 {
-	for _, account := range accounts {
-		accountID := uint64(account.AccountID)
-		if secureAccountID(accountID) == sID {
-			return accountID
-		}
+	secureID, err := sID.ToSecureID(prefix, secureid.Value(value))
+	if err != nil {
+		log.WithError(err).
+			WithField("Value", value).
+			Error("ToSecureID failed")
+		return ""
 	}
-	return 0
+
+	return fmt.Sprintf("%s:%s:%s", secureID.Version, secureID.Data, secureID.Check)
 }
 
-// Todo use SecureID package
-func secureOperationID(operationId uint64) SecureID {
-	return secureIDString("o", operationId)
+func getIDFromSecureIDString(ctx context.Context, prefix string, secureID string) uint64 {
+	log := logger.Logger(ctx).WithField("Method", "getIDFromSecureIDString")
+	sID := appcontext.SecureID(ctx)
+
+	toks := strings.Split(secureID, ":")
+	if len(toks) != 3 {
+		return 0
+	}
+
+	value, err := sID.FromSecureID(prefix, secureid.SecureID{
+		Version: toks[0],
+		Data:    toks[1],
+		Check:   toks[2],
+	})
+	if err != nil {
+		log.WithError(err).
+			WithField("SecureID", secureID).
+			Error("FromSecureID failed")
+		return 0
+	}
+
+	return uint64(value)
 }
