@@ -181,7 +181,10 @@ func (p *AccountingService) History(r *http.Request, request *AccountHistoryRequ
 	accountID := accountIDFromSecureID(request.AccountID, list.Accounts)
 
 	// call internal API
-	history, err := client.AccountHistory(ctx, accountID, fromTimestampMillis(request.From), fromTimestampMillis(request.To))
+	from := fromTimestampMillis(request.From)
+	to := fromTimestampMillis(request.To)
+
+	history, err := client.AccountHistory(ctx, accountID, from, to)
 	if err != nil {
 		log.WithError(err).
 			Error("AccountHistory failed")
@@ -196,7 +199,19 @@ func (p *AccountingService) History(r *http.Request, request *AccountHistoryRequ
 
 	// prepare response
 	var result []AccountOperation
+	// initialize date range with first entry
+	if len(history.Entries) > 0 {
+		from = history.Entries[0].Timestamp
+		to = history.Entries[0].Timestamp
+	}
 	for _, entry := range history.Entries {
+		// update date range from entry timestamp
+		if from.After(entry.Timestamp) {
+			from = entry.Timestamp
+		}
+		if to.Before(entry.Timestamp) {
+			to = entry.Timestamp
+		}
 		// create SecureID from OperationID
 		result = append(result, AccountOperation{
 			Timestamp:   makeTimestampMillis(entry.Timestamp),
@@ -212,8 +227,8 @@ func (p *AccountingService) History(r *http.Request, request *AccountHistoryRequ
 	*reply = AccountHistoryResponse{
 		AccountID: request.AccountID,
 		Currency:  history.Currency,
-		From:      request.From,
-		To:        request.To,
+		From:      makeTimestampMillis(from),
+		To:        makeTimestampMillis(to),
 
 		Operations: result[:],
 	}

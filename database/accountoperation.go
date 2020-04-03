@@ -14,6 +14,10 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
+const (
+	HistoryMaxOperationCount = 1000
+)
+
 var (
 	ErrInvalidAccountOperation = errors.New("Invalid Account Operation")
 )
@@ -112,6 +116,7 @@ func GeAccountHistory(db bank.Database, accountID model.AccountID) ([]model.Acco
 			AccountID: accountID,
 		}).
 		Order("id ASC").
+		Limit(HistoryMaxOperationCount).
 		Find(&list).Error
 
 	if err != nil && err != gorm.ErrRecordNotFound {
@@ -145,6 +150,7 @@ func GeAccountHistoryRange(db bank.Database, accountID model.AccountID, from, to
 		}).
 		Where("timestamp BETWEEN ? AND ?", from, to).
 		Order("id ASC").
+		Limit(HistoryMaxOperationCount).
 		Find(&list).Error
 
 	if err != nil && err != gorm.ErrRecordNotFound {
