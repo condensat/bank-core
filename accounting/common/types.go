@@ -11,8 +11,10 @@ import (
 )
 
 type CurrencyInfo struct {
-	Name      string
-	Available bool
+	Name             string
+	Available        bool
+	Crypto           bool
+	DisplayPrecision uint
 }
 
 type CurrencyList struct {

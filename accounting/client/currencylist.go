@@ -15,7 +15,7 @@ import (
 )
 
 func CurrencyList(ctx context.Context) (common.CurrencyList, error) {
-	log := logger.Logger(ctx).WithField("Method", "Client.CurrencyCreate")
+	log := logger.Logger(ctx).WithField("Method", "Client.CurrencyList")
 
 	var result common.CurrencyList
 	err := messaging.RequestMessage(ctx, common.CurrencyListSubject, &result, &result)

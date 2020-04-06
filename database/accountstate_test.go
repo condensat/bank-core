@@ -128,8 +128,8 @@ func createTestAccountStateData(db bank.Database) AccountStateTestData {
 
 	userTest1, _ := FindOrCreateUser(db, model.User{Name: "test1", Email: "test1@condensat.tech"})
 	userTest2, _ := FindOrCreateUser(db, model.User{Name: "test2", Email: "test2@condensat.tech"})
-	currTest1, _ := AddOrUpdateCurrency(db, model.NewCurrency("TBTC1", FlagCurencyAvailable))
-	currTest2, _ := AddOrUpdateCurrency(db, model.NewCurrency("TBTC2", FlagCurencyAvailable))
+	currTest1, _ := AddOrUpdateCurrency(db, model.NewCurrency("TBTC1", FlagCurencyAvailable, 1, 2))
+	currTest2, _ := AddOrUpdateCurrency(db, model.NewCurrency("TBTC2", FlagCurencyAvailable, 1, 2))
 	accountTest1, _ := CreateAccount(db, model.Account{UserID: userTest1.ID, CurrencyName: currTest1.Name, Name: "accountTest1"})
 	accountTest2, _ := CreateAccount(db, model.Account{UserID: userTest1.ID, CurrencyName: currTest2.Name, Name: "accountTest2"})
 	accountTest3, _ := CreateAccount(db, model.Account{UserID: userTest2.ID, CurrencyName: currTest1.Name, Name: "accountTest3"})
