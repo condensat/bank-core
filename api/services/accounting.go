@@ -5,10 +5,7 @@
 package services
 
 import (
-	"context"
-	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
@@ -84,13 +81,23 @@ func (p *AccountingService) List(r *http.Request, request *AccountRequest, reply
 		return sessions.ErrInternalError
 	}
 
+	sID := appcontext.SecureID(ctx)
+
 	// prepare response
 	var result []AccountInfo
 	for _, account := range list.Accounts {
 		// create SecureID from AccountID
+		secureID, err := sID.ToSecureID("account", secureid.Value(account.AccountID))
+		if err != nil {
+			log.WithError(err).
+				WithField("AccountID", account.AccountID).
+				Error("ToSecureID failed")
+			return sessions.ErrInternalError
+		}
+
 		result = append(result, AccountInfo{
 			Timestamp:   makeTimestampMillis(account.Timestamp),
-			AccountID:   getSecureIDString(ctx, "account", account.AccountID),
+			AccountID:   sID.ToString(secureID),
 			Currency:    account.Currency,
 			Name:        account.Name,
 			Status:      account.Status,
@@ -178,20 +185,27 @@ func (p *AccountingService) History(r *http.Request, request *AccountHistoryRequ
 		return sessions.ErrInternalError
 	}
 
-	accountID := getIDFromSecureIDString(ctx, "account", request.AccountID)
+	sID := appcontext.SecureID(ctx)
+	accountID, err := sID.FromSecureID("account", sID.Parse(request.AccountID))
+	if err != nil {
+		log.WithError(err).
+			WithField("AccountID", request.AccountID).
+			Error("Wrong AccountID")
+		return sessions.ErrInternalError
+	}
 
 	// call internal API
 	from := fromTimestampMillis(request.From)
 	to := fromTimestampMillis(request.To)
 
-	history, err := client.AccountHistory(ctx, accountID, from, to)
+	history, err := client.AccountHistory(ctx, uint64(accountID), from, to)
 	if err != nil {
 		log.WithError(err).
 			Error("AccountHistory failed")
 		return sessions.ErrInternalError
 	}
 
-	if history.AccountID != accountID {
+	if history.AccountID != uint64(accountID) {
 		log.WithField("AccountID", accountID).
 			Error("Wrong AccountID")
 		return sessions.ErrInternalError
@@ -213,9 +227,17 @@ func (p *AccountingService) History(r *http.Request, request *AccountHistoryRequ
 			to = entry.Timestamp
 		}
 		// create SecureID from OperationID
+		secureID, err := sID.ToSecureID("operation", secureid.Value(entry.OperationID))
+		if err != nil {
+			log.WithError(err).
+				WithField("OperationID", entry.OperationID).
+				Error("ToSecureID failed")
+			return sessions.ErrInternalError
+		}
+
 		result = append(result, AccountOperation{
 			Timestamp:   makeTimestampMillis(entry.Timestamp),
-			OperationID: getSecureIDString(ctx, "operation", entry.OperationID),
+			OperationID: sID.ToString(secureID),
 			Amount:      entry.Amount,
 			Balance:     entry.Balance,
 			LockAmount:  entry.LockAmount,
@@ -240,43 +262,4 @@ func (p *AccountingService) History(r *http.Request, request *AccountHistoryRequ
 	}).Info("Account History")
 
 	return nil
-}
-
-func getSecureIDString(ctx context.Context, prefix string, value uint64) string {
-	log := logger.Logger(ctx).WithField("Method", "getSecureIDString")
-	sID := appcontext.SecureID(ctx)
-
-	secureID, err := sID.ToSecureID(prefix, secureid.Value(value))
-	if err != nil {
-		log.WithError(err).
-			WithField("Value", value).
-			Error("ToSecureID failed")
-		return ""
-	}
-
-	return fmt.Sprintf("%s:%s:%s", secureID.Version, secureID.Data, secureID.Check)
-}
-
-func getIDFromSecureIDString(ctx context.Context, prefix string, secureID string) uint64 {
-	log := logger.Logger(ctx).WithField("Method", "getIDFromSecureIDString")
-	sID := appcontext.SecureID(ctx)
-
-	toks := strings.Split(secureID, ":")
-	if len(toks) != 3 {
-		return 0
-	}
-
-	value, err := sID.FromSecureID(prefix, secureid.SecureID{
-		Version: toks[0],
-		Data:    toks[1],
-		Check:   toks[2],
-	})
-	if err != nil {
-		log.WithError(err).
-			WithField("SecureID", secureID).
-			Error("FromSecureID failed")
-		return 0
-	}
-
-	return uint64(value)
 }

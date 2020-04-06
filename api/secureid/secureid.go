@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"sync"
 
 	"github.com/condensat/bank-core"
@@ -19,7 +20,8 @@ import (
 )
 
 var (
-	ErrInvalidKeys = errors.New("Invalid SecureID Keys")
+	ErrInvalidKeys        = errors.New("Invalid SecureID Keys")
+	InvalidSecureIDString = errors.New("Invalid SecureID String")
 )
 
 type Options struct {
@@ -113,4 +115,24 @@ func (p *SecureIDKeys) FromSecureID(context string, secureID secureid.SecureID) 
 		return secureid.Value(0), ErrInvalidKeys
 	}
 	return keys.ValueFromSecureID(secureID)
+}
+
+func (p *SecureIDKeys) ToString(secureID secureid.SecureID) string {
+	if len(secureID.Version) == 0 || len(secureID.Data) == 0 || len(secureID.Check) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%s:%s:%s", secureID.Version, secureID.Data, secureID.Check)
+}
+
+func (p *SecureIDKeys) Parse(secureID string) secureid.SecureID {
+	toks := strings.Split(secureID, ":")
+	if len(toks) != 3 {
+		return secureid.SecureID{}
+	}
+
+	return secureid.SecureID{
+		Version: toks[0],
+		Data:    toks[1],
+		Check:   toks[2],
+	}
 }
