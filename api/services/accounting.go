@@ -8,7 +8,9 @@ import (
 	"net/http"
 
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/currency/rate"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/utils"
 	"github.com/condensat/secureid"
 
 	"github.com/condensat/bank-core/accounting/client"
@@ -22,12 +24,21 @@ type AccountingService int
 // AccountRequest holds args for accounting requests
 type AccountRequest struct {
 	SessionArgs
+	RateBase string `json:"rateBase"`
 }
 
 type CurrencyInfo struct {
 	Name             string `json:"name"`
 	IsCrypto         bool   `json:"isCrypto"`
 	DisplayPrecision uint   `json:"displayPrecision"`
+}
+
+type Notional struct {
+	RateBase         string  `json:"rateBase"`
+	DisplayPrecision uint    `json:"displayPrecision"`
+	Rate             float64 `json:"rate"`
+	Balance          float64 `json:"balance"`
+	TotalLocked      float64 `json:"totalLocked"`
 }
 
 // AccountInfo holds account information
@@ -39,6 +50,7 @@ type AccountInfo struct {
 	Status      string       `json:"status"`
 	Balance     float64      `json:"balance"`
 	TotalLocked float64      `json:"totalLocked"`
+	Notional    Notional     `json:"notional"`
 }
 
 // AccountResponse holds args for accounting requests
@@ -101,6 +113,49 @@ func (p *AccountingService) List(r *http.Request, request *AccountRequest, reply
 			return sessions.ErrInternalError
 		}
 
+		// compute convertion rate
+		dstRate := 1.0
+		// default RateBase to CHF
+		if len(request.RateBase) == 0 {
+			request.RateBase = "CHF"
+		}
+		if request.RateBase != "USD" {
+			dst, err := rate.FetchRedisRate(ctx, request.RateBase, "USD")
+			if err != nil {
+				log.WithError(err).
+					WithField("CurrencyName", request.RateBase).
+					Error("FetchRedisRate failed")
+				// non fatal, continue
+				request.RateBase = ""
+			}
+
+			if dst.Rate > 0.0 {
+				dstRate = 1.0 / dst.Rate
+			}
+		}
+
+		finaleRate := 1.0
+		if account.Currency.Name != "USD" {
+			currencyRate, err := rate.FetchRedisRate(ctx, account.Currency.Name, "USD")
+			if err != nil {
+				log.WithError(err).
+					WithField("CurrencyName", account.Currency.Name).
+					Error("FetchRedisRate failed")
+				// non fatal, continue
+				currencyRate.Rate = 1.0
+			}
+			finaleRate = currencyRate.Rate * dstRate
+		}
+
+		info, err := rate.CurrencyInfo(ctx, request.RateBase)
+		if err != nil {
+			log.WithError(err).
+				WithField("CurrencyName", account.Currency.Name).
+				Error("FetchRedisRate failed")
+			// non fatal, continue
+			info.DisplayPrecision = account.Currency.DisplayPrecision
+		}
+
 		result = append(result, AccountInfo{
 			Timestamp: makeTimestampMillis(account.Timestamp),
 			AccountID: sID.ToString(secureID),
@@ -113,6 +168,13 @@ func (p *AccountingService) List(r *http.Request, request *AccountRequest, reply
 			Status:      account.Status,
 			Balance:     account.Balance,
 			TotalLocked: account.TotalLocked,
+			Notional: Notional{
+				RateBase:         request.RateBase,
+				DisplayPrecision: info.DisplayPrecision,
+				Rate:             utils.ToFixed(finaleRate, 12), // maximum precision for rates
+				Balance:          utils.ToFixed(account.Balance/finaleRate, int(info.DisplayPrecision)),
+				TotalLocked:      utils.ToFixed(account.TotalLocked/finaleRate, int(info.DisplayPrecision)),
+			},
 		})
 	}
 
