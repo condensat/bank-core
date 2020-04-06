@@ -16,6 +16,36 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
+func GetLastCurencyRates(ctx context.Context) ([]model.CurrencyRate, error) {
+	db := appcontext.Database(ctx)
+	if db == nil {
+		return nil, errors.New("Invalid appcontext.Database")
+	}
+
+	gdb := db.DB().(*gorm.DB)
+
+	subQuery := gdb.Model(&model.CurrencyRate{}).
+		Select("MAX(id) as id, MAX(timestamp) AS last").
+		Group("name").
+		SubQuery()
+
+	var list []*model.CurrencyRate
+	err := gdb.Joins("RIGHT JOIN (?) AS t1 ON currency_rate.id = t1.id AND timestamp = t1.last", subQuery).
+		Order("name ASC").
+		Find(&list).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	var result []model.CurrencyRate
+	for _, entry := range list {
+		result = append(result, *entry)
+	}
+
+	return result, nil
+}
+
 func AppendCurencyRates(ctx context.Context, currencyRates []model.CurrencyRate) error {
 	log := logger.Logger(ctx).WithField("Method", "database.AppendCurencyRates")
 	db := appcontext.Database(ctx)
