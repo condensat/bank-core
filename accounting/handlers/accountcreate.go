@@ -40,7 +40,7 @@ func AccountCreate(ctx context.Context, userID uint64, info common.AccountInfo) 
 
 		account, err := database.CreateAccount(db, model.Account{
 			UserID:       model.UserID(userID),
-			CurrencyName: model.CurrencyName(info.Currency),
+			CurrencyName: model.CurrencyName(info.Currency.Name),
 			Name:         model.AccountName(info.Name),
 		})
 		if err != nil {
@@ -57,9 +57,11 @@ func AccountCreate(ctx context.Context, userID uint64, info common.AccountInfo) 
 
 		result = common.AccountInfo{
 			AccountID: uint64(account.ID),
-			Currency:  string(account.CurrencyName),
-			Name:      string(account.Name),
-			Status:    string(status.State),
+			Currency: common.CurrencyInfo{
+				Name: string(account.CurrencyName),
+			},
+			Name:   string(account.Name),
+			Status: string(status.State),
 		}
 
 		return nil

@@ -43,6 +43,10 @@ func AccountList(ctx context.Context, userID uint64) ([]common.AccountInfo, erro
 		}
 
 		for _, account := range accounts {
+			currency, err := database.GetCurrencyByName(db, account.CurrencyName)
+			if err != nil {
+				return err
+			}
 			accountState, err := database.GetAccountStatusByAccountID(db, account.ID)
 			if err != nil {
 				return err
@@ -61,9 +65,13 @@ func AccountList(ctx context.Context, userID uint64) ([]common.AccountInfo, erro
 			}
 
 			result = append(result, common.AccountInfo{
-				Timestamp:   last.Timestamp,
-				AccountID:   uint64(account.ID),
-				Currency:    string(account.CurrencyName),
+				Timestamp: last.Timestamp,
+				AccountID: uint64(account.ID),
+				Currency: common.CurrencyInfo{
+					Name:             string(currency.Name),
+					Crypto:           currency.IsCrypto(),
+					DisplayPrecision: uint(currency.DisplayPrecision()),
+				},
 				Name:        string(account.Name),
 				Status:      string(accountState.State),
 				Balance:     float64(balance),

@@ -24,15 +24,21 @@ type AccountRequest struct {
 	SessionArgs
 }
 
+type CurrencyInfo struct {
+	Name             string `json:"name"`
+	IsCrypto         bool   `json:"isCrypto"`
+	DisplayPrecision uint   `json:"displayPrecision"`
+}
+
 // AccountInfo holds account information
 type AccountInfo struct {
-	Timestamp   int64   `json:"timestamp"`
-	AccountID   string  `json:"accountId"`
-	Currency    string  `json:"currency"`
-	Name        string  `json:"name"`
-	Status      string  `json:"status"`
-	Balance     float64 `json:"balance"`
-	TotalLocked float64 `json:"totalLocked"`
+	Timestamp   int64        `json:"timestamp"`
+	AccountID   string       `json:"accountId"`
+	Currency    CurrencyInfo `json:"curency"`
+	Name        string       `json:"name"`
+	Status      string       `json:"status"`
+	Balance     float64      `json:"balance"`
+	TotalLocked float64      `json:"totalLocked"`
 }
 
 // AccountResponse holds args for accounting requests
@@ -96,9 +102,13 @@ func (p *AccountingService) List(r *http.Request, request *AccountRequest, reply
 		}
 
 		result = append(result, AccountInfo{
-			Timestamp:   makeTimestampMillis(account.Timestamp),
-			AccountID:   sID.ToString(secureID),
-			Currency:    account.Currency,
+			Timestamp: makeTimestampMillis(account.Timestamp),
+			AccountID: sID.ToString(secureID),
+			Currency: CurrencyInfo{
+				Name:             account.Currency.Name,
+				IsCrypto:         account.Currency.Crypto,
+				DisplayPrecision: account.Currency.DisplayPrecision,
+			},
 			Name:        account.Name,
 			Status:      account.Status,
 			Balance:     account.Balance,
