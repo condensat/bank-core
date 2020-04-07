@@ -19,8 +19,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func CurrencySetAvailable(ctx context.Context, currencyName string, available bool) (common.CurrencyInfo, error) {
-	log := logger.Logger(ctx).WithField("Method", "accounting.CurrencySetAvailable")
+func CurrencyInfo(ctx context.Context, currencyName string) (common.CurrencyInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "accounting.CurrencyInfo")
 	var result common.CurrencyInfo
 
 	log = log.WithField("CurrencyName", currencyName)
@@ -38,36 +38,6 @@ func CurrencySetAvailable(ctx context.Context, currencyName string, available bo
 
 		if string(currency.Name) != currencyName {
 			return database.ErrCurrencyNotFound
-		}
-
-		if currency.IsAvailable() == available {
-			// NOOP
-			result = common.CurrencyInfo{
-				Name:             string(currency.Name),
-				Available:        currency.IsAvailable(),
-				Crypto:           currency.IsCrypto(),
-				DisplayPrecision: uint(currency.DisplayPrecision()),
-			}
-			return nil
-		}
-
-		var availableState int
-		if available {
-			availableState = 1
-		}
-
-		var crypto model.Int
-		if currency.IsCrypto() {
-			crypto = 1
-		}
-
-		// update currency available
-		currency, err = database.AddOrUpdateCurrency(db,
-			model.NewCurrency(model.CurrencyName(currencyName), model.Int(availableState), crypto, currency.DisplayPrecision()),
-		)
-		if err != nil {
-			log.WithError(err).Error("Failed to AddOrUpdateCurrency")
-			return err
 		}
 
 		result = common.CurrencyInfo{
@@ -90,8 +60,8 @@ func CurrencySetAvailable(ctx context.Context, currencyName string, available bo
 	return result, err
 }
 
-func OnCurrencySetAvailable(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
-	log := logger.Logger(ctx).WithField("Method", "Currencying.OnCurrencySetAvailable")
+func OnCurrencyInfo(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
+	log := logger.Logger(ctx).WithField("Method", "Currencying.OnCurrencyInfo")
 	log = log.WithFields(logrus.Fields{
 		"Subject": subject,
 	})
@@ -103,14 +73,12 @@ func OnCurrencySetAvailable(ctx context.Context, subject string, message *bank.M
 				"Name": request.Name,
 			})
 
-			currency, err := CurrencySetAvailable(ctx, request.Name, request.Available)
+			currency, err := CurrencyInfo(ctx, request.Name)
 			if err != nil {
 				log.WithError(err).
-					Errorf("Failed to CurrencySetAvailable")
+					Errorf("Failed to CurrencyInfo")
 				return nil, internal.ErrInternalError
 			}
-
-			log.Info("Currency updated")
 
 			// create & return response
 			return &common.CurrencyInfo{
