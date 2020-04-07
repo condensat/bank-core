@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/accounting/client"
+	"github.com/condensat/bank-core/accounting/common"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
@@ -31,6 +33,54 @@ func (p *Rate) Encode() ([]byte, error) {
 
 func (p *Rate) Decode(data []byte) error {
 	return bank.DecodeObject(data, bank.BankObject(p))
+}
+
+func CurrencyInfo(ctx context.Context, name string) (common.CurrencyInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "rate.CurrencyInfo")
+	rdb := cache.ToRedis(appcontext.Cache(ctx))
+	if rdb == nil {
+		log.Error("Invalid redis cache")
+		return common.CurrencyInfo{}, errors.New("Internal Error")
+	}
+
+	key := formatCurrencyKey(name)
+	// fetch from catch
+	data, err := rdb.Get(key).Bytes()
+	if err != nil {
+		// if not present in cache
+		// grab from database via RPC
+		info, err := client.CurrencyInfo(ctx, name)
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to et gCurrencyInfo")
+			return common.CurrencyInfo{}, errors.New("Internal Error")
+		}
+		// get info data for result
+		data, err = info.Encode()
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to encode object")
+			return common.CurrencyInfo{}, errors.New("Internal Error")
+		}
+
+		// store in redis with 30s TTL
+		err = rdb.Set(key, data, 30*time.Second).Err()
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to store rate to redis")
+			return common.CurrencyInfo{}, errors.New("Internal Error")
+		}
+	}
+
+	var result common.CurrencyInfo
+	err = result.Decode(data)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to decode object")
+		return common.CurrencyInfo{}, errors.New("Internal Error")
+	}
+
+	return result, nil
 }
 
 func UpdateRedisRate(ctx context.Context, currencyRates []model.CurrencyRate) {
@@ -102,6 +152,10 @@ func FetchRedisRate(ctx context.Context, name, base string) (Rate, error) {
 	// override aliases
 	result.Name = name
 	return result, nil
+}
+
+func formatCurrencyKey(name string) string {
+	return fmt.Sprintf("currency:%s", name)
 }
 
 func formatRateKey(name, base string) string {
