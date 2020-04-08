@@ -50,6 +50,10 @@ func TestCurrency(t *testing.T) {
 	}{
 		{"NotAvailable", args{entries[0]}, false},
 		{"Available", args{entries[1]}, false},
+		{"NotCrypto", args{entries[2]}, false},
+		{"Crypto", args{entries[3]}, false},
+		{"Precision0", args{entries[4]}, false},
+		{"Precision12", args{entries[5]}, false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
@@ -132,8 +136,12 @@ func TestCurrency(t *testing.T) {
 
 func createTestData() []model.Currency {
 	return []model.Currency{
-		model.NewCurrency("USD", 0),
-		model.NewCurrency("BTC", 1),
+		model.NewCurrency("USD", 0, 1, 2),
+		model.NewCurrency("BTC", 1, 1, 2),
+		model.NewCurrency("USD2", 0, 0, 2),
+		model.NewCurrency("BTC2", 1, 1, 2),
+		model.NewCurrency("USD3", 0, 1, 0),
+		model.NewCurrency("BTC3", 1, 1, 12),
 	}
 }
 

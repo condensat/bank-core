@@ -20,7 +20,9 @@ func AccountCreate(ctx context.Context, userID uint64, currency string) (common.
 	request := common.AccountCreation{
 		UserID: userID,
 		Info: common.AccountInfo{
-			Currency: currency,
+			Currency: common.CurrencyInfo{
+				Name: currency,
+			},
 		},
 	}
 

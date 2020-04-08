@@ -14,17 +14,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func CurrencyCreate(ctx context.Context, currencyName string, isCrypto bool, displayPrecision uint) (common.CurrencyInfo, error) {
-	log := logger.Logger(ctx).WithField("Method", "Client.CurrencyCreate")
+func CurrencyInfo(ctx context.Context, currencyName string) (common.CurrencyInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "Client.CurrencyInfo")
 
 	request := common.CurrencyInfo{
-		Name:             currencyName,
-		Crypto:           isCrypto,
-		DisplayPrecision: displayPrecision,
+		Name: currencyName,
 	}
 
 	var result common.CurrencyInfo
-	err := messaging.RequestMessage(ctx, common.CurrencyCreateSubject, &request, &result)
+	err := messaging.RequestMessage(ctx, common.CurrencyInfoSubject, &request, &result)
 	if err != nil {
 		log.WithError(err).
 			Error("RequestMessage failed")
@@ -36,7 +34,7 @@ func CurrencyCreate(ctx context.Context, currencyName string, isCrypto bool, dis
 		"Available":        result.Available,
 		"Crypto":           result.Crypto,
 		"DisplayPrecision": result.DisplayPrecision,
-	}).Debug("Currency Created")
+	}).Trace("Currency CurrencyInfo")
 
 	return result, nil
 }

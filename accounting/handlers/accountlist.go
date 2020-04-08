@@ -43,16 +43,39 @@ func AccountList(ctx context.Context, userID uint64) ([]common.AccountInfo, erro
 		}
 
 		for _, account := range accounts {
+			currency, err := database.GetCurrencyByName(db, account.CurrencyName)
+			if err != nil {
+				return err
+			}
 			accountState, err := database.GetAccountStatusByAccountID(db, account.ID)
 			if err != nil {
 				return err
 			}
 
+			last, err := database.GetLastAccountOperation(db, account.ID)
+			if err != nil {
+				return err
+			}
+
+			var balance float64
+			var totalLocked float64
+			if last.IsValid() {
+				balance = float64(*last.Balance)
+				totalLocked = float64(*last.TotalLocked)
+			}
+
 			result = append(result, common.AccountInfo{
+				Timestamp: last.Timestamp,
 				AccountID: uint64(account.ID),
-				Currency:  string(account.CurrencyName),
-				Name:      string(account.Name),
-				Status:    string(accountState.State),
+				Currency: common.CurrencyInfo{
+					Name:             string(currency.Name),
+					Crypto:           currency.IsCrypto(),
+					DisplayPrecision: uint(currency.DisplayPrecision()),
+				},
+				Name:        string(account.Name),
+				Status:      string(accountState.State),
+				Balance:     float64(balance),
+				TotalLocked: float64(totalLocked),
 			})
 		}
 

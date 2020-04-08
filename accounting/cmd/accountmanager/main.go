@@ -74,7 +74,7 @@ func createAndListAccount(ctx context.Context, currencies []common.CurrencyInfo,
 		}
 
 		if exists(len(accounts), func(i int) bool {
-			return accounts[i].Currency == currency.Name
+			return accounts[i].Currency.Name == currency.Name
 		}) {
 			continue
 		}
@@ -112,7 +112,7 @@ func createAndListAccount(ctx context.Context, currencies []common.CurrencyInfo,
 		}
 
 		if account.AccountID > 4 {
-			_, err = client.AccountTransfert(ctx, account.AccountID, 1+(account.AccountID-1)%4, 1337, account.Currency, 0.01, "For weedcoder")
+			_, err = client.AccountTransfert(ctx, account.AccountID, 1+(account.AccountID-1)%4, 1337, account.Currency.Name, 0.01, "For weedcoder")
 			if err != nil {
 				log.WithError(err).
 					Error("AccountTransfert Failed")
@@ -130,7 +130,7 @@ func createAndListAccount(ctx context.Context, currencies []common.CurrencyInfo,
 
 		log.WithFields(logrus.Fields{
 			"AccountID": account.AccountID,
-			"Count":     len(history.History),
+			"Count":     len(history.Entries),
 		}).Infof("Account history")
 	}
 }
