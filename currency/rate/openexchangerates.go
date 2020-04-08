@@ -24,7 +24,7 @@ const (
 	LatestPath           = "latest.json"
 )
 
-func FetchLatestRates(ctx context.Context, appID string) ([]model.Currency, error) {
+func FetchLatestRates(ctx context.Context, appID string) ([]model.CurrencyRate, error) {
 	entryPoint := fmt.Sprintf("%s/api/%s", OpenExchangeRatesURL, LatestPath)
 	u, err := url.Parse(entryPoint)
 	if err != nil {
@@ -59,15 +59,15 @@ func FetchLatestRates(ctx context.Context, appID string) ([]model.Currency, erro
 	return parseRate(string(body))
 }
 
-func parseRate(jsonBody string) ([]model.Currency, error) {
-	var result []model.Currency
+func parseRate(jsonBody string) ([]model.CurrencyRate, error) {
+	var result []model.CurrencyRate
 
 	var info struct {
-		Disclaimer string                 `json:"disclaimer"`
-		Licence    string                 `json:"licence"`
-		Timestamp  int64                  `json:"timestamp"`
-		Base       string                 `json:"base"`
-		Rates      map[string]interface{} `json:"rates"`
+		Disclaimer string                             `json:"disclaimer"`
+		Licence    string                             `json:"licence"`
+		Timestamp  int64                              `json:"timestamp"`
+		Base       model.CurrencyName                 `json:"base"`
+		Rates      map[model.CurrencyName]interface{} `json:"rates"`
 	}
 
 	err := json.Unmarshal([]byte(jsonBody), &info)
@@ -78,12 +78,12 @@ func parseRate(jsonBody string) ([]model.Currency, error) {
 	for name, value := range info.Rates {
 		switch rate := value.(type) {
 		case float64:
-			result = append(result, model.Currency{
+			result = append(result, model.CurrencyRate{
 				Timestamp: time.Unix(info.Timestamp, 0).UTC(),
 				Source:    SourceName,
 				Base:      info.Base,
 				Name:      name,
-				Rate:      rate,
+				Rate:      model.CurrencyRateValue(rate),
 			})
 
 		default:

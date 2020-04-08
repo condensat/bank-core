@@ -16,6 +16,7 @@ import (
 
 	"github.com/condensat/bank-core/api/sessions"
 	"github.com/condensat/bank-core/database"
+	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/logger"
 
 	"github.com/sirupsen/logrus"
@@ -96,7 +97,7 @@ func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, repl
 	}
 
 	// Check credentials
-	userID, valid, err := database.CheckCredential(ctx, db, request.Login, request.Password)
+	userID, valid, err := database.CheckCredential(ctx, db, model.Base58(request.Login), model.Base58(request.Password))
 	if err != nil {
 		log.WithError(err).
 			Warning("Session open failed")
@@ -110,7 +111,7 @@ func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, repl
 	}
 
 	// check rate limit
-	openSessionAllowed := OpenSessionAllowed(ctx, userID)
+	openSessionAllowed := OpenSessionAllowed(ctx, uint64(userID))
 	if !openSessionAllowed {
 		log.WithError(ErrTooManyOpenSession).
 			Warning("Session open failed")
@@ -119,7 +120,7 @@ func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, repl
 
 	// Create session
 	remoteAddr := RequesterIP(r)
-	sessionID, err := session.CreateSession(ctx, userID, remoteAddr, SessionDuration)
+	sessionID, err := session.CreateSession(ctx, uint64(userID), remoteAddr, SessionDuration)
 	if err != nil {
 		log.WithError(err).
 			Warning("Session open failed")

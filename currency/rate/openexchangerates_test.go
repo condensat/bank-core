@@ -23,7 +23,7 @@ func TestFetchLatestRates(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    []model.Currency
+		want    []model.CurrencyRate
 		wantErr bool
 	}{
 		// modify app_id in args

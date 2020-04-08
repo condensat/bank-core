@@ -51,3 +51,23 @@ func NewDatabase(options Options) *Database {
 func (d *Database) DB() bank.DB {
 	return d.db
 }
+
+func getGormDB(db bank.Database) *gorm.DB {
+	if db == nil {
+		return nil
+	}
+
+	switch gdb := db.DB().(type) {
+	case *gorm.DB:
+		return gdb
+
+	default:
+		return nil
+	}
+}
+
+// zero allocation requests string for scope
+const (
+	reqEQ  = " = ?"
+	reqGTE = " >= ?"
+)
