@@ -58,12 +58,12 @@ type SessionReply struct {
 	ValidUntil int64  `json:"valid_until"`
 }
 
-func setSessionCookie(w http.ResponseWriter, reply *SessionReply) {
+func setSessionCookie(domain string, w http.ResponseWriter, reply *SessionReply) {
 	http.SetCookie(w, &http.Cookie{
 		Name:    "sessionId",
 		Value:   reply.SessionID,
 		Path:    "/api/v1",
-		Domain:  "condensat.space",
+		Domain:  domain,
 		Expires: fromTimestampMillis(reply.ValidUntil),
 
 		Secure:   true,

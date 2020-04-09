@@ -8,6 +8,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 
 	"github.com/gorilla/rpc/v2"
@@ -15,27 +16,31 @@ import (
 )
 
 type CookieCodec struct {
-	ctx   context.Context
-	codec *json.Codec
+	ctx    context.Context
+	codec  *json.Codec
+	domain string
 }
 
 func NewCookieCodec(ctx context.Context) *CookieCodec {
 	return &CookieCodec{
-		ctx:   ctx,
-		codec: json.NewCodec(),
+		ctx:    ctx,
+		codec:  json.NewCodec(),
+		domain: appcontext.Domain(ctx),
 	}
-
 }
+
 func (p *CookieCodec) NewRequest(r *http.Request) rpc.CodecRequest {
 	return &CookieCodecRequest{
 		ctx:     p.ctx,
 		request: p.codec.NewRequest(r),
+		domain:  p.domain,
 	}
 }
 
 type CookieCodecRequest struct {
 	ctx     context.Context
 	request rpc.CodecRequest
+	domain  string
 }
 
 func (p *CookieCodecRequest) Method() (string, error) {
@@ -53,7 +58,7 @@ func (p *CookieCodecRequest) WriteResponse(w http.ResponseWriter, args interface
 
 	switch reply := args.(type) {
 	case *SessionReply:
-		setSessionCookie(w, reply)
+		setSessionCookie(p.domain, w, reply)
 
 	default:
 		log := logger.Logger(p.ctx).WithField("Method", "CookieCodecRequest.WriteResponse")
