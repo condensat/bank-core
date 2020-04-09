@@ -59,12 +59,18 @@ type SessionReply struct {
 }
 
 func setSessionCookie(domain string, w http.ResponseWriter, reply *SessionReply) {
+	expires := fromTimestampMillis(reply.ValidUntil)
+	var maxAge int
+	if expires.After(time.Now()) {
+		maxAge = int(time.Until(expires).Seconds())
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:    "sessionId",
 		Value:   reply.SessionID,
 		Path:    "/api/v1",
 		Domain:  domain,
-		Expires: fromTimestampMillis(reply.ValidUntil),
+		MaxAge:  maxAge,
+		Expires: expires,
 
 		Secure:   true,
 		HttpOnly: true,
