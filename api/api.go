@@ -11,11 +11,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/condensat/bank-core/api/services"
-	"github.com/condensat/bank-core/api/sessions"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/utils"
+
+	"github.com/condensat/bank-core/api/oauth"
+	"github.com/condensat/bank-core/api/services"
+	"github.com/condensat/bank-core/api/sessions"
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/negroni"
@@ -23,9 +25,14 @@ import (
 
 type Api int
 
-func (p *Api) Run(ctx context.Context, port int, corsAllowedOrigins []string) {
+func (p *Api) Run(ctx context.Context, port int, corsAllowedOrigins []string, oauthOptions oauth.Options) {
 	log := logger.Logger(ctx).WithField("Method", "api.Api.Run")
 
+	err := oauth.Init(oauthOptions)
+	if err != nil {
+		log.WithError(err).
+			Warning("OAuth Init failed")
+	}
 	muxer := http.NewServeMux()
 
 	// create session and and to context
