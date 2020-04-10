@@ -20,6 +20,7 @@ import (
 const (
 	AppNameKey = iota
 	DomainKey
+	WebAppURLKey
 	LoggerKey
 	ProcessusGrabberKey
 	SecureIDKey
@@ -41,6 +42,11 @@ func WithAppName(ctx context.Context, name string) context.Context {
 // WithDomain returns a context with the Domain name set
 func WithDomain(ctx context.Context, name string) context.Context {
 	return context.WithValue(ctx, DomainKey, name)
+}
+
+// WithWebAppUrl returns a context with the WebApplication url set
+func WithWebAppURL(ctx context.Context, url string) context.Context {
+	return context.WithValue(ctx, WebAppURLKey, url)
 }
 
 // WithLogger returns a context with the log Writer set
@@ -120,6 +126,13 @@ func Domain(ctx context.Context) string {
 		return ctxDomain
 	}
 	return "condensat.space"
+}
+
+func WebAppURL(ctx context.Context) string {
+	if ctxWebAppURL, ok := ctx.Value(WebAppURLKey).(string); ok {
+		return ctxWebAppURL
+	}
+	return "https://app.condensat.space"
 }
 
 func Level(ctx context.Context) log.Level {

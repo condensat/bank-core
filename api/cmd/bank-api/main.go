@@ -28,6 +28,7 @@ type Api struct {
 	Port              int
 	CorsAllowedDomain string
 	OAuth             oauth.Options
+	WebAppURL         string
 
 	SecureID string
 
@@ -59,6 +60,7 @@ func parseArgs() Args {
 
 	flag.StringVar(&args.Api.OAuth.Keys, "oauthkeys", "oauth.env", "OAuth env file for providers keys")
 	flag.StringVar(&args.Api.OAuth.Domain, "oauthdomain", "condensat.space", "OAuth Domain for session cookies")
+	flag.StringVar(&args.Api.WebAppURL, "webappurl", "https://app.condensat.space/", "WebApp URL")
 
 	flag.StringVar(&args.Api.SecureID, "secureId", "secureid.json", "SecureID json file")
 
@@ -78,6 +80,7 @@ func main() {
 
 	ctx := context.Background()
 	ctx = appcontext.WithOptions(ctx, args.App)
+	ctx = appcontext.WithWebAppURL(ctx, args.Api.WebAppURL)
 	ctx = appcontext.WithHasherWorker(ctx, args.App.Hasher)
 	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, args.Redis))
 	ctx = appcontext.WithWriter(ctx, logger.NewRedisLogger(ctx))
