@@ -109,3 +109,24 @@ func openUserSession(ctx context.Context, session *sessions.Session, r *http.Req
 
 	return reply, nil
 }
+
+func CreateSessionWithCookie(ctx context.Context, r *http.Request, w http.ResponseWriter, userID uint64) error {
+	log := logger.Logger(ctx).WithField("Method", "services.CreateSessionWithCookie")
+	// Retrieve context values
+	_, session, err := ContextValues(ctx)
+	if err != nil {
+		log.WithError(err).
+			Warning("Session open failed")
+		return ErrServiceInternalError
+	}
+
+	reply, err := openUserSession(ctx, session, r, userID)
+	if err != nil {
+		log.WithError(err).
+			Error("openUserSession failed")
+	}
+
+	setSessionCookie(appcontext.Domain(ctx), w, &reply)
+
+	return nil
+}

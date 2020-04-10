@@ -70,13 +70,19 @@ func RegisterHandlers(ctx context.Context, server *mux.Router) {
 // AuthHandler reuse oauth session or open a new one
 var AuthHandler = func(res http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
+	log := logger.Logger(ctx).WithField("Method", "oauth.AuthHandler")
 	webAppUrl := appcontext.WebAppURL(ctx)
 
 	// try to get the user without re-authenticating
-	if _, err := gothic.CompleteUserAuth(res, req); err == nil {
-		// Todo create/refresh user session
-		res.Header().Set("Location", webAppUrl)
-		res.WriteHeader(http.StatusTemporaryRedirect)
+	if user, err := gothic.CompleteUserAuth(res, req); err == nil {
+		err = UpdateUserSession(ctx, req, res, user)
+		if err != nil {
+			log.WithError(err).Errorf("UpdateUserSession failed")
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		http.Redirect(res, req, webAppUrl, http.StatusFound)
 	} else {
 		gothic.BeginAuthHandler(res, req)
 	}
@@ -89,16 +95,20 @@ var AuthCallbackHandler = func(res http.ResponseWriter, req *http.Request) {
 
 	webAppUrl := appcontext.WebAppURL(ctx)
 
-	_, err := gothic.CompleteUserAuth(res, req)
+	user, err := gothic.CompleteUserAuth(res, req)
 	if err != nil {
 		log.WithError(err).Errorf("CompleteUserAuth failed")
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Todo create user session
-	res.Header().Set("Location", webAppUrl)
-	res.WriteHeader(http.StatusTemporaryRedirect)
+	err = UpdateUserSession(ctx, req, res, user)
+	if err != nil {
+		log.WithError(err).Errorf("UpdateUserSession failed")
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+	http.Redirect(res, req, webAppUrl, http.StatusFound)
 }
 
 // AuthLogoutHandler close oauth session
@@ -123,6 +133,5 @@ var AuthLogoutHandler = func(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	res.Header().Set("Location", webAppUrl)
-	res.WriteHeader(http.StatusTemporaryRedirect)
+	http.Redirect(res, req, webAppUrl, http.StatusFound)
 }

@@ -6,10 +6,20 @@ package oauth
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
+	"fmt"
 	"net/http"
 
+	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/appcontext"
+
+	"github.com/condensat/bank-core/api/services"
 	"github.com/condensat/bank-core/api/sessions"
+
+	"github.com/condensat/bank-core/database"
+	"github.com/condensat/bank-core/database/model"
+
+	"github.com/markbates/goth"
 )
 
 func getSessionCookie(r *http.Request) string {
@@ -21,19 +31,70 @@ func getSessionCookie(r *http.Request) string {
 	return cookie.Value
 }
 
-func UserIDFromSession(ctx context.Context, req *http.Request) (uint64, error) {
-	session, err := sessions.ContextSession(ctx)
+func UpdateUserSession(ctx context.Context, req *http.Request, w http.ResponseWriter, user goth.User) error {
+	var userID uint64
+	// Database Query
+	db := appcontext.Database(ctx)
+	err := db.Transaction(func(db bank.Database) error {
+		u, err := database.FindUserByEmail(db, model.UserEmail(user.Email))
+		if err != nil {
+			return err
+		}
+
+		// creat user if email does not exists
+		if u.ID == 0 {
+			u, err = database.FindOrCreateUser(db, model.User{
+				Name:  model.UserName(fmt.Sprintf("%s:%s", user.Provider, user.NickName)),
+				Email: model.UserEmail(user.Email),
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		// store userID for cookie creation
+		userID = uint64(u.ID)
+
+		oa, err := database.FindOrCreateOAuth(db, model.OAuth{
+			Provider:   user.Provider,
+			ProviderID: user.NickName,
+			UserID:     u.ID,
+		})
+		if err != nil {
+			return err
+		}
+
+		// store oauth data
+		data, err := json.Marshal(&user)
+		if err != nil {
+			return err
+		}
+
+		_, err = database.CreateOrUpdateOAuthData(db, model.OAuthData{
+			OAuthID: oa.ID,
+			Data:    string(data),
+		})
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	sessionID := sessions.SessionID(getSessionCookie(req))
-	userID := session.UserSession(ctx, sessionID)
-	if !sessions.IsUserValid(userID) {
-		return 0, errors.New("Invalid UserID")
+	if userID == 0 {
+		return sessions.ErrInvalidUserID
 	}
 
-	return userID, nil
+	// create session & cookie
+	err = services.CreateSessionWithCookie(ctx, req, w, userID)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func RemoveSession(ctx context.Context, req *http.Request) error {
