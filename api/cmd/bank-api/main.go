@@ -58,6 +58,7 @@ func parseArgs() Args {
 	flag.StringVar(&args.Api.CorsAllowedDomain, "corsAllowedDomain", "condensat.space", "Cors Allowed Domain (default condensat.space)")
 
 	flag.StringVar(&args.Api.OAuth.Keys, "oauthkeys", "oauth.env", "OAuth env file for providers keys")
+	flag.StringVar(&args.Api.OAuth.Domain, "oauthdomain", "condensat.space", "OAuth Domain for session cookies")
 
 	flag.StringVar(&args.Api.SecureID, "secureId", "secureid.json", "SecureID json file")
 

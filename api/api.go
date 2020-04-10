@@ -28,19 +28,20 @@ type Api int
 func (p *Api) Run(ctx context.Context, port int, corsAllowedOrigins []string, oauthOptions oauth.Options) {
 	log := logger.Logger(ctx).WithField("Method", "api.Api.Run")
 
+	// create session and and to context
+	session := sessions.NewSession(ctx)
+	ctx = context.WithValue(ctx, sessions.KeySessions, session)
+	// Add Domain to context
+	if len(oauthOptions.Domain) > 0 {
+		ctx = appcontext.WithDomain(ctx, oauthOptions.Domain)
+	}
+
 	err := oauth.Init(oauthOptions)
 	if err != nil {
 		log.WithError(err).
 			Warning("OAuth Init failed")
 	}
 	muxer := http.NewServeMux()
-
-	// create session and and to context
-	session := sessions.NewSession(ctx)
-	ctx = context.WithValue(ctx, sessions.KeySessions, session)
-	if len(corsAllowedOrigins) > 0 {
-		ctx = appcontext.WithDomain(ctx, corsAllowedOrigins[0])
-	}
 
 	services.RegisterMessageHandlers(ctx)
 	services.RegisterServices(ctx, muxer, corsAllowedOrigins)
