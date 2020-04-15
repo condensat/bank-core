@@ -49,7 +49,7 @@ func Init(options Options) error {
 	cookieStore.Options.Domain = options.Domain
 	cookieStore.Options.Secure = true
 	cookieStore.Options.HttpOnly = true
-	cookieStore.Options.SameSite = http.SameSiteStrictMode
+	cookieStore.Options.SameSite = http.SameSiteLaxMode
 
 	gothic.Store = cookieStore
 
