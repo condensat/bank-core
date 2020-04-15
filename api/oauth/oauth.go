@@ -71,7 +71,6 @@ func RegisterHandlers(ctx context.Context, server *mux.Router) {
 var AuthHandler = func(res http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	log := logger.Logger(ctx).WithField("Method", "oauth.AuthHandler")
-	webAppUrl := appcontext.WebAppURL(ctx)
 
 	// try to get the user without re-authenticating
 	if user, err := gothic.CompleteUserAuth(res, req); err == nil {
@@ -81,8 +80,6 @@ var AuthHandler = func(res http.ResponseWriter, req *http.Request) {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 			return
 		}
-
-		http.Redirect(res, req, webAppUrl, http.StatusFound)
 	} else {
 		gothic.BeginAuthHandler(res, req)
 	}
