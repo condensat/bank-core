@@ -44,7 +44,7 @@ func Init(options Options) error {
 	}
 
 	key := sha512.Sum512([]byte(os.Getenv("BANK_OAUTH_SESSION_SECRET")))
-	cookieStore := sessions.NewCookieStore(key[:])
+	cookieStore := sessions.NewCookieStore(key[:32], key[32:])
 	cookieStore.Options.Path = "/api/v1/auth"
 	cookieStore.Options.Domain = options.Domain
 	cookieStore.Options.Secure = true
