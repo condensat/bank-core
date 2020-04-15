@@ -19,6 +19,7 @@ import (
 	"github.com/condensat/bank-core/api/services"
 	"github.com/condensat/bank-core/api/sessions"
 
+	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/negroni"
 )
@@ -41,10 +42,12 @@ func (p *Api) Run(ctx context.Context, port int, corsAllowedOrigins []string, oa
 		log.WithError(err).
 			Warning("OAuth Init failed")
 	}
-	muxer := http.NewServeMux()
+	muxer := mux.NewRouter()
 
 	services.RegisterMessageHandlers(ctx)
 	services.RegisterServices(ctx, muxer, corsAllowedOrigins)
+
+	oauth.RegisterHandlers(ctx, muxer)
 
 	handler := negroni.New(&negroni.Recovery{})
 	handler.Use(services.StatsMiddleware)
