@@ -7,7 +7,7 @@ package model
 type OAuth struct {
 	ID         ID     `gorm:"primary_key"`                                            // [PK] OAuth
 	Provider   string `gorm:"unique_index:idx_prov_provid;not null;type:varchar(16)"` // [U] Provider name
-	ProviderID string `gorm:"unique_index:idx_prov_provid;not null;type:varchar(64)"` // [U] Provider unique ID (UserID or NickName)
+	ProviderID string `gorm:"unique_index:idx_prov_provid;not null;type:varchar(64)"` // [U] Provider unique ID (from goth User.UserID)
 	UserID     UserID `gorm:"index;not null"`                                         // [FK] Reference to User table. Same user can have multiple providers
 }
 

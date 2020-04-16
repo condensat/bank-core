@@ -41,10 +41,12 @@ func UpdateUserSession(ctx context.Context, req *http.Request, w http.ResponseWr
 			return err
 		}
 
+		providerID := user.UserID
+
 		// creat user if email does not exists
 		if u.ID == 0 {
 			u, err = database.FindOrCreateUser(db, model.User{
-				Name:  model.UserName(fmt.Sprintf("%s:%s", user.Provider, user.NickName)),
+				Name:  model.UserName(fmt.Sprintf("%s:%s", user.Provider, providerID)),
 				Email: model.UserEmail(user.Email),
 			})
 			if err != nil {
@@ -57,7 +59,7 @@ func UpdateUserSession(ctx context.Context, req *http.Request, w http.ResponseWr
 
 		oa, err := database.FindOrCreateOAuth(db, model.OAuth{
 			Provider:   user.Provider,
-			ProviderID: user.NickName,
+			ProviderID: providerID,
 			UserID:     u.ID,
 		})
 		if err != nil {
