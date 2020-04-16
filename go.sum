@@ -1,7 +1,7 @@
-github.com/condensat/secureid v0.1.0 h1:x08lPpKf+qNZXvCIWkMF90l94tH5KgehXIV2vuWqi98=
-github.com/condensat/secureid v0.1.0/go.mod h1:uK99gtR8BlxJH7dw+f6Rd7mJ2OgvAUlTUA49ASfxLcM=
 github.com/bsm/redislock v0.5.0 h1:ODM11/cbuUXQqLgZWK6XQnufaTjsBE2UcwBc2EAFNDA=
 github.com/bsm/redislock v0.5.0/go.mod h1:qagqKlV+xiLy26iV34Y3zRPxRcJjQYbV7pZfWFeSZ8M=
+github.com/condensat/secureid v0.1.0 h1:x08lPpKf+qNZXvCIWkMF90l94tH5KgehXIV2vuWqi98=
+github.com/condensat/secureid v0.1.0/go.mod h1:uK99gtR8BlxJH7dw+f6Rd7mJ2OgvAUlTUA49ASfxLcM=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
