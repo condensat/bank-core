@@ -5,11 +5,17 @@
 package database
 
 import (
+	"errors"
+
 	"github.com/condensat/bank-core"
 
 	"github.com/condensat/bank-core/database/model"
 
 	"github.com/jinzhu/gorm"
+)
+
+var (
+	ErrInvalidUserID = errors.New("Invalid UserID")
 )
 
 func FindOrCreateUser(db bank.Database, user model.User) (model.User, error) {
@@ -48,6 +54,26 @@ func FindUserById(db bank.Database, userID model.UserID) (model.User, error) {
 			First(&result).Error
 
 		return result, err
+
+	default:
+		return model.User{}, ErrInvalidDatabase
+	}
+}
+
+func FindUserByEmail(db bank.Database, email model.UserEmail) (model.User, error) {
+	switch gdb := db.DB().(type) {
+	case *gorm.DB:
+
+		var result model.User
+		err := gdb.
+			Where(&model.User{Email: email}).
+			First(&result).Error
+
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return model.User{}, err
+		}
+
+		return result, nil
 
 	default:
 		return model.User{}, ErrInvalidDatabase

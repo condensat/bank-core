@@ -58,13 +58,19 @@ type SessionReply struct {
 	ValidUntil int64  `json:"valid_until"`
 }
 
-func setSessionCookie(w http.ResponseWriter, reply *SessionReply) {
+func setSessionCookie(domain string, w http.ResponseWriter, reply *SessionReply) {
+	expires := fromTimestampMillis(reply.ValidUntil)
+	var maxAge int
+	if expires.After(time.Now()) {
+		maxAge = int(time.Until(expires).Seconds())
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:    "sessionId",
 		Value:   reply.SessionID,
 		Path:    "/api/v1",
-		Domain:  "condensat.space",
-		Expires: fromTimestampMillis(reply.ValidUntil),
+		Domain:  domain,
+		MaxAge:  maxAge,
+		Expires: expires,
 
 		Secure:   true,
 		HttpOnly: true,
@@ -110,37 +116,13 @@ func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, repl
 		return ErrInvalidCrendential
 	}
 
-	// check rate limit
-	openSessionAllowed := OpenSessionAllowed(ctx, uint64(userID))
-	if !openSessionAllowed {
-		log.WithError(ErrTooManyOpenSession).
-			Warning("Session open failed")
-		return ErrTooManyOpenSession
-	}
-
-	// Create session
-	remoteAddr := RequesterIP(r)
-	sessionID, err := session.CreateSession(ctx, uint64(userID), remoteAddr, SessionDuration)
+	sessionReply, err := openUserSession(ctx, session, r, uint64(userID))
 	if err != nil {
 		log.WithError(err).
-			Warning("Session open failed")
+			Warning("openSession failed")
 		return ErrSessionCreationFailed
 	}
-	log = log.WithField("SessionID", sessionID)
-
-	// Reply
-	*reply = SessionReply{
-		SessionArgs: SessionArgs{
-			SessionID: string(sessionID),
-		},
-		Status:     "open",
-		ValidUntil: makeTimestampMillis(time.Now().UTC().Add(SessionDuration)),
-	}
-
-	log.WithFields(logrus.Fields{
-		"Status":     reply.Status,
-		"ValidUntil": fromTimestampMillis(reply.ValidUntil),
-	}).Info("Session opened")
+	*reply = sessionReply
 
 	return nil
 }

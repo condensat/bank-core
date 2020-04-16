@@ -17,6 +17,7 @@ import (
 	"github.com/condensat/bank-core/monitor/processus"
 
 	"github.com/condensat/bank-core/api"
+	"github.com/condensat/bank-core/api/oauth"
 	"github.com/condensat/bank-core/api/ratelimiter"
 	"github.com/condensat/bank-core/api/secureid"
 
@@ -26,6 +27,8 @@ import (
 type Api struct {
 	Port              int
 	CorsAllowedDomain string
+	OAuth             oauth.Options
+	WebAppURL         string
 
 	SecureID string
 
@@ -55,6 +58,10 @@ func parseArgs() Args {
 	flag.IntVar(&args.Api.Port, "port", 4242, "BankApi rpc port (default 4242)")
 	flag.StringVar(&args.Api.CorsAllowedDomain, "corsAllowedDomain", "condensat.space", "Cors Allowed Domain (default condensat.space)")
 
+	flag.StringVar(&args.Api.OAuth.Keys, "oauthkeys", "oauth.env", "OAuth env file for providers keys")
+	flag.StringVar(&args.Api.OAuth.Domain, "oauthdomain", "condensat.space", "OAuth Domain for session cookies")
+	flag.StringVar(&args.Api.WebAppURL, "webappurl", "https://app.condensat.space/", "WebApp URL")
+
 	flag.StringVar(&args.Api.SecureID, "secureId", "secureid.json", "SecureID json file")
 
 	args.Api.PeerRequestPerSecond = api.DefaultPeerRequestPerSecond
@@ -73,6 +80,7 @@ func main() {
 
 	ctx := context.Background()
 	ctx = appcontext.WithOptions(ctx, args.App)
+	ctx = appcontext.WithWebAppURL(ctx, args.Api.WebAppURL)
 	ctx = appcontext.WithHasherWorker(ctx, args.App.Hasher)
 	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, args.Redis))
 	ctx = appcontext.WithWriter(ctx, logger.NewRedisLogger(ctx))
@@ -87,7 +95,7 @@ func main() {
 	migrateDatabase(ctx)
 
 	var api api.Api
-	api.Run(ctx, args.Api.Port, corsAllowedOrigins(args.Api.CorsAllowedDomain))
+	api.Run(ctx, args.Api.Port, corsAllowedOrigins(args.Api.CorsAllowedDomain), args.Api.OAuth)
 }
 
 func corsAllowedOrigins(corsAllowedDomain string) []string {
