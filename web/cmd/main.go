@@ -21,8 +21,9 @@ import (
 )
 
 type WebApp struct {
-	Port      int
-	Directory string
+	Port                  int
+	Directory             string
+	SinglePageApplication bool
 
 	PeerRequestPerSecond ratelimiter.RateLimitInfo
 	OpenSessionPerMinute ratelimiter.RateLimitInfo
@@ -47,6 +48,7 @@ func parseArgs() Args {
 
 	flag.IntVar(&args.WebApp.Port, "port", 4420, "BankWebApp http port (default 4420)")
 	flag.StringVar(&args.WebApp.Directory, "webDirectory", "/var/www", "BankWebApp http web directory (default /var/www)")
+	flag.BoolVar(&args.WebApp.SinglePageApplication, "spa", false, "Is Single Page Application (default false")
 
 	args.WebApp.PeerRequestPerSecond = api.DefaultPeerRequestPerSecond
 	flag.IntVar(&args.WebApp.PeerRequestPerSecond.Rate, "peerRateLimit", 20, "Rate limit rate, per second, per peer connection (default 20)")
