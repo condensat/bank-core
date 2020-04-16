@@ -71,5 +71,5 @@ func main() {
 	ctx = api.RegisterRateLimiter(ctx, args.WebApp.PeerRequestPerSecond)
 
 	var web web.Web
-	web.Run(ctx, args.WebApp.Port, args.WebApp.Directory)
+	web.Run(ctx, args.WebApp.Port, args.WebApp.Directory, args.WebApp.SinglePageApplication)
 }
