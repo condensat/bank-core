@@ -14,6 +14,7 @@ import (
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 
+	"github.com/gorilla/mux"
 	"github.com/gorilla/rpc/v2"
 )
 
@@ -30,7 +31,7 @@ func RegisterMessageHandlers(ctx context.Context) {
 	log.Debug("MessageHandlers registered")
 }
 
-func RegisterServices(ctx context.Context, mux *http.ServeMux, corsAllowedOrigins []string) {
+func RegisterServices(ctx context.Context, mux *mux.Router, corsAllowedOrigins []string) {
 	corsHandler := CreateCorsOptions(corsAllowedOrigins)
 
 	mux.Handle("/api/v1/session", corsHandler.Handler(NewSessionHandler(ctx)))
