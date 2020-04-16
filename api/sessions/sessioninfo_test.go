@@ -27,6 +27,7 @@ func TestNewSessionID(t *testing.T) {
 		{"notInvalid", cstInvalidSessionID},
 	}
 	for _, tt := range tests {
+		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
 			if got := NewSessionID(); got == tt.unwant {
 				t.Errorf("NewSessionID() = %v, unwant %v", got, tt.unwant)
@@ -79,6 +80,8 @@ func TestSessionInfo_Expired(t *testing.T) {
 }
 
 func TestSessionInfo_Encode(t *testing.T) {
+	t.Parallel()
+
 	var zero time.Time
 
 	type fields struct {
@@ -101,6 +104,7 @@ func TestSessionInfo_Encode(t *testing.T) {
 		{"futur", fields{NewSessionID(), zero, 1 * time.Microsecond}, 158, false},
 	}
 	for _, tt := range tests {
+		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
 			expiration := tt.fields.Expiration
 			if !expiration.After(zero) && tt.fields.delta > 0 {
@@ -124,6 +128,8 @@ func TestSessionInfo_Encode(t *testing.T) {
 }
 
 func TestSessionInfo_Decode(t *testing.T) {
+	t.Parallel()
+
 	var s0 SessionInfo
 	d0, _ := s0.Encode()
 
@@ -172,6 +178,7 @@ func TestSessionInfo_Decode(t *testing.T) {
 		{"futur", fields{}, args{d5}, s5, false},
 	}
 	for _, tt := range tests {
+		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
 			s := &SessionInfo{
 				SessionID:  tt.fields.SessionID,

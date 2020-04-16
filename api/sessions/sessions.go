@@ -86,12 +86,12 @@ func (s *Session) CreateSession(ctx context.Context, userID uint64, remoteAddr s
 	return sessionID, nil
 }
 
-func (s *Session) IsSessionValid(ctx context.Context, sessionID SessionID) bool {
-	log := logger.Logger(ctx).WithField("Method", "sessions.Session.IsSessionValid")
+func (s *Session) sessionInfo(ctx context.Context, sessionID SessionID) SessionInfo {
+	log := logger.Logger(ctx).WithField("Method", "sessions.Session.sessionInfo")
 	rdb := s.rdb
 
 	if sessionID == cstInvalidSessionID {
-		return false
+		return SessionInfo{}
 	}
 	log = log.WithField("SessionID", sessionID)
 
@@ -100,8 +100,14 @@ func (s *Session) IsSessionValid(ctx context.Context, sessionID SessionID) bool 
 	if err != nil {
 		log.WithError(err).
 			Trace("fetchSession failed")
-		return false
+		return SessionInfo{}
 	}
+
+	return si
+}
+
+func (s *Session) IsSessionValid(ctx context.Context, sessionID SessionID) bool {
+	si := s.sessionInfo(ctx, sessionID)
 
 	return !si.Expired()
 }
@@ -124,6 +130,10 @@ func (s *Session) UserSession(ctx context.Context, sessionID SessionID) uint64 {
 	}
 
 	return si.UserID
+}
+
+func IsSessionValid(sessionID SessionID) bool {
+	return sessionID != cstInvalidSessionID
 }
 
 func IsUserValid(userID uint64) bool {

@@ -16,6 +16,7 @@ import (
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/database"
+	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/logger"
 
 	"github.com/sirupsen/logrus"
@@ -34,22 +35,22 @@ type UserInfo struct {
 	Roles []string
 }
 
-func ParseUserInfo(userInfo string) (*UserInfo, error) {
+func ParseUserInfo(userInfo string) (UserInfo, error) {
 	toks := strings.Split(userInfo, ":")
 	if len(toks) != 4 {
-		return nil, ErrInvalidUserInfo
+		return UserInfo{}, ErrInvalidUserInfo
 	}
 
 	login := toks[0]
 	password := toks[1]
 	if len(login) == 0 || len(password) == 0 {
-		return nil, ErrInvalidLoginOrPassword
+		return UserInfo{}, ErrInvalidLoginOrPassword
 	}
 
 	email := toks[2]
 	_, err := mail.ParseAddress(fmt.Sprintf("%s <%s>", login, email))
 	if err != nil {
-		return nil, ErrInvalidEmail
+		return UserInfo{}, ErrInvalidEmail
 	}
 
 	roles := strings.Split(toks[3], ",")
@@ -57,7 +58,7 @@ func ParseUserInfo(userInfo string) (*UserInfo, error) {
 		roles = append(roles, "user")
 	}
 
-	return &UserInfo{
+	return UserInfo{
 		Login:    login,
 		Password: password,
 		Email:    email,
@@ -77,7 +78,7 @@ func scannerFromFileOrStdin(fileName string) (*bufio.Scanner, *os.File, error) {
 	}
 }
 
-func FromUserInfoFile(ctx context.Context, fileName string) ([]*UserInfo, error) {
+func FromUserInfoFile(ctx context.Context, fileName string) ([]UserInfo, error) {
 	log := logger.Logger(ctx).WithField("Method", "api.FromUserInfoFile")
 	scanner, file, err := scannerFromFileOrStdin(fileName)
 	if err != nil {
@@ -87,7 +88,7 @@ func FromUserInfoFile(ctx context.Context, fileName string) ([]*UserInfo, error)
 		defer file.Close()
 	}
 
-	var result []*UserInfo
+	var result []UserInfo
 	for scanner.Scan() {
 		userInfo, err := ParseUserInfo(scanner.Text())
 		if err != nil {
@@ -96,67 +97,88 @@ func FromUserInfoFile(ctx context.Context, fileName string) ([]*UserInfo, error)
 			continue
 		}
 		result = append(result, userInfo)
+
+		if userInfo.Login == "demo" {
+			for i := 0; i < 100; i++ {
+				demo := userInfo
+				demo.Login = fmt.Sprintf("%s_%.3d", demo.Login, i)
+				demo.Email = fmt.Sprintf("%s@condensat.space", demo.Login)
+				result = append(result, demo)
+			}
+		}
 	}
 	return result[:], nil
 }
 
-func ImportUsers(ctx context.Context, userInfos ...*UserInfo) error {
+func ImportUsers(ctx context.Context, userInfos ...UserInfo) error {
 	log := logger.Logger(ctx).WithField("Method", "api.ImportUsers")
 	db := appcontext.Database(ctx)
 	if db == nil {
-		log.Panic("Invalid Database")
+		return errors.New("Invalid Database")
 	}
 
 	return db.Transaction(func(tx bank.Database) error {
-		for _, userInfo := range userInfos {
-			user, err := database.FindOrCreateUser(ctx, tx,
-				userInfo.Login,
-				userInfo.Email,
-			)
-			if err != nil {
-				log.WithError(err).
-					Error("Failed to FindOrCreateUser")
-				continue
-			}
 
-			credential, err := database.CreateOrUpdatedCredential(ctx, tx,
-				user.ID,
-				userInfo.Login,
-				userInfo.Password,
-				"",
-			)
-			if err != nil {
-				log.WithError(err).
-					Error("Failed to CreateOrUpdatedCredential")
-				continue
-			}
+		batchSize := 32
+		batches := make([][]UserInfo, 0, (len(userInfos)+batchSize-1)/batchSize)
+		for batchSize < len(userInfos) {
+			userInfos, batches = userInfos[batchSize:], append(batches, userInfos[0:batchSize:batchSize])
+		}
+		batches = append(batches, userInfos)
 
-			userID, verified, err := database.CheckCredential(ctx, tx,
-				database.HashEntry(userInfo.Login),
-				database.HashEntry(userInfo.Password),
-			)
-			if err != nil {
-				log.WithError(err).
-					Error("Failed to CheckCredential")
-				continue
-			}
+		for _, userInfos := range batches {
+			for _, userInfo := range userInfos {
+				user, err := database.FindOrCreateUser(tx, model.User{
+					Name:  model.UserName(userInfo.Login),
+					Email: model.UserEmail(userInfo.Email),
+				})
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to FindOrCreateUser")
+					continue
+				}
 
-			if !verified {
-				log.Error("Not Verified")
-				continue
-			}
+				credential, err := database.CreateOrUpdatedCredential(ctx, tx,
+					model.Credential{
+						UserID:       user.ID,
+						LoginHash:    model.Base58(userInfo.Login),
+						PasswordHash: model.Base58(userInfo.Password),
+						TOTPSecret:   "",
+					},
+				)
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to CreateOrUpdatedCredential")
+					continue
+				}
 
-			if userID != user.ID {
-				log.Error("Wrong UserID")
-				continue
-			}
+				userID, verified, err := database.CheckCredential(ctx, tx,
+					database.HashEntry(model.Base58(userInfo.Login)),
+					database.HashEntry(model.Base58(userInfo.Password)),
+				)
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to CheckCredential")
+					continue
+				}
 
-			log.WithFields(logrus.Fields{
-				"UserID":       userID,
-				"LoginHash":    credential.LoginHash,
-				"PasswordHash": credential.PasswordHash,
-				"Verified":     verified,
-			}).Info("User Imported")
+				if !verified {
+					log.Error("Not Verified")
+					continue
+				}
+
+				if userID != user.ID {
+					log.Error("Wrong UserID")
+					continue
+				}
+
+				log.WithFields(logrus.Fields{
+					"UserID":       userID,
+					"LoginHash":    credential.LoginHash,
+					"PasswordHash": credential.PasswordHash,
+					"Verified":     verified,
+				}).Info("User Imported")
+			}
 		}
 		return nil
 	})

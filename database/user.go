@@ -5,50 +5,77 @@
 package database
 
 import (
-	"context"
+	"errors"
 
 	"github.com/condensat/bank-core"
 
-	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/database/model"
 
 	"github.com/jinzhu/gorm"
 )
 
-func FindOrCreateUser(ctx context.Context, database bank.Database, name, email string) (*model.User, error) {
-	switch db := database.DB().(type) {
-	case *gorm.DB:
+var (
+	ErrInvalidUserID = errors.New("Invalid UserID")
+)
 
-		result := model.User{
-			Name:  name,
-			Email: email,
-		}
-		err := db.
-			Where("name = ?", name).
-			Where("email = ?", email).
-			FirstOrCreate(&result).Error
-
-		return &result, err
-
-	default:
-		return nil, ErrInvalidDatabase
-	}
-}
-
-func FindUserById(ctx context.Context, userID uint64) (*model.User, error) {
-	db := appcontext.Database(ctx)
-
-	switch db := db.DB().(type) {
+func FindOrCreateUser(db bank.Database, user model.User) (model.User, error) {
+	switch gdb := db.DB().(type) {
 	case *gorm.DB:
 
 		var result model.User
-		err := db.
+		err := gdb.
+			Where(model.User{
+				Name:  user.Name,
+				Email: user.Email,
+			}).
+			Assign(user).
+			FirstOrCreate(&result).Error
+
+		return result, err
+
+	default:
+		return model.User{}, ErrInvalidDatabase
+	}
+}
+
+func UserExists(db bank.Database, userID model.UserID) bool {
+	entry, err := FindUserById(db, userID)
+
+	return err == nil && entry.ID > 0
+}
+
+func FindUserById(db bank.Database, userID model.UserID) (model.User, error) {
+	switch gdb := db.DB().(type) {
+	case *gorm.DB:
+
+		var result model.User
+		err := gdb.
 			Where(&model.User{ID: userID}).
 			First(&result).Error
 
-		return &result, err
+		return result, err
 
 	default:
-		return nil, ErrInvalidDatabase
+		return model.User{}, ErrInvalidDatabase
+	}
+}
+
+func FindUserByEmail(db bank.Database, email model.UserEmail) (model.User, error) {
+	switch gdb := db.DB().(type) {
+	case *gorm.DB:
+
+		var result model.User
+		err := gdb.
+			Where(&model.User{Email: email}).
+			First(&result).Error
+
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return model.User{}, err
+		}
+
+		return result, nil
+
+	default:
+		return model.User{}, ErrInvalidDatabase
 	}
 }

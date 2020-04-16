@@ -12,7 +12,9 @@ import (
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/api/sessions"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/logger"
 
+	"github.com/gorilla/mux"
 	"github.com/gorilla/rpc/v2"
 )
 
@@ -20,11 +22,21 @@ var (
 	ErrServiceInternalError = errors.New("Service Internal Error")
 )
 
-func RegisterServices(ctx context.Context, mux *http.ServeMux, corsAllowedOrigins []string) {
+func RegisterMessageHandlers(ctx context.Context) {
+	log := logger.Logger(ctx).WithField("Method", "RegisterMessageHandlers")
+
+	nats := appcontext.Messaging(ctx)
+	nats.SubscribeWorkers(ctx, VerifySessionSubject, 4, sessions.VerifySession)
+
+	log.Debug("MessageHandlers registered")
+}
+
+func RegisterServices(ctx context.Context, mux *mux.Router, corsAllowedOrigins []string) {
 	corsHandler := CreateCorsOptions(corsAllowedOrigins)
 
 	mux.Handle("/api/v1/session", corsHandler.Handler(NewSessionHandler(ctx)))
 	mux.Handle("/api/v1/user", corsHandler.Handler(NewUserHandler(ctx)))
+	mux.Handle("/api/v1/accounting", corsHandler.Handler(NewAccountingHandler(ctx)))
 }
 
 func NewSessionHandler(ctx context.Context) http.Handler {
@@ -57,17 +69,31 @@ func NewUserHandler(ctx context.Context) http.Handler {
 	return server
 }
 
-func ContextValues(ctx context.Context) (db bank.Database, session *sessions.Session, err error) {
-	db = appcontext.Database(ctx)
-	if ctxSession, ok := ctx.Value(sessions.KeySessions).(*sessions.Session); ok {
-		session = ctxSession
-	}
-	if db == nil || session == nil {
-		db = nil
-		session = nil
-		err = ErrServiceInternalError
-		return
+func NewAccountingHandler(ctx context.Context) http.Handler {
+	server := rpc.NewServer()
+
+	jsonCodec := NewCookieCodec(ctx)
+	server.RegisterCodec(jsonCodec, "application/json")
+	server.RegisterCodec(jsonCodec, "application/json; charset=UTF-8") // For firefox 11 and other browsers which append the charset=UTF-8
+
+	err := server.RegisterService(new(AccountingService), "accounting")
+	if err != nil {
+		panic(err)
 	}
 
-	return
+	return server
+}
+
+func ContextValues(ctx context.Context) (bank.Database, *sessions.Session, error) {
+	db := appcontext.Database(ctx)
+	session, err := sessions.ContextSession(ctx)
+	if db == nil || session == nil {
+		err = ErrServiceInternalError
+	}
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return db, session, nil
 }

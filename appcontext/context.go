@@ -18,8 +18,12 @@ import (
 )
 
 const (
-	AppKey = iota
+	AppNameKey = iota
+	DomainKey
+	WebAppURLKey
 	LoggerKey
+	ProcessusGrabberKey
+	SecureIDKey
 	WriterKey
 	LogLevelKey
 	CacheKey
@@ -32,7 +36,17 @@ const (
 
 // WithAppName returns a context with the Application name set
 func WithAppName(ctx context.Context, name string) context.Context {
-	return context.WithValue(ctx, AppKey, name)
+	return context.WithValue(ctx, AppNameKey, name)
+}
+
+// WithDomain returns a context with the Domain name set
+func WithDomain(ctx context.Context, name string) context.Context {
+	return context.WithValue(ctx, DomainKey, name)
+}
+
+// WithWebAppUrl returns a context with the WebApplication url set
+func WithWebAppURL(ctx context.Context, url string) context.Context {
+	return context.WithValue(ctx, WebAppURLKey, url)
 }
 
 // WithLogger returns a context with the log Writer set
@@ -91,6 +105,36 @@ func WithOptions(ctx context.Context, options Options) context.Context {
 	return ctx
 }
 
+func WithProcessusGrabber(ctx context.Context, grabber bank.Worker) context.Context {
+	go grabber.Run(ctx, 1)
+	return context.WithValue(ctx, ProcessusGrabberKey, grabber)
+}
+
+func WithSecureID(ctx context.Context, secureID bank.SecureID) context.Context {
+	return context.WithValue(ctx, SecureIDKey, secureID)
+}
+
+func AppName(ctx context.Context) string {
+	if ctxAppName, ok := ctx.Value(AppNameKey).(string); ok {
+		return ctxAppName
+	}
+	return "NoAppName"
+}
+
+func Domain(ctx context.Context) string {
+	if ctxDomain, ok := ctx.Value(DomainKey).(string); ok {
+		return ctxDomain
+	}
+	return "condensat.space"
+}
+
+func WebAppURL(ctx context.Context) string {
+	if ctxWebAppURL, ok := ctx.Value(WebAppURLKey).(string); ok {
+		return ctxWebAppURL
+	}
+	return "https://app.condensat.space"
+}
+
 func Level(ctx context.Context) log.Level {
 	if ctxLogLevel, ok := ctx.Value(LogLevelKey).(string); ok {
 		if level, err := log.ParseLevel(ctxLogLevel); err == nil {
@@ -131,6 +175,13 @@ func Database(ctx context.Context) bank.Database {
 func HasherWorker(ctx context.Context) bank.Worker {
 	if ctxWorker, ok := ctx.Value(hasherWorkerKey).(bank.Worker); ok {
 		return ctxWorker
+	}
+	return nil
+}
+
+func SecureID(ctx context.Context) bank.SecureID {
+	if ctxSecureID, ok := ctx.Value(SecureIDKey).(bank.SecureID); ok {
+		return ctxSecureID
 	}
 	return nil
 }

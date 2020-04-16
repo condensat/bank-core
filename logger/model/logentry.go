@@ -5,6 +5,7 @@
 package model
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -27,12 +28,16 @@ type LogEntry struct {
 }
 
 func TxAddLogEntries(db *gorm.DB, entries []*LogEntry) error {
-	tx := db.Begin()
-	for _, entry := range entries {
-		err := db.Create(entry).Error
-		if err != nil {
-			return tx.Rollback().Error
+	return db.Transaction(func(tx *gorm.DB) error {
+		for _, entry := range entries {
+			err := tx.Create(entry).Error
+			if err != nil {
+				// do not rollback tx
+				fmt.Printf("TxAddLogEntries failed. %s", err)
+				continue
+			}
 		}
-	}
-	return tx.Commit().Error
+
+		return nil
+	})
 }

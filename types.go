@@ -10,7 +10,14 @@ import (
 
 	"github.com/condensat/bank-core/database/model"
 	logModel "github.com/condensat/bank-core/logger/model"
+
+	"github.com/condensat/secureid"
 )
+
+type BankObject interface {
+	Encode() ([]byte, error)
+	Decode(data []byte) error
+}
 
 type ServerOptions struct {
 	HostName string
@@ -32,6 +39,8 @@ type Messaging interface {
 
 	SubscribeWorkers(ctx context.Context, subject string, workerCount int, handle MessageHandler)
 	Subscribe(ctx context.Context, subject string, handle MessageHandler)
+
+	Publish(ctx context.Context, subject string, message *Message) error
 
 	Request(ctx context.Context, subject string, message *Message) (*Message, error)
 	RequestWithTimeout(ctx context.Context, subject string, message *Message, timeout time.Duration) (*Message, error)
@@ -56,4 +65,12 @@ type Cache interface {
 
 type Worker interface {
 	Run(ctx context.Context, numWorkers int)
+}
+
+type SecureID interface {
+	ToSecureID(context string, value secureid.Value) (secureid.SecureID, error)
+	FromSecureID(context string, secureID secureid.SecureID) (secureid.Value, error)
+
+	ToString(secureID secureid.SecureID) string
+	Parse(secureID string) secureid.SecureID
 }
