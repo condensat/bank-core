@@ -18,6 +18,7 @@ import (
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/facebook"
 	"github.com/markbates/goth/providers/github"
+	"github.com/markbates/goth/providers/google"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
@@ -57,6 +58,7 @@ func Init(options Options) error {
 	goth.UseProviders(
 		github.New(os.Getenv("OAUTH_GITHUB_KEY"), os.Getenv("OAUTH_GITHUB_SECRET"), os.Getenv("OAUTH_GITHUB_CALLBACK")),
 		facebook.New(os.Getenv("OAUTH_FACEBOOK_KEY"), os.Getenv("OAUTH_FACEBOOK_SECRET"), os.Getenv("OAUTH_FACEBOOK_CALLBACK")),
+		google.New(os.Getenv("OAUTH_GOOGLE_KEY"), os.Getenv("OAUTH_GOOGLE_SECRET"), os.Getenv("OAUTH_GOOGLE_CALLBACK")),
 	)
 
 	return nil
