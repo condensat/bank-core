@@ -6,6 +6,7 @@ package database
 
 import (
 	"fmt"
+	"math/rand"
 	"reflect"
 	"sort"
 
@@ -76,4 +77,16 @@ func getSortedTypeFileds(t reflect.Type) []string {
 	sort.Strings(result)
 
 	return result
+}
+
+var (
+	letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+)
+
+func randSeq(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
 }
