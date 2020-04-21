@@ -279,6 +279,62 @@ func checkCryptoAddressUpdate(t *testing.T, db bank.Database, ref model.CryptoAd
 		}
 	}
 
+	// Mempool
+	{
+		want, _ := GetCryptoAddress(db, ref.ID)
+		cpy, _ := GetCryptoAddress(db, ref.ID)
+
+		want.FirstBlockId = 1
+		cpy.FirstBlockId = want.FirstBlockId
+
+		update, err := AddOrUpdateCryptoAddress(db, cpy)
+		if err != nil {
+			t.Errorf("AddOrUpdateCryptoAddress() error= %v", err)
+		}
+		if !reflect.DeepEqual(update, want) {
+			t.Errorf("AddOrUpdateCryptoAddress() = %+v, want %+v", update, want)
+		}
+
+		if !update.IsUsed() {
+			t.Errorf("Updated CryptoAddress should be in use: %+v, want %+v", update, want)
+		}
+
+		store, _ := GetCryptoAddress(db, ref.ID)
+		if !reflect.DeepEqual(store, update) {
+			t.Errorf("Mempool change not stored = %+v, want %+v", store, update)
+		}
+	}
+
+	// Mined
+	{
+		want, _ := GetCryptoAddress(db, ref.ID)
+		cpy, _ := GetCryptoAddress(db, ref.ID)
+
+		want.FirstBlockId = 424242
+		cpy.FirstBlockId = want.FirstBlockId
+
+		update, err := AddOrUpdateCryptoAddress(db, cpy)
+		if err != nil {
+			t.Errorf("AddOrUpdateCryptoAddress() error= %v", err)
+		}
+		if !reflect.DeepEqual(update, want) {
+			t.Errorf("AddOrUpdateCryptoAddress() = %+v, want %+v", update, want)
+		}
+
+		if !update.IsUsed() {
+			t.Errorf("Updated CryptoAddress should be in use: %+v, want %+v", update, want)
+		}
+
+		if update.Confirmations(424242) != 1 {
+			t.Errorf("Failed to update FirstBlockId: %+v, want %+v", update, want)
+		}
+
+		store, _ := GetCryptoAddress(db, update.ID)
+		if !reflect.DeepEqual(store, update) {
+			t.Errorf("Mined change not stored = %+v, want %+v", store, update)
+		}
+	}
+
 	// reset to reference state
 	_, err := AddOrUpdateCryptoAddress(db, ref)
 	if err != nil {
