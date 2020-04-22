@@ -7,7 +7,11 @@ package wallet
 import (
 	"context"
 
+	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
+
+	"github.com/condensat/bank-core/wallet/common"
+	"github.com/condensat/bank-core/wallet/handlers"
 
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/utils"
@@ -31,6 +35,12 @@ func (p *Wallet) Run(ctx context.Context) {
 
 func (p *Wallet) registerHandlers(ctx context.Context) {
 	log := logger.Logger(ctx).WithField("Method", "Accounting.RegisterHandlers")
+
+	nats := appcontext.Messaging(ctx)
+
+	const concurencyLevel = 4
+
+	nats.SubscribeWorkers(ctx, common.CryptoAddressNextDepositSubject, concurencyLevel, handlers.OnCryptoAddressNextDeposit)
 
 	log.Debug("Bank Wallet registered")
 }
