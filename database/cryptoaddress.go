@@ -142,6 +142,49 @@ func AllAccountCryptoAddresses(db bank.Database, accountID model.AccountID) ([]m
 	return converCryptoAddressList(list), nil
 }
 
+func AllUnusedAccountCryptoAddresses(db bank.Database, accountID model.AccountID) ([]model.CryptoAddress, error) {
+	if accountID == 0 {
+		return nil, ErrInvalidAccountID
+	}
+	return findUnusedCryptoAddresses(db, accountID, AllChains)
+}
+
+func AllUnusedCryptoAddresses(db bank.Database, chain model.String) ([]model.CryptoAddress, error) {
+	return findUnusedCryptoAddresses(db, 0, chain)
+}
+
+func findUnusedCryptoAddresses(db bank.Database, accountID model.AccountID, chain model.String) ([]model.CryptoAddress, error) {
+	gdb := db.DB().(*gorm.DB)
+	if gdb == nil {
+		return nil, errors.New("Invalid appcontext.Database")
+	}
+
+	if len(chain) == 0 {
+		return nil, ErrInvalidChain
+	}
+
+	// support wildcard for all chains
+	if chain == AllChains {
+		chain = ""
+	}
+
+	var list []*model.CryptoAddress
+	err := gdb.
+		Where(model.CryptoAddress{
+			AccountID: accountID,
+			Chain:     chain,
+		}).
+		Where("first_block_id = ?", 0).
+		Order("id ASC").
+		Find(&list).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return converCryptoAddressList(list), nil
+}
+
 func converCryptoAddressList(list []*model.CryptoAddress) []model.CryptoAddress {
 	var result []model.CryptoAddress
 	for _, curr := range list {

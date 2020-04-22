@@ -222,6 +222,99 @@ func TestAllAccountCryptoAddresses(t *testing.T) {
 	}
 }
 
+func TestAllUnusedAccountCryptoAddresses(t *testing.T) {
+	const databaseName = "TestAllUnusedAccountCryptoAddresses"
+	t.Parallel()
+
+	db := setup(databaseName, CryptoAddressModel())
+	defer teardown(db, databaseName)
+
+	_, _ = AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: 42, PublicAddress: "ref1", Chain: "chain1", FirstBlockId: 424242})
+	_, _ = AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: 42, PublicAddress: "ref2", Chain: "chain1", FirstBlockId: 0})
+
+	_, _ = AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: 1337, PublicAddress: "ref3", Chain: "chain2", FirstBlockId: 1})
+	_, _ = AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: 1337, PublicAddress: "ref4", Chain: "chain2", FirstBlockId: 0})
+	_, _ = AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: 1337, PublicAddress: "ref5", Chain: "chain2", FirstBlockId: 0})
+
+	type args struct {
+		accountID model.AccountID
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    int
+		wantErr bool
+	}{
+		{"default", args{0}, 0, true},
+
+		{"account42", args{42}, 1, false},
+		{"account1337", args{1337}, 2, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := AllUnusedAccountCryptoAddresses(db, tt.args.accountID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("AllUnusedAccountCryptoAddresses() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if len(got) != tt.want {
+				t.Errorf("AllUnusedAccountCryptoAddresses() = %v, want %v", len(got), tt.want)
+			}
+		})
+	}
+}
+
+func TestAllUnusedCryptoAddresses(t *testing.T) {
+	const databaseName = "TestAllUnusedCryptoAddresses"
+	t.Parallel()
+
+	db := setup(databaseName, CryptoAddressModel())
+	defer teardown(db, databaseName)
+
+	accountID := model.AccountID(42)
+	_, _ = AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: accountID, PublicAddress: "ref1", Chain: "chain1", FirstBlockId: 424242})
+	_, _ = AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: accountID, PublicAddress: "ref2", Chain: "chain1", FirstBlockId: 0})
+
+	_, _ = AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: accountID, PublicAddress: "ref3", Chain: "chain2", FirstBlockId: 1})
+	_, _ = AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: accountID, PublicAddress: "ref4", Chain: "chain2", FirstBlockId: 0})
+	_, _ = AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: accountID, PublicAddress: "ref5", Chain: "chain2", FirstBlockId: 0})
+
+	_, _ = AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: accountID, PublicAddress: "ref7", Chain: "chain3", FirstBlockId: 0})
+	_, _ = AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: accountID, PublicAddress: "ref8", Chain: "chain3", FirstBlockId: 0})
+	_, _ = AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: accountID, PublicAddress: "ref9", Chain: "chain3", FirstBlockId: 0})
+
+	type args struct {
+		chain model.String
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    int
+		wantErr bool
+	}{
+		{"default", args{""}, 0, true},
+		{"allchains", args{"*"}, 6, false},
+
+		{"chain1", args{"chain1"}, 1, false},
+		{"chain2", args{"chain2"}, 2, false},
+		{"chain3", args{"chain3"}, 3, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := AllUnusedCryptoAddresses(db, tt.args.chain)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("AllUnusedCryptoAddresses() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if len(got) != tt.want {
+				t.Errorf("AllUnusedCryptoAddresses() = %v, want %v", len(got), tt.want)
+			}
+		})
+	}
+}
+
 func checkCryptoAddressUpdate(t *testing.T, db bank.Database, ref model.CryptoAddress) {
 	// fetch from db
 	{
