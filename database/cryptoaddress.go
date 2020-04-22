@@ -14,7 +14,12 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
+const (
+	AllChains = "*"
+)
+
 var (
+	ErrInvalidChain           = errors.New("Invalid Chain")
 	ErrInvalidPublicAddress   = errors.New("Invalid Public Address")
 	ErrInvalidCryptoAddressID = errors.New("Invalid CryptoAddress ID")
 )
@@ -33,15 +38,19 @@ func AddOrUpdateCryptoAddress(db bank.Database, address model.CryptoAddress) (mo
 	if len(address.PublicAddress) == 0 {
 		return result, ErrInvalidPublicAddress
 	}
+	if len(address.Chain) == 0 || address.Chain == AllChains {
+		return result, ErrInvalidChain
+	}
 
 	if address.ID == 0 {
 		// set CreationDate for new entry
 		timestamp := time.Now().UTC().Truncate(time.Second)
 		address.CreationDate = &timestamp
 	} else {
-		// do not update CreationDate on update
+		// do not update non mutable fields
 		address.CreationDate = nil
 		address.PublicAddress = ""
+		address.Chain = ""
 	}
 
 	// search by id

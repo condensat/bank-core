@@ -20,9 +20,14 @@ func TestAddOrUpdateCryptoAddress(t *testing.T) {
 	db := setup(databaseName, CryptoAddressModel())
 	defer teardown(db, databaseName)
 
+	const chain = model.String("chain1")
+
 	// create db entry for duplicate test
 	existingPublicAddress := model.String("bar bar")
-	_, _ = AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: 100, PublicAddress: existingPublicAddress})
+	_, err := AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: 100, PublicAddress: existingPublicAddress, Chain: chain})
+	if err != nil {
+		t.Errorf("failed to AddOrUpdateCryptoAddress for duplicate tests")
+	}
 
 	type args struct {
 		address model.CryptoAddress
@@ -37,9 +42,13 @@ func TestAddOrUpdateCryptoAddress(t *testing.T) {
 
 		{"invalidAccountID", args{model.CryptoAddress{PublicAddress: "foo"}}, model.CryptoAddress{}, true},
 		{"invalidPublicAddress", args{model.CryptoAddress{AccountID: 42}}, model.CryptoAddress{}, true},
-		{"validWithPublicAddress", args{model.CryptoAddress{AccountID: 1337, PublicAddress: "foo"}}, model.CryptoAddress{AccountID: 1337, PublicAddress: "foo"}, false},
-		{"validMultiplePublicAddress", args{model.CryptoAddress{AccountID: 1337, PublicAddress: "bar"}}, model.CryptoAddress{AccountID: 1337, PublicAddress: "bar"}, false},
-		{"DuplicatesPublicAddress", args{model.CryptoAddress{AccountID: 101, PublicAddress: existingPublicAddress}}, model.CryptoAddress{}, true},
+
+		{"InvalidDuplicates", args{model.CryptoAddress{AccountID: 101, PublicAddress: existingPublicAddress, Chain: chain}}, model.CryptoAddress{}, true},
+		{"invalidChain", args{model.CryptoAddress{AccountID: 1337, PublicAddress: "foo"}}, model.CryptoAddress{}, true},
+		{"invalidAllChain", args{model.CryptoAddress{AccountID: 1337, PublicAddress: "foo", Chain: AllChains}}, model.CryptoAddress{}, true},
+
+		{"valid", args{model.CryptoAddress{AccountID: 1337, PublicAddress: "foo", Chain: chain}}, model.CryptoAddress{AccountID: 1337, PublicAddress: "foo", Chain: chain}, false},
+		{"validMultiple", args{model.CryptoAddress{AccountID: 1337, PublicAddress: "bar", Chain: chain}}, model.CryptoAddress{AccountID: 1337, PublicAddress: "bar", Chain: chain}, false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
@@ -86,8 +95,10 @@ func TestGetCryptoAddress(t *testing.T) {
 	db := setup(databaseName, CryptoAddressModel())
 	defer teardown(db, databaseName)
 
+	const chain = model.String("chain1")
+
 	accountID := model.AccountID(42)
-	ref1, _ := AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: accountID, PublicAddress: "ref1"})
+	ref1, _ := AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: accountID, PublicAddress: "ref1", Chain: chain})
 
 	type args struct {
 		ID model.ID
@@ -116,6 +127,7 @@ func TestGetCryptoAddress(t *testing.T) {
 		})
 	}
 }
+
 func TestLastAccountCryptoAddress(t *testing.T) {
 	const databaseName = "TestLastAccountCryptoAddress"
 	t.Parallel()
@@ -123,9 +135,11 @@ func TestLastAccountCryptoAddress(t *testing.T) {
 	db := setup(databaseName, CryptoAddressModel())
 	defer teardown(db, databaseName)
 
-	_, _ = AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: 42, PublicAddress: "ref1"})
-	_, _ = AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: 42, PublicAddress: "ref2"})
-	lastRef, _ := AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: 42, PublicAddress: "ref3"})
+	const chain = model.String("chain1")
+
+	_, _ = AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: 42, PublicAddress: "ref1", Chain: chain})
+	_, _ = AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: 42, PublicAddress: "ref2", Chain: chain})
+	lastRef, _ := AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: 42, PublicAddress: "ref3", Chain: chain})
 
 	type args struct {
 		accountID model.AccountID
@@ -166,10 +180,12 @@ func TestAllAccountCryptoAddresses(t *testing.T) {
 	db := setup(databaseName, CryptoAddressModel())
 	defer teardown(db, databaseName)
 
+	const chain = model.String("chain1")
+
 	accountID := model.AccountID(42)
-	ref1, _ := AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: accountID, PublicAddress: "ref1"})
-	ref2, _ := AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: accountID, PublicAddress: "ref2"})
-	ref3, _ := AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: accountID, PublicAddress: "ref3"})
+	ref1, _ := AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: accountID, PublicAddress: "ref1", Chain: chain})
+	ref2, _ := AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: accountID, PublicAddress: "ref2", Chain: chain})
+	ref3, _ := AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: accountID, PublicAddress: "ref3", Chain: chain})
 	allRefs := []model.CryptoAddress{
 		ref1,
 		ref2,
@@ -343,14 +359,12 @@ func checkCryptoAddressUpdate(t *testing.T, db bank.Database, ref model.CryptoAd
 }
 
 func cloneCryptoAddress(address model.CryptoAddress) model.CryptoAddress {
-	result := model.CryptoAddress{
-		ID:            address.ID,
-		AccountID:     address.AccountID,
-		PublicAddress: address.PublicAddress,
-		CreationDate:  address.CreationDate,
-		FirstBlockId:  address.FirstBlockId,
-	}
+	result := address
 
+	if address.CreationDate != nil {
+		creationDate := *address.CreationDate
+		result.CreationDate = &creationDate
+	}
 	return result
 }
 
