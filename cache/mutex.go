@@ -106,6 +106,10 @@ func lockKeyAccountID(accountID uint64) string {
 	return lockKeyString("lock.Account", accountID)
 }
 
+func lockKeyChain(chain string) string {
+	return lockKeyString("lock.Chain", chain)
+}
+
 func LockUser(ctx context.Context, userID uint64) (Lock, error) {
 	mutex := RedisMutexFromContext(ctx)
 	if mutex == nil {
@@ -120,4 +124,12 @@ func LockAccount(ctx context.Context, accountID uint64) (Lock, error) {
 		return nil, ErrRedisMutexNotFound
 	}
 	return mutex.Lock(ctx, lockKeyAccountID(accountID), DefaultLockTTL)
+}
+
+func LockChain(ctx context.Context, chain string) (Lock, error) {
+	mutex := RedisMutexFromContext(ctx)
+	if mutex == nil {
+		return nil, ErrRedisMutexNotFound
+	}
+	return mutex.Lock(ctx, lockKeyChain(chain), DefaultLockTTL)
 }
