@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package internal
+package cache
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/condensat/bank-core/appcontext"
-	"github.com/condensat/bank-core/cache"
 
 	"github.com/bsm/redislock"
 )
@@ -41,7 +40,7 @@ type RedisMutex struct {
 }
 
 func NewRedisMutex(ctx context.Context) Mutex {
-	client := cache.ToRedis(appcontext.Cache(ctx))
+	client := ToRedis(appcontext.Cache(ctx))
 	if client == nil {
 		panic("Invalid Redis client")
 	}
