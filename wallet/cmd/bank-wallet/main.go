@@ -20,9 +20,6 @@ import (
 	"github.com/condensat/bank-core/monitor/processus"
 )
 
-type Wallet struct {
-}
-
 type Args struct {
 	App appcontext.Options
 
@@ -30,7 +27,7 @@ type Args struct {
 	Nats     messaging.NatsOptions
 	Database database.Options
 
-	Wallet Wallet
+	Wallet wallet.WalletOptions
 }
 
 func parseArgs() Args {
@@ -41,6 +38,8 @@ func parseArgs() Args {
 	cache.OptionArgs(&args.Redis)
 	messaging.OptionArgs(&args.Nats)
 	database.OptionArgs(&args.Database)
+
+	wallet.OptionArgs(&args.Wallet)
 
 	flag.Parse()
 
@@ -62,7 +61,7 @@ func main() {
 	migrateDatabase(ctx)
 
 	var service wallet.Wallet
-	service.Run(ctx)
+	service.Run(ctx, args.Wallet)
 }
 
 func migrateDatabase(ctx context.Context) {

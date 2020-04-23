@@ -21,7 +21,7 @@ import (
 
 type Wallet int
 
-func (p *Wallet) Run(ctx context.Context) {
+func (p *Wallet) Run(ctx context.Context, options WalletOptions) {
 	log := logger.Logger(ctx).WithField("Method", "Wallet.Run")
 
 	p.registerHandlers(cache.RedisMutexContext(ctx))
