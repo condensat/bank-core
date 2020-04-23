@@ -8,9 +8,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 
+	"github.com/condensat/bank-core/wallet/bitcoin"
 	"github.com/condensat/bank-core/wallet/common"
 	"github.com/condensat/bank-core/wallet/handlers"
 
@@ -32,13 +34,30 @@ func (p *Wallet) Run(ctx context.Context, options WalletOptions) {
 	// add RedisMutext to context
 	ctx = cache.RedisMutexContext(ctx)
 
+	// load rpc clients configurations
+	chainsOptions := loadChainsOptionsFromFile(options.FileName)
+
+	// create all rpc clients
+	for _, chainOption := range chainsOptions.Chains {
+		log.WithField("Chain", chainOption.Chain).
+			Warning("Adding rpc client")
+		ctx = ChainClientContext(ctx, chainOption.Chain, bitcoin.New(ctx, bitcoin.BitcoinOptions{
+			ServerOptions: bank.ServerOptions{
+				HostName: chainOption.HostName,
+				Port:     chainOption.Port,
+			},
+			User: chainOption.User,
+			Pass: chainOption.Pass,
+		}))
+	}
+
 	p.registerHandlers(ctx)
 
 	log.WithFields(logrus.Fields{
 		"Hostname": utils.Hostname(),
 	}).Info("Wallet Service started")
 
-	go p.scheduledUpdate(ctx, options.Chains(), DefaultInterval)
+	go p.scheduledUpdate(ctx, chainsOptions.Names(), DefaultInterval)
 
 	<-ctx.Done()
 }

@@ -5,24 +5,55 @@
 package wallet
 
 import (
+	"encoding/json"
 	"flag"
-	"strings"
+	"io/ioutil"
+	"os"
 )
 
 type WalletOptions struct {
-	chains string
+	FileName string
 }
 
-func (p *WalletOptions) Chains() []string {
-	var result []string
+func loadChainsOptionsFromFile(fileName string) ChainsOptions {
+	var result ChainsOptions
 
-	for _, chain := range strings.Split(p.chains, ",") {
-		if len(chain) == 0 {
-			continue
-		}
-		result = append(result, chain)
+	file, err := os.Open(fileName)
+	if err != nil {
+		return ChainsOptions{}
+	}
+	defer file.Close()
+
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		return ChainsOptions{}
 	}
 
+	err = json.Unmarshal(data, &result)
+	if err != nil {
+		return ChainsOptions{}
+	}
+
+	return result
+}
+
+type ChainOption struct {
+	Chain    string `json:"chain"`
+	HostName string `json:"hostname"`
+	Port     int    `json:"port"`
+	User     string `json:"user"`
+	Pass     string `json:"pass"`
+}
+
+type ChainsOptions struct {
+	Chains []ChainOption `json:"chains"`
+}
+
+func (p *ChainsOptions) Names() []string {
+	var result []string
+	for _, option := range p.Chains {
+		result = append(result, option.Chain)
+	}
 	return result
 }
 
@@ -31,5 +62,5 @@ func OptionArgs(args *WalletOptions) {
 		panic("Invalid wallet options")
 	}
 
-	flag.StringVar(&args.chains, "chains", "bitcoin-mainnet", "Comma separated chain list (default bitcoin-mainnet,)")
+	flag.StringVar(&args.FileName, "chains", "chains.json", "Json file for (default chain.json)")
 }
