@@ -93,6 +93,26 @@ func GetCryptoAddress(db bank.Database, ID model.ID) (model.CryptoAddress, error
 	return result, err
 }
 
+func GetCryptoAddressWithPublicAddress(db bank.Database, publicAddress model.String) (model.CryptoAddress, error) {
+	var result model.CryptoAddress
+	gdb := db.DB().(*gorm.DB)
+	if gdb == nil {
+		return result, errors.New("Invalid appcontext.Database")
+	}
+
+	if len(publicAddress) == 0 {
+		return result, ErrInvalidCryptoAddressID
+	}
+
+	err := gdb.
+		Where(model.CryptoAddress{
+			PublicAddress: publicAddress,
+		}).
+		First(&result).Error
+
+	return result, err
+}
+
 func LastAccountCryptoAddress(db bank.Database, accountID model.AccountID) (model.CryptoAddress, error) {
 	var result model.CryptoAddress
 	gdb := db.DB().(*gorm.DB)

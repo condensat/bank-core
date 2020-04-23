@@ -128,6 +128,47 @@ func TestGetCryptoAddress(t *testing.T) {
 	}
 }
 
+func TestGetCryptoAddressWithPublicAddress(t *testing.T) {
+	const databaseName = "TestGetCryptoAddressWithPublicAddress"
+	t.Parallel()
+
+	db := setup(databaseName, CryptoAddressModel())
+	defer teardown(db, databaseName)
+
+	const chain = model.String("chain1")
+	const pubAddr = model.String("ref1")
+
+	accountID := model.AccountID(42)
+	ref1, _ := AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: accountID, PublicAddress: pubAddr, Chain: chain})
+
+	type args struct {
+		publicAddress model.String
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    model.CryptoAddress
+		wantErr bool
+	}{
+		{"empty", args{}, model.CryptoAddress{}, true},
+		{"notFound", args{"not-present"}, model.CryptoAddress{}, true},
+		{"ref1", args{pubAddr}, cloneCryptoAddress(ref1), false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetCryptoAddressWithPublicAddress(db, tt.args.publicAddress)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetCryptoAddressWithPublicAddress() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetCryptoAddressWithPublicAddress() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestLastAccountCryptoAddress(t *testing.T) {
 	const databaseName = "TestLastAccountCryptoAddress"
 	t.Parallel()
