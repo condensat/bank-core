@@ -7,6 +7,7 @@ package wallet
 import (
 	"context"
 	"errors"
+	"sort"
 
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
@@ -84,10 +85,15 @@ func fetchChainState(ctx context.Context, chain string) (ChainState, error) {
 	}, nil
 }
 
-func FetchChainAddressesInfo(ctx context.Context, chain string, publicAddresses ...string) ([]AddressInfo, error) {
+func FetchChainAddressesInfo(ctx context.Context, chain string, currentHeight uint64, publicAddresses ...string) ([]AddressInfo, error) {
 	log := logger.Logger(ctx).WithField("Method", "wallet.FetchChainAddresses")
 
 	log = log.WithField("Chain", chain)
+
+	client := ChainClientFromContext(ctx, chain)
+	if client == nil {
+		return nil, ErrChainClientNotFound
+	}
 
 	// Acquire Lock
 	lock, err := cache.LockChain(ctx, chain)
@@ -98,16 +104,44 @@ func FetchChainAddressesInfo(ctx context.Context, chain string, publicAddresses 
 	}
 	defer lock.Unlock()
 
-	var result []AddressInfo
-	for _, publicAddress := range publicAddresses {
+	list, err := client.ListUnspent(ctx, 0, 6, publicAddresses...)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to ListUnspent")
+		return nil, err
+	}
+	// Order oldest first
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].Confirmations > list[j].Confirmations
+	})
 
-		// Todo: RPC call to chain daemon
+	firsts := make(map[string]*AddressInfo)
+	for _, utxo := range list {
+		// skip if address is already found
+		if _, ok := firsts[utxo.Address]; ok {
+			continue
+		}
 
-		result = append(result, AddressInfo{
+		// zero confirmation mean in mempool
+		var blockHeight uint64
+		if utxo.Confirmations > 0 {
+			blockHeight = currentHeight - uint64(utxo.Confirmations)
+		}
+
+		// create new map entry
+		firsts[utxo.Address] = &AddressInfo{
 			Chain:         chain,
-			PublicAddress: publicAddress,
-			Mined:         42,
-		})
+			PublicAddress: utxo.Address,
+			Mined:         blockHeight,
+		}
+	}
+
+	var result []AddressInfo
+	for _, utxo := range firsts {
+		if utxo == nil {
+			continue
+		}
+		result = append(result, *utxo)
 	}
 
 	return result, nil

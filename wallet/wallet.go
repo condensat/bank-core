@@ -128,7 +128,7 @@ func (p *Wallet) scheduledUpdate(ctx context.Context, chains []string, interval 
 				list = append(list, string(addr.PublicAddress))
 			}
 
-			infos, err := FetchChainAddressesInfo(ctx, state.Chain, list...)
+			infos, err := FetchChainAddressesInfo(ctx, state.Chain, state.Height, list...)
 			if err != nil {
 				log.WithError(err).
 					Error("Failed to FetchChainAddressesInfo")
