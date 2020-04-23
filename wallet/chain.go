@@ -6,9 +6,15 @@ package wallet
 
 import (
 	"context"
+	"errors"
 
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
+	"github.com/sirupsen/logrus"
+)
+
+var (
+	ErrChainClientNotFound = errors.New("ChainClient Not Found")
 )
 
 type ChainState struct {
@@ -47,6 +53,11 @@ func fetchChainState(ctx context.Context, chain string) (ChainState, error) {
 
 	log = log.WithField("Chain", chain)
 
+	client := ChainClientFromContext(ctx, chain)
+	if client == nil {
+		return ChainState{}, ErrChainClientNotFound
+	}
+
 	// Acquire Lock
 	lock, err := cache.LockChain(ctx, chain)
 	if err != nil {
@@ -56,11 +67,20 @@ func fetchChainState(ctx context.Context, chain string) (ChainState, error) {
 	}
 	defer lock.Unlock()
 
-	// Todo: RPC call to chain daemon
+	blockCount, err := client.GetBlockCount(ctx)
+	if err != nil {
+		return ChainState{}, err
+	}
+
+	log.
+		WithFields(logrus.Fields{
+			"Chain":  chain,
+			"Height": blockCount,
+		}).Info("Client RPC")
 
 	return ChainState{
 		Chain:  chain,
-		Height: 42,
+		Height: uint64(blockCount),
 	}, nil
 }
 
