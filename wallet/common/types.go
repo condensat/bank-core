@@ -14,6 +14,16 @@ type CryptoAddress struct {
 	PublicAddress string
 }
 
+type AddressInfo struct {
+	Chain         string
+	Account       string
+	Address       string
+	TxID          string
+	Amount        float64
+	Confirmations int64
+	Spendable     bool
+}
+
 func (p *CryptoAddress) Encode() ([]byte, error) {
 	return bank.EncodeObject(p)
 }

@@ -7,6 +7,8 @@ package wallet
 import (
 	"context"
 	"sync"
+
+	"github.com/condensat/bank-core/wallet/common"
 )
 
 const (
@@ -15,6 +17,7 @@ const (
 
 type ChainClient interface {
 	GetBlockCount(ctx context.Context) (int64, error)
+	ListUnspent(ctx context.Context, minConf, maxConf int, addresses ...string) ([]common.AddressInfo, error)
 }
 
 func ChainClientContext(ctx context.Context, chain string, client ChainClient) context.Context {

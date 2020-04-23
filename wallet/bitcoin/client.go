@@ -10,13 +10,17 @@ import (
 	"fmt"
 
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/wallet/common"
+
 	"github.com/btcsuite/btcd/chaincfg"
 	rpc "github.com/btcsuite/btcd/rpcclient"
+	"github.com/btcsuite/btcutil"
 )
 
 var (
-	ErrInternalError = errors.New("Internal Error")
-	ErrRPCError      = errors.New("RPC Error")
+	ErrInternalError  = errors.New("Internal Error")
+	ErrRPCError       = errors.New("RPC Error")
+	ErrInvalidAddress = errors.New("Invalid Address format")
 )
 
 type BitcoinClient struct {
@@ -73,4 +77,53 @@ func (p *BitcoinClient) GetBlockCount(ctx context.Context) (int64, error) {
 		Debug("Bitcoin RPC")
 
 	return blockCount, nil
+}
+
+func (p *BitcoinClient) ListUnspent(ctx context.Context, minConf, maxConf int, addresses ...string) ([]common.AddressInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "bitcoin.ListUnspent")
+
+	client := p.client
+	if p.client == nil {
+		return nil, ErrInternalError
+	}
+
+	var filter []btcutil.Address
+	for _, addr := range addresses {
+		pubKey, err := btcutil.DecodeAddress(addr, p.params)
+		if err != nil {
+			log.WithError(err).
+				WithField("Address", addr).
+				Error("DecodeAddress failed")
+			continue
+		}
+		filter = append(filter, pubKey)
+	}
+
+	if minConf > maxConf {
+		minConf, maxConf = maxConf, minConf
+	}
+	list, err := client.ListUnspentMinMaxAddresses(minConf, maxConf, filter)
+	if err != nil {
+		log.WithError(err).
+			Error("ListUnspentMinMaxAddresses failed")
+		return nil, ErrRPCError
+	}
+
+	var result []common.AddressInfo
+	for _, tx := range list {
+		result = append(result, common.AddressInfo{
+			Account:       tx.Account,
+			Address:       tx.Address,
+			TxID:          tx.TxID,
+			Amount:        tx.Amount,
+			Confirmations: tx.Confirmations,
+			Spendable:     tx.Spendable,
+		})
+	}
+
+	log.
+		WithField("Count", len(list)).
+		Debug("Bitcoin RPC")
+
+	return result, nil
 }
