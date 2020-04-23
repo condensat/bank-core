@@ -135,19 +135,30 @@ func (p *Wallet) scheduledUpdate(ctx context.Context, chains []string, interval 
 				continue
 			}
 
-			for _, info := range infos {
-				addr, err := database.GetCryptoAddressWithPublicAddress(db, model.String(info.PublicAddress))
-				if err != nil {
-					log.WithError(err).
-						Error("Failed to GetCryptoAddressWithPublicAddress")
-					continue
-				}
-				addr.FirstBlockId = model.BlockID(info.Mined)
-				_, err = database.AddOrUpdateCryptoAddress(db, addr)
-				if err != nil {
-					log.WithError(err).
-						Error("Failed to FetchChainAddressesInfo")
-					continue
+			for _, addr := range addresses {
+				// search from
+				for _, info := range infos {
+					// the address is found
+					if string(addr.PublicAddress) == info.PublicAddress {
+
+						// update FirstBlockId
+						firstBlockId := model.MemPoolBlockID // if returned FetchChainAddressesInfo, a tx exists at least in the mempool
+						if info.Mined > 0 {
+							firstBlockId = model.BlockID(info.Mined)
+						}
+						// skip if no changed
+						if firstBlockId == addr.FirstBlockId {
+							continue
+						}
+
+						// store into db
+						_, err = database.AddOrUpdateCryptoAddress(db, addr)
+						if err != nil {
+							log.WithError(err).
+								Error("Failed to AddOrUpdateCryptoAddress")
+						}
+						break
+					}
 				}
 			}
 		}
