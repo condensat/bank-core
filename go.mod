@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/bsm/redislock v0.5.0
+	github.com/btcsuite/btcd v0.20.1-beta
 	github.com/condensat/secureid v0.1.0
 	github.com/emef/bitfield v0.0.0-20170503144143-7d3f8f823065
 	github.com/go-redis/redis/v7 v7.2.0
