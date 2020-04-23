@@ -63,3 +63,32 @@ func fetchChainState(ctx context.Context, chain string) (ChainState, error) {
 		Height: 42,
 	}, nil
 }
+
+func FetchChainAddressesInfo(ctx context.Context, chain string, publicAddresses ...string) ([]AddressInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "wallet.FetchChainAddresses")
+
+	log = log.WithField("Chain", chain)
+
+	// Acquire Lock
+	lock, err := cache.LockChain(ctx, chain)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to lock chain")
+		return nil, cache.ErrLockError
+	}
+	defer lock.Unlock()
+
+	var result []AddressInfo
+	for _, publicAddress := range publicAddresses {
+
+		// Todo: RPC call to chain daemon
+
+		result = append(result, AddressInfo{
+			Chain:         chain,
+			PublicAddress: publicAddress,
+			Mined:         42,
+		})
+	}
+
+	return result, nil
+}
