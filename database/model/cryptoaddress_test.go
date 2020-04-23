@@ -53,7 +53,7 @@ func TestCryptoAddress_Confirmations(t *testing.T) {
 	}{
 		{"default", fields{}, args{}, 0},
 		{"mempool", fields{BlockID(1)}, args{424242}, 0},
-		{"mined", fields{BlockID(424242)}, args{424242}, 1},
+		{"mined", fields{BlockID(424242)}, args{424242}, int(MemPoolBlockID)},
 		{"confirmed", fields{BlockID(424242)}, args{424247}, 6},
 		{"future", fields{BlockID(424243)}, args{424242}, 0},
 	}

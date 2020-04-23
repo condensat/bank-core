@@ -8,6 +8,8 @@ import "time"
 
 type BlockID ID
 
+const MemPoolBlockID = BlockID(1)
+
 type CryptoAddress struct {
 	ID            ID         `gorm:"primary_key"`                   // [PK] CryptoAddress
 	AccountID     AccountID  `gorm:"index;not null"`                // [FK] Reference to Account table
@@ -25,7 +27,7 @@ func (p *CryptoAddress) Confirmations(height BlockID) int {
 	if !p.IsUsed() {
 		return 0
 	}
-	if p.FirstBlockId <= 1 {
+	if p.FirstBlockId <= MemPoolBlockID {
 		return 0
 	}
 	if p.FirstBlockId > height {
