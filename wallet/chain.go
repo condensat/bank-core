@@ -29,6 +29,28 @@ type AddressInfo struct {
 	Mined         uint64 // 0 unknown, 1 mempool, BlockHeight
 }
 
+func GetNewAddress(ctx context.Context, chain, account string) (string, error) {
+	log := logger.Logger(ctx).WithField("Method", "wallet.GetNewAddress")
+
+	log = log.WithField("Chain", chain)
+
+	client := ChainClientFromContext(ctx, chain)
+	if client == nil {
+		return "", ErrChainClientNotFound
+	}
+
+	// Acquire Lock
+	lock, err := cache.LockChain(ctx, chain)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to lock chain")
+		return "", cache.ErrLockError
+	}
+	defer lock.Unlock()
+
+	return client.GetNewAddress(ctx, account)
+}
+
 func FetchChainsState(ctx context.Context, chains ...string) ([]ChainState, error) {
 	log := logger.Logger(ctx).WithField("Method", "wallet.FetchChainsState")
 

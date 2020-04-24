@@ -16,6 +16,7 @@ const (
 )
 
 type ChainClient interface {
+	GetNewAddress(ctx context.Context, account string) (string, error)
 	GetBlockCount(ctx context.Context) (int64, error)
 	ListUnspent(ctx context.Context, minConf, maxConf int, addresses ...string) ([]common.AddressInfo, error)
 }

@@ -20,6 +20,7 @@ import (
 var (
 	ErrInternalError  = errors.New("Internal Error")
 	ErrRPCError       = errors.New("RPC Error")
+	ErrInvalidAccount = errors.New("Invalid Account")
 	ErrInvalidAddress = errors.New("Invalid Address format")
 )
 
@@ -77,6 +78,31 @@ func (p *BitcoinClient) GetBlockCount(ctx context.Context) (int64, error) {
 		Debug("Bitcoin RPC")
 
 	return blockCount, nil
+}
+
+func (p *BitcoinClient) GetNewAddress(ctx context.Context, account string) (string, error) {
+	log := logger.Logger(ctx).WithField("Method", "bitcoin.GetNewAddress")
+	client := p.client
+	if p.client == nil {
+		return "", ErrInternalError
+	}
+	if len(account) == 0 {
+		return "", ErrInvalidAccount
+	}
+
+	address, err := client.GetNewAddress(account)
+	if err != nil {
+		log.WithError(err).
+			Error("GetNewAddress failed")
+		return "", ErrRPCError
+	}
+
+	result := address.EncodeAddress()
+	log.
+		WithField("Address", result).
+		Debug("Bitcoin RPC")
+
+	return result, err
 }
 
 func (p *BitcoinClient) ListUnspent(ctx context.Context, minConf, maxConf int, addresses ...string) ([]common.AddressInfo, error) {

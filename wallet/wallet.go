@@ -69,11 +69,18 @@ func (p *Wallet) registerHandlers(ctx context.Context) {
 
 	nats := appcontext.Messaging(ctx)
 
+	ctx = handlers.ChainHandlerContext(ctx, p)
+
 	const concurencyLevel = 4
 
 	nats.SubscribeWorkers(ctx, common.CryptoAddressNextDepositSubject, concurencyLevel, handlers.OnCryptoAddressNextDeposit)
 
 	log.Debug("Bank Wallet registered")
+}
+
+// common.Chain interface
+func (p *Wallet) GetNewAddress(ctx context.Context, chain, account string) (string, error) {
+	return GetNewAddress(ctx, chain, account)
 }
 
 func checkParams(interval time.Duration) time.Duration {
