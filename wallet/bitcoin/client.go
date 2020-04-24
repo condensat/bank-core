@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/wallet/common"
@@ -25,17 +26,33 @@ var (
 )
 
 type BitcoinClient struct {
+	sync.Mutex // mutex to change params while RPC
+
 	conn   *rpc.ConnConfig
 	client *rpc.Client
-	params *chaincfg.Params
+	params chaincfg.Params
 }
 
-func paramsFromRPCPort(port int) *chaincfg.Params {
-	params := &chaincfg.MainNetParams
+func paramsFromRPCPort(port int) chaincfg.Params {
+	result := chaincfg.MainNetParams
 	if port == 18332 {
-		params = &chaincfg.TestNet3Params
+		result = chaincfg.TestNet3Params
 	}
-	return params
+	return result
+}
+
+func (p *BitcoinClient) changeParams() func() {
+	p.Lock()
+	// copy current params
+	previousParams := chaincfg.MainNetParams
+	// override MainNetParams with client params
+	chaincfg.MainNetParams = p.params
+
+	return func() {
+		defer p.Unlock()
+		// restore params from copy
+		chaincfg.MainNetParams = previousParams
+	}
 }
 
 func New(ctx context.Context, options BitcoinOptions) *BitcoinClient {
@@ -62,6 +79,10 @@ func New(ctx context.Context, options BitcoinOptions) *BitcoinClient {
 
 func (p *BitcoinClient) GetBlockCount(ctx context.Context) (int64, error) {
 	log := logger.Logger(ctx).WithField("Method", "bitcoin.GetBlockCount")
+
+	restore := p.changeParams()
+	defer restore()
+
 	client := p.client
 	if p.client == nil {
 		return 0, ErrInternalError
@@ -82,6 +103,10 @@ func (p *BitcoinClient) GetBlockCount(ctx context.Context) (int64, error) {
 
 func (p *BitcoinClient) GetNewAddress(ctx context.Context, account string) (string, error) {
 	log := logger.Logger(ctx).WithField("Method", "bitcoin.GetNewAddress")
+
+	restore := p.changeParams()
+	defer restore()
+
 	client := p.client
 	if p.client == nil {
 		return "", ErrInternalError
@@ -108,6 +133,9 @@ func (p *BitcoinClient) GetNewAddress(ctx context.Context, account string) (stri
 func (p *BitcoinClient) ListUnspent(ctx context.Context, minConf, maxConf int, addresses ...string) ([]common.AddressInfo, error) {
 	log := logger.Logger(ctx).WithField("Method", "bitcoin.ListUnspent")
 
+	restore := p.changeParams()
+	defer restore()
+
 	client := p.client
 	if p.client == nil {
 		return nil, ErrInternalError
@@ -115,7 +143,7 @@ func (p *BitcoinClient) ListUnspent(ctx context.Context, minConf, maxConf int, a
 
 	var filter []btcutil.Address
 	for _, addr := range addresses {
-		pubKey, err := btcutil.DecodeAddress(addr, p.params)
+		pubKey, err := btcutil.DecodeAddress(addr, &p.params)
 		if err != nil {
 			log.WithError(err).
 				WithField("Address", addr).
