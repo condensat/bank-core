@@ -42,7 +42,7 @@ func (p *Wallet) Run(ctx context.Context, options WalletOptions) {
 	// create all rpc clients
 	for _, chainOption := range chainsOptions.Chains {
 		log.WithField("Chain", chainOption.Chain).
-			Warning("Adding rpc client")
+			Info("Adding rpc client")
 		ctx = ChainClientContext(ctx, chainOption.Chain, bitcoin.New(ctx, bitcoin.BitcoinOptions{
 			ServerOptions: bank.ServerOptions{
 				HostName: chainOption.HostName,
