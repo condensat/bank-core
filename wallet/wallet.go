@@ -158,6 +158,9 @@ func (p *Wallet) scheduledUpdate(ctx context.Context, chains []string, interval 
 							continue
 						}
 
+						// update FirstBlockId
+						addr.FirstBlockId = firstBlockId
+
 						// store into db
 						_, err = database.AddOrUpdateCryptoAddress(db, addr)
 						if err != nil {
