@@ -88,6 +88,8 @@ func TestAccountOperation_IsValid(t *testing.T) {
 	}{
 		{"Default", fields{AccountOperation{}}, false},
 		{"Valid", fields{NewAccountOperation(1, 0, 42, SynchroneousTypeSync, OperationTypeNone, 0, time.Now(), 1.0, 1.0, 1.0, 1.0)}, true},
+		{"Init", fields{NewAccountOperation(1, 0, 42, SynchroneousTypeSync, OperationTypeInit, 0, time.Now(), 0.0, 0.0, 0.0, 0.0)}, true},
+		{"NotInit", fields{NewAccountOperation(1, 0, 42, SynchroneousTypeSync, OperationTypeDeposit, 0, time.Now(), 0.0, 0.0, 0.0, 0.0)}, false},
 		{"ValidUTC", fields{NewAccountOperation(1, 0, 42, SynchroneousTypeSync, OperationTypeNone, 0, time.Now().UTC(), 1.0, 1.0, 1.0, 1.0)}, true},
 
 		{"InvalidID", fields{NewAccountOperation(0, 0, 42, SynchroneousTypeSync, OperationTypeNone, 0, time.Now(), 1.0, 1.0, 0.0, 0.0)}, false},

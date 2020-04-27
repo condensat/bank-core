@@ -72,8 +72,9 @@ func (p *AccountOperation) IsValid() bool {
 		// check lockAmount less or equals than totalLocked
 		*p.LockAmount <= *p.TotalLocked &&
 
-		// Check for void operation
-		(math.Abs(float64(*p.Amount)) > 0.0 || math.Abs(float64(*p.LockAmount)) > 0.0)
+		// Check for zero operation
+		// allow zero operation for OperationTypeInit
+		(p.OperationType == OperationTypeInit || (math.Abs(float64(*p.Amount)) > 0.0 || math.Abs(float64(*p.LockAmount)) > 0.0))
 }
 
 func (p *AccountOperation) PreCheck() bool {
