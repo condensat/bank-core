@@ -13,6 +13,7 @@ const (
 	CurrencySetAvailableSubject = chanPrefix + "Currency.SetAvailable"
 
 	AccountCreateSubject    = chanPrefix + "Account.Create"
+	AccountInfoSubject      = chanPrefix + "Account.Info"
 	AccountListSubject      = chanPrefix + "Account.List"
 	AccountHistorySubject   = chanPrefix + "Account.History"
 	AccountSetStatusSubject = chanPrefix + "Account.SetStatus"
