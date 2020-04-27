@@ -53,6 +53,16 @@ func CreateAccount(db bank.Database, account model.Account) (model.Account, erro
 			Assign(account).
 			FirstOrCreate(&result).Error
 
+		if err != nil {
+			return model.Account{}, err
+		}
+
+		// Create init operation
+		_, err = txApppendAccountOperation(db, model.NewInitOperation(result.ID, 0))
+		if err != nil {
+			return model.Account{}, err
+		}
+
 		return result, err
 
 	default:
