@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/accounting/client"
 	"github.com/condensat/bank-core/appcontext"
 
 	"github.com/condensat/bank-core/api/services"
@@ -43,7 +44,7 @@ func UpdateUserSession(ctx context.Context, req *http.Request, w http.ResponseWr
 
 		providerID := user.UserID
 
-		// creat user if email does not exists
+		// create user if email does not exists
 		if u.ID == 0 {
 			u, err = database.FindOrCreateUser(db, model.User{
 				Name:  model.UserName(fmt.Sprintf("%s:%s", user.Provider, providerID)),
@@ -52,6 +53,33 @@ func UpdateUserSession(ctx context.Context, req *http.Request, w http.ResponseWr
 			if err != nil {
 				return err
 			}
+
+			// automatically create accounts for new users
+			go func(userID uint64) {
+				list, err := client.CurrencyList(ctx)
+				if err != nil {
+					return
+				}
+
+				for _, currency := range list.Currencies {
+					// do not create account for disableds currencies
+					if !currency.Available {
+						continue
+					}
+
+					// Create account with currency
+					account, err := client.AccountCreate(ctx, userID, currency.Name)
+					if err != nil {
+						continue
+					}
+
+					// Enable account with normal status
+					_, err = client.AccountSetStatus(ctx, account.Info.AccountID, model.AccountStatusNormal.String())
+					if err != nil {
+						continue
+					}
+				}
+			}(uint64(u.ID))
 		}
 
 		// store userID for cookie creation
