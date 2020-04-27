@@ -75,6 +75,30 @@ func TestNewAccountOperation(t *testing.T) {
 	}
 }
 
+func TestNewInitOperation(t *testing.T) {
+	t.Parallel()
+
+	type args struct {
+		accountID   AccountID
+		referenceID RefID
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{"Init", args{42, 0}, true},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			if got := NewInitOperation(tt.args.accountID, tt.args.referenceID); got.PreCheck() != tt.want {
+				t.Errorf("NewInitOperation() = %v, want %v", got.IsValid(), tt.want)
+			}
+		})
+	}
+}
+
 func TestAccountOperation_IsValid(t *testing.T) {
 	t.Parallel()
 

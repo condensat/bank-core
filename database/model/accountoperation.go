@@ -48,6 +48,18 @@ func NewAccountOperation(ID, prevID AccountOperationID, accountID AccountID, syn
 	}
 }
 
+func NewInitOperation(accountID AccountID, referenceID RefID) AccountOperation {
+	return NewAccountOperation(0, 0,
+		accountID,
+		SynchroneousTypeSync,
+		OperationTypeInit,
+		referenceID,
+		time.Now(),
+		0.0, 0.0,
+		0.0, 0.0,
+	)
+}
+
 func (p *AccountOperation) IsValid() bool {
 	return p.ID > 0 &&
 		p.ID > p.PrevID &&
