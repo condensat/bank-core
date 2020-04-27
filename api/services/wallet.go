@@ -5,15 +5,21 @@
 package services
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/condensat/bank-core/api/sessions"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 
+	accounting "github.com/condensat/bank-core/accounting/client"
 	"github.com/condensat/bank-core/wallet/client"
 
 	"github.com/sirupsen/logrus"
+)
+
+var (
+	ErrWalletChainNotFoundError = errors.New("Chain Not Found")
 )
 
 type WalletService int
@@ -65,8 +71,23 @@ func (p *WalletService) NextDeposit(r *http.Request, request *WalletNextDepositR
 		return sessions.ErrInternalError
 	}
 
-	// Todo: find chain from accountID
-	var chain string
+	account, err := accounting.AccountInfo(ctx, uint64(accountID))
+	if err != nil {
+		log.WithError(err).Error("AccountInfo failed")
+		return err
+	}
+	if !account.Currency.Crypto {
+		log.WithField("AccountID", request.AccountID).
+			Error("Non Crypto Account")
+		return sessions.ErrInternalError
+	}
+	chain, err := getChainFromCurrencyName(account.Currency.Name)
+	if err != nil {
+		log.WithError(err).
+			WithField("AccountID", request.AccountID).
+			Error("getChainFromCurrencyName failed")
+		return sessions.ErrInternalError
+	}
 
 	log = log.WithFields(logrus.Fields{
 		"Chain":     chain,
@@ -90,4 +111,18 @@ func (p *WalletService) NextDeposit(r *http.Request, request *WalletNextDepositR
 	}).Info("CryptoAddressNextDeposit")
 
 	return nil
+}
+
+func getChainFromCurrencyName(currencyName string) (string, error) {
+	switch currencyName {
+	case "BTC":
+		return "bitcoin-mainnet", nil
+	case "TBTC":
+		return "bitcoin-testnet", nil
+	case "LBTC":
+		return "liquid-mainnet", nil
+
+	default:
+		return "", ErrWalletChainNotFoundError
+	}
 }
