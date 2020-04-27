@@ -93,7 +93,7 @@ func GetLastAccountOperation(db bank.Database, accountID model.AccountID) (model
 		}).
 		Last(&result).Error
 
-	if err != nil && err != gorm.ErrRecordNotFound {
+	if err != nil {
 		return model.AccountOperation{}, err
 	}
 
