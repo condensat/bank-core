@@ -56,7 +56,7 @@ func CurrencyInfo(ctx context.Context, currencyName string) (common.CurrencyInfo
 		log.WithFields(logrus.Fields{
 			"Name":      result.Name,
 			"Available": result.Available,
-		}).Warn("Currency updated")
+		}).Debug("Currency info")
 	}
 
 	return result, err
