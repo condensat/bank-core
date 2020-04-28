@@ -8,15 +8,17 @@ import (
 	"context"
 
 	"github.com/condensat/bank-core"
-	"github.com/condensat/bank-core/accounting/common"
-	"github.com/condensat/bank-core/accounting/internal"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/logger"
+
+	"github.com/condensat/bank-core/accounting/common"
+
+	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/messaging"
-	"github.com/sirupsen/logrus"
 
-	"github.com/condensat/bank-core/logger"
+	"github.com/sirupsen/logrus"
 )
 
 func AccountList(ctx context.Context, userID uint64) ([]common.AccountInfo, error) {
@@ -26,11 +28,11 @@ func AccountList(ctx context.Context, userID uint64) ([]common.AccountInfo, erro
 	log = log.WithField("UserID", userID)
 
 	// Acquire Lock
-	lock, err := internal.LockUser(ctx, userID)
+	lock, err := cache.LockUser(ctx, userID)
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to lock user")
-		return result, internal.ErrLockError
+		return result, cache.ErrLockError
 	}
 	defer lock.Unlock()
 
@@ -107,7 +109,7 @@ func OnAccountList(ctx context.Context, subject string, message *bank.Message) (
 			if err != nil {
 				log.WithError(err).
 					Errorf("Failed to list user accounts")
-				return nil, internal.ErrInternalError
+				return nil, cache.ErrInternalError
 			}
 
 			// create & return response

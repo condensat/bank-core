@@ -1,0 +1,14 @@
+// Copyright 2020 Condensat Tech. All rights reserved.
+// Use of this source code is governed by a MIT
+// license that can be found in the LICENSE file.
+
+package wallet
+
+import (
+	"context"
+)
+
+func UpdateRedisChain(ctx context.Context, chainsStates []ChainState) error {
+	// Todo: store chains states into redis
+	return nil
+}

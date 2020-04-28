@@ -8,11 +8,13 @@ import (
 	"context"
 
 	"github.com/condensat/bank-core"
-	"github.com/condensat/bank-core/accounting/common"
-	"github.com/condensat/bank-core/accounting/internal"
 	"github.com/condensat/bank-core/appcontext"
-	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/logger"
+
+	"github.com/condensat/bank-core/accounting/common"
+
+	"github.com/condensat/bank-core/cache"
+	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/messaging"
 
 	"github.com/sirupsen/logrus"
@@ -68,7 +70,7 @@ func OnCurrencyList(ctx context.Context, subject string, message *bank.Message) 
 			if err != nil {
 				log.WithError(err).
 					Errorf("Failed to CurrencyList")
-				return nil, internal.ErrInternalError
+				return nil, cache.ErrInternalError
 			}
 
 			// return response
