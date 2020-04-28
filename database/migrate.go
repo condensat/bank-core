@@ -40,3 +40,9 @@ func CurrencyModel() []model.Model {
 		model.Model(new(model.CurrencyRate)),
 	}
 }
+
+func CryptoAddressModel() []model.Model {
+	return []model.Model{
+		model.Model(new(model.CryptoAddress)),
+	}
+}
