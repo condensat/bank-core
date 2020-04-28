@@ -21,11 +21,15 @@ import (
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/utils"
 
+	"github.com/jinzhu/gorm"
 	"github.com/sirupsen/logrus"
 )
 
 const (
-	DefaultInterval time.Duration = 30 * time.Second
+	DefaultChainInterval time.Duration = 30 * time.Second
+
+	ConfirmedBlockCount   = 3 // number of confirmation to consider transaction complete
+	UnconfirmedBlockCount = 6 // number of confirmation to continue fetching addressInfos
 )
 
 type Wallet int
@@ -59,7 +63,7 @@ func (p *Wallet) Run(ctx context.Context, options WalletOptions) {
 		"Hostname": utils.Hostname(),
 	}).Info("Wallet Service started")
 
-	go p.scheduledUpdate(ctx, chainsOptions.Names(), DefaultInterval)
+	go scheduledChainUpdate(ctx, chainsOptions.Names(), DefaultChainInterval)
 
 	<-ctx.Done()
 }
@@ -83,24 +87,24 @@ func (p *Wallet) GetNewAddress(ctx context.Context, chain, account string) (stri
 	return GetNewAddress(ctx, chain, account)
 }
 
-func checkParams(interval time.Duration) time.Duration {
+func checkChainParams(interval time.Duration) time.Duration {
 	if interval < time.Second {
-		interval = DefaultInterval
+		interval = DefaultChainInterval
 	}
 	return interval
 }
 
-func (p *Wallet) scheduledUpdate(ctx context.Context, chains []string, interval time.Duration) {
-	log := logger.Logger(ctx).WithField("Method", "Wallet.scheduledUpdate")
+func scheduledChainUpdate(ctx context.Context, chains []string, interval time.Duration) {
+	log := logger.Logger(ctx).WithField("Method", "Wallet.scheduledChainUpdate")
 	db := appcontext.Database(ctx)
 
-	interval = checkParams(interval)
+	interval = checkChainParams(interval)
 
 	log = log.WithFields(logrus.Fields{
 		"Interval": interval.String(),
 	})
 
-	log.Info("Start wallet Scheduler")
+	log.Info("Start wallet Chain Scheduler")
 
 	for epoch := range utils.Scheduler(ctx, interval, 0) {
 		chainsStates, err := FetchChainsState(ctx, chains...)
@@ -123,18 +127,64 @@ func (p *Wallet) scheduledUpdate(ctx context.Context, chains []string, interval 
 		}
 
 		for _, state := range chainsStates {
-			addresses, err := database.AllUnusedCryptoAddresses(db, model.String(state.Chain))
-			if err != nil {
-				log.WithError(err).
-					Error("Failed to AllUnusedCryptoAddresses")
-				continue
+			chain := model.String(state.Chain)
+			allAddresses := make(AddressMap)
+
+			// fetch unused addresses from database
+			{
+				unused, err := database.AllMempoolCryptoAddresses(db, chain)
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to AllMempoolCryptoAddresses")
+					continue
+				}
+
+				appendAddresses(allAddresses, unused...)
 			}
 
-			var list []string
-			for _, addr := range addresses {
-				list = append(list, string(addr.PublicAddress))
+			// fetch unconfirmed addresses from database
+			unconfirmed, err := database.AllUnconfirmedCryptoAddresses(db, chain, model.BlockID(state.Height-UnconfirmedBlockCount))
+			{
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to AllUnconfirmedCryptoAddresses")
+					continue
+				}
+
+				appendAddresses(allAddresses, unconfirmed...)
 			}
 
+			// fetch missing addresses from database
+			{
+				missing, err := database.FindCryptoAddressesNotInOperationInfo(db, chain)
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to FindCryptoAddressesNotInOperationInfo")
+					continue
+				}
+
+				appendAddresses(allAddresses, missing...)
+			}
+
+			// fetch addresses with status received from database
+			{
+				received, err := database.FindCryptoAddressesByOperationInfoState(db, chain, model.String("received"))
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to FindCryptoAddressesByOperationInfoState")
+					continue
+				}
+
+				appendAddresses(allAddresses, received...)
+			}
+
+			// create final addresses lists
+			list, addresses := uniqueAddresses(allAddresses)
+
+			log.WithField("List", list).
+				Trace("Final publicAddresses")
+
+			// Resquest chain
 			infos, err := FetchChainAddressesInfo(ctx, state.Chain, state.Height, list...)
 			if err != nil {
 				log.WithError(err).
@@ -142,6 +192,10 @@ func (p *Wallet) scheduledUpdate(ctx context.Context, chains []string, interval 
 				continue
 			}
 
+			// local map for lookup cryptoAddresses from PublicAddress
+			cryptoAddresses := make(map[model.String]*model.CryptoAddress)
+
+			// update firstBlockId for NextDeposit
 			for _, addr := range addresses {
 				// search from
 				for _, info := range infos {
@@ -155,6 +209,8 @@ func (p *Wallet) scheduledUpdate(ctx context.Context, chains []string, interval 
 						}
 						// skip if no changed
 						if firstBlockId == addr.FirstBlockId {
+							// store into local map
+							cryptoAddresses[addr.PublicAddress] = &addr
 							continue
 						}
 
@@ -162,15 +218,158 @@ func (p *Wallet) scheduledUpdate(ctx context.Context, chains []string, interval 
 						addr.FirstBlockId = firstBlockId
 
 						// store into db
-						_, err = database.AddOrUpdateCryptoAddress(db, addr)
+						cryptoAddress, err := database.AddOrUpdateCryptoAddress(db, addr)
 						if err != nil {
 							log.WithError(err).
 								Error("Failed to AddOrUpdateCryptoAddress")
 						}
+
+						// update into local map
+						cryptoAddresses[addr.PublicAddress] = &cryptoAddress
 						break
+					}
+				}
+			}
+
+			// lookup for txid for account operations
+			for _, addr := range addresses {
+				// search from
+				for _, info := range infos {
+					// the address is found
+					if string(addr.PublicAddress) == info.PublicAddress {
+
+						// get assoiciated cryptoAddress from local map
+						cryptoAddress := cryptoAddresses[addr.PublicAddress]
+						if cryptoAddress == nil && cryptoAddress.ID == 0 {
+							continue
+						}
+
+						// foreach transactions
+						for _, transaction := range info.Transactions {
+							// updateOperation
+							err := updateOperation(ctx, cryptoAddress.ID, transaction)
+							if err != nil {
+								log.WithError(err).
+									Error("Failed to updateOperation")
+								continue
+							}
+						}
 					}
 				}
 			}
 		}
 	}
+}
+
+func updateOperation(ctx context.Context, cryptoAddressID model.ID, transaction TransactionInfo) error {
+	log := logger.Logger(ctx).WithField("Method", "Wallet.updateOperation")
+	db := appcontext.Database(ctx)
+
+	txID := model.TxID(transaction.TxID)
+
+	log = log.WithFields(logrus.Fields{
+		"CryptoAddressID": cryptoAddressID,
+		"TxID":            txID,
+	})
+
+	// create OperationInfo and update OperationStatus
+	err := db.Transaction(func(db bank.Database) error {
+		operationInfo, err := database.GetOperationInfoByTxId(db, txID)
+		if err != nil && err != gorm.ErrRecordNotFound {
+			log.WithError(err).
+				Error("Failed to GetOperationInfoByTxId")
+			return err
+		}
+
+		// operationInfo does not exists
+		if operationInfo.ID == 0 {
+			// create new OperationInfo
+			info, err := database.AddOperationInfo(db, model.OperationInfo{
+				CryptoAddressID: cryptoAddressID,
+				TxID:            txID,
+			})
+			if err != nil {
+				log.WithError(err).
+					Error("Failed to AddOperationInfo")
+				return err
+			}
+
+			// store result
+			operationInfo = info
+			log.WithField("OperationID", operationInfo.ID).
+				Debug("OperationInfo created")
+		}
+
+		if operationInfo.ID == 0 {
+			log.
+				Error("Invalid operation ID")
+			return database.ErrDatabaseError
+		}
+
+		log := log.WithField("operationInfoID", operationInfo.ID)
+
+		// create or update OperationStatus
+		operationState := "received"
+		if transaction.Confirmations >= ConfirmedBlockCount {
+			operationState = "confirmed"
+		}
+
+		// fetch OperationStatus if exists
+		status, _ := database.GetOperationStatus(db, operationInfo.ID)
+		if status.Accounted == "settled" {
+			operationState = status.Accounted
+		}
+
+		// check if update is needed
+		if status.State == operationState {
+			return nil
+		}
+
+		// update state
+		status, err = database.AddOrUpdateOperationStatus(db, model.OperationStatus{
+			OperationInfoID: operationInfo.ID,
+			State:           operationState,
+			Accounted:       status.Accounted,
+		})
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to AddOrUpdateOperationStatus")
+			return err
+		}
+
+		log.WithField("OperationStatus", status.State).
+			Debug("OperationStatus updated")
+
+		return nil
+	})
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to perform database transaction")
+		return err
+	}
+
+	return nil
+}
+
+type AddressMap map[string]model.CryptoAddress
+
+func appendAddresses(allAddresses AddressMap, addresses ...model.CryptoAddress) {
+	for _, addresse := range addresses {
+		publicAddress := string(addresse.PublicAddress)
+		if _, ok := allAddresses[publicAddress]; !ok {
+			allAddresses[publicAddress] = addresse
+		}
+	}
+}
+
+func uniqueAddresses(allAddresses AddressMap) ([]string, []model.CryptoAddress) {
+	// create final addresses lists
+	var list []string                   // list for rpc call
+	var addresses []model.CryptoAddress // list for operations update
+	for publicAddress, addr := range allAddresses {
+		list = append(list, publicAddress)
+		addresses = append(addresses, addr)
+	}
+
+	return list, addresses
 }
