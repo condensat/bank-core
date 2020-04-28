@@ -23,10 +23,15 @@ type ChainState struct {
 	Height uint64
 }
 
+type TransactionInfo struct {
+	TxID          string
+	Confirmations int64
+}
 type AddressInfo struct {
 	Chain         string
 	PublicAddress string
 	Mined         uint64 // 0 unknown, 1 mempool, BlockHeight
+	Transactions  []TransactionInfo
 }
 
 func GetNewAddress(ctx context.Context, chain, account string) (string, error) {
@@ -139,23 +144,29 @@ func FetchChainAddressesInfo(ctx context.Context, chain string, currentHeight ui
 
 	firsts := make(map[string]*AddressInfo)
 	for _, utxo := range list {
-		// skip if address is already found
-		if _, ok := firsts[utxo.Address]; ok {
-			continue
+		// create if address is already not exists
+		if _, ok := firsts[utxo.Address]; !ok {
+
+			// zero confirmation mean in mempool
+			var blockHeight uint64
+			if utxo.Confirmations > 0 {
+				blockHeight = currentHeight - uint64(utxo.Confirmations)
+			}
+
+			// create new map entry
+			firsts[utxo.Address] = &AddressInfo{
+				Chain:         chain,
+				PublicAddress: utxo.Address,
+				Mined:         blockHeight,
+			}
 		}
 
-		// zero confirmation mean in mempool
-		var blockHeight uint64
-		if utxo.Confirmations > 0 {
-			blockHeight = currentHeight - uint64(utxo.Confirmations)
-		}
-
-		// create new map entry
-		firsts[utxo.Address] = &AddressInfo{
-			Chain:         chain,
-			PublicAddress: utxo.Address,
-			Mined:         blockHeight,
-		}
+		// append TxID to transactions
+		addr := firsts[utxo.Address]
+		addr.Transactions = append(addr.Transactions, TransactionInfo{
+			TxID:          utxo.TxID,
+			Confirmations: utxo.Confirmations,
+		})
 	}
 
 	var result []AddressInfo
