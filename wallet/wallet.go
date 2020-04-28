@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/accounting/client"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
@@ -26,10 +27,14 @@ import (
 )
 
 const (
-	DefaultChainInterval time.Duration = 30 * time.Second
+	DefaultChainInterval      time.Duration = 30 * time.Second
+	DefaultOperationsInterval time.Duration = 5 * time.Second
 
 	ConfirmedBlockCount   = 3 // number of confirmation to consider transaction complete
 	UnconfirmedBlockCount = 6 // number of confirmation to continue fetching addressInfos
+
+	AddressInfoMinConfirmation = 0
+	AddressInfoMaxConfirmation = 9999
 )
 
 type Wallet int
@@ -64,6 +69,7 @@ func (p *Wallet) Run(ctx context.Context, options WalletOptions) {
 	}).Info("Wallet Service started")
 
 	go scheduledChainUpdate(ctx, chainsOptions.Names(), DefaultChainInterval)
+	go scheduledOperationsUpdate(ctx, chainsOptions.Names(), DefaultOperationsInterval)
 
 	<-ctx.Done()
 }
@@ -185,7 +191,7 @@ func scheduledChainUpdate(ctx context.Context, chains []string, interval time.Du
 				Trace("Final publicAddresses")
 
 			// Resquest chain
-			infos, err := FetchChainAddressesInfo(ctx, state.Chain, state.Height, list...)
+			infos, err := FetchChainAddressesInfo(ctx, state.Chain, state.Height, AddressInfoMinConfirmation, AddressInfoMaxConfirmation, list...)
 			if err != nil {
 				log.WithError(err).
 					Error("Failed to FetchChainAddressesInfo")
@@ -287,6 +293,7 @@ func updateOperation(ctx context.Context, cryptoAddressID model.ID, transaction 
 			info, err := database.AddOperationInfo(db, model.OperationInfo{
 				CryptoAddressID: cryptoAddressID,
 				TxID:            txID,
+				Amount:          model.Float(transaction.Amount),
 			})
 			if err != nil {
 				log.WithError(err).
@@ -349,6 +356,117 @@ func updateOperation(ctx context.Context, cryptoAddressID model.ID, transaction 
 	}
 
 	return nil
+}
+
+func checkOperationsParams(interval time.Duration) time.Duration {
+	if interval < time.Second {
+		interval = DefaultOperationsInterval
+	}
+	return interval
+}
+
+func scheduledOperationsUpdate(ctx context.Context, chains []string, interval time.Duration) {
+	log := logger.Logger(ctx).WithField("Method", "Wallet.scheduledOperationsUpdate")
+	db := appcontext.Database(ctx)
+
+	interval = checkOperationsParams(interval)
+
+	log = log.WithFields(logrus.Fields{
+		"Interval": interval.String(),
+	})
+
+	log.Info("Start wallet Operation Scheduler")
+
+	for epoch := range utils.Scheduler(ctx, interval, 0) {
+
+		activeStatuses, err := database.FindActiveOperationStatus(db)
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to FindActiveOperationInfo")
+			continue
+		}
+
+		for _, status := range activeStatuses {
+			// skip up to date statuses
+			if status.State == status.Accounted {
+				continue
+			}
+
+			addr, operation, err := getOperationInfos(db, status.OperationInfoID)
+			if err != nil {
+				log.WithError(err).
+					Error("Failed to getOperationInfos")
+				continue
+			}
+
+			// deposit amount to account
+			accountDeposit := client.AccountDepositSync
+			accountedStatus := "settled"
+			switch status.State {
+
+			case "received":
+				accountDeposit = client.AccountDepositAsyncStart
+				accountedStatus = "received"
+
+			case "confirmed":
+				// sync if directly confirmed (previous state empty)
+				if status.Accounted == "received" {
+					// End async operation
+					accountDeposit = client.AccountDepositAsyncEnd
+					accountedStatus = "settled"
+				}
+			}
+			accountEntry, err := accountDeposit(ctx, uint64(addr.AccountID), uint64(operation.ID), float64(operation.Amount), "WalletDeposit")
+			if err != nil {
+				log.WithError(err).
+					Error("Failed to AccountDeposit")
+				continue
+			}
+
+			log.WithFields(logrus.Fields{
+				"AccountID":        accountEntry.AccountID,
+				"Accounted":        accountedStatus,
+				"State":            status.State,
+				"TxID":             operation.TxID,
+				"Currency":         accountEntry.Currency,
+				"ReferenceID":      accountEntry.ReferenceID,
+				"OperationType":    accountEntry.OperationType,
+				"SynchroneousType": accountEntry.SynchroneousType,
+			}).Info("Wallet Deposit")
+
+			// update Accounted status
+			status.Accounted = accountedStatus
+			if status.Accounted == "settled" {
+				status.State = accountedStatus
+			}
+			_, err = database.AddOrUpdateOperationStatus(db, status)
+			if err != nil {
+				log.WithError(err).
+					Error("Failed to AddOrUpdateOperationStatus")
+				continue
+			}
+		}
+
+		log.WithFields(logrus.Fields{
+			"Epoch": epoch.Truncate(time.Millisecond),
+		}).Info("Operations updated")
+	}
+}
+
+func getOperationInfos(db bank.Database, operationInfoID model.ID) (model.CryptoAddress, model.OperationInfo, error) {
+	// fetch OperationInfo from db
+	operation, err := database.GetOperationInfo(db, operationInfoID)
+	if err != nil {
+		return model.CryptoAddress{}, model.OperationInfo{}, err
+	}
+
+	// fetch CryptoAddress from db
+	addr, err := database.GetCryptoAddress(db, operation.CryptoAddressID)
+	if err != nil {
+		return model.CryptoAddress{}, model.OperationInfo{}, err
+	}
+
+	return addr, operation, nil
 }
 
 type AddressMap map[string]model.CryptoAddress
