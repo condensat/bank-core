@@ -93,7 +93,7 @@ func GetLastAccountOperation(db bank.Database, accountID model.AccountID) (model
 		}).
 		Last(&result).Error
 
-	if err != nil && err != gorm.ErrRecordNotFound {
+	if err != nil {
 		return model.AccountOperation{}, err
 	}
 
@@ -178,19 +178,22 @@ func txApppendAccountOperation(db bank.Database, operation model.AccountOperatio
 		return model.AccountOperation{}, ErrInvalidDatabase
 	}
 
-	info, err := fetchAccountInfo(db, operation.AccountID)
-	if err != nil {
-		return model.AccountOperation{}, err
+	if operation.OperationType != model.OperationTypeInit {
+
+		info, err := fetchAccountInfo(db, operation.AccountID)
+		if err != nil {
+			return model.AccountOperation{}, err
+		}
+		prepareNextOperation(&info, &operation)
 	}
 
-	prepareNextOperation(&info, &operation)
 	// pre-check operation with newupdated values
 	if !operation.PreCheck() {
 		return model.AccountOperation{}, ErrInvalidAccountOperation
 	}
 
 	// store operation
-	err = gdb.Create(&operation).Error
+	err := gdb.Create(&operation).Error
 	if err != nil {
 		return model.AccountOperation{}, err
 	}

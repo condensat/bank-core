@@ -48,6 +48,18 @@ func NewAccountOperation(ID, prevID AccountOperationID, accountID AccountID, syn
 	}
 }
 
+func NewInitOperation(accountID AccountID, referenceID RefID) AccountOperation {
+	return NewAccountOperation(0, 0,
+		accountID,
+		SynchroneousTypeSync,
+		OperationTypeInit,
+		referenceID,
+		time.Now(),
+		0.0, 0.0,
+		0.0, 0.0,
+	)
+}
+
 func (p *AccountOperation) IsValid() bool {
 	return p.ID > 0 &&
 		p.ID > p.PrevID &&
@@ -72,8 +84,9 @@ func (p *AccountOperation) IsValid() bool {
 		// check lockAmount less or equals than totalLocked
 		*p.LockAmount <= *p.TotalLocked &&
 
-		// Check for void operation
-		(math.Abs(float64(*p.Amount)) > 0.0 || math.Abs(float64(*p.LockAmount)) > 0.0)
+		// Check for zero operation
+		// allow zero operation for OperationTypeInit
+		(p.OperationType == OperationTypeInit || (math.Abs(float64(*p.Amount)) > 0.0 || math.Abs(float64(*p.LockAmount)) > 0.0))
 }
 
 func (p *AccountOperation) PreCheck() bool {
