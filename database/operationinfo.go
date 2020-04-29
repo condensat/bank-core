@@ -122,6 +122,40 @@ func GetOperationInfoByCryptoAddress(db bank.Database, cryptoAddressID model.ID)
 	return convertOperationInfoList(list), nil
 }
 
+func FindCryptoAddressesNotInOperationInfo(db bank.Database, chain model.String) ([]model.CryptoAddress, error) {
+	gdb := db.DB().(*gorm.DB)
+	if db == nil {
+		return nil, errors.New("Invalid appcontext.Database")
+	}
+
+	/*
+		select l.* from crypto_address as l
+		WHERE l.chain = 'bitcoin-testnet'
+		  AND l.id NOT IN
+		(
+			SELECT  r.crypto_address_id
+			FROM    operation_info as r
+		);
+	*/
+
+	var list []*model.CryptoAddress
+	notInQuery := gdb.Model(&model.OperationInfo{}).
+		Select("crypto_address_id").
+		SubQuery()
+
+	err := gdb.Model(&model.CryptoAddress{}).
+		Where("chain = ?", chain).
+		Where("id NOT IN ?", notInQuery).
+		Find(&list).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return converCryptoAddressList(list), nil
+
+}
+
 func convertOperationInfoList(list []*model.OperationInfo) []model.OperationInfo {
 	var result []model.OperationInfo
 	for _, curr := range list {
