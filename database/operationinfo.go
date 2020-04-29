@@ -153,7 +153,35 @@ func FindCryptoAddressesNotInOperationInfo(db bank.Database, chain model.String)
 	}
 
 	return converCryptoAddressList(list), nil
+}
 
+func FindCryptoAddressesByOperationInfoState(db bank.Database, chain model.String, state model.String) ([]model.CryptoAddress, error) {
+	gdb := db.DB().(*gorm.DB)
+
+	if len(state) == 0 {
+		return nil, ErrInvalidOperationStatus
+	}
+
+	subQueryState := gdb.Model(&model.OperationStatus{}).
+		Select("operation_info_id").
+		Where("state = ?", state).
+		SubQuery()
+	subQueryInfo := gdb.Model(&model.OperationInfo{}).
+		Select("id, crypto_address_id").
+		SubQuery()
+
+	var list []*model.CryptoAddress
+	err := gdb.Model(&model.CryptoAddress{}).
+		Joins("JOIN (?) AS oi ON crypto_address.id = oi.crypto_address_id", subQueryInfo).
+		Joins("JOIN (?) AS os ON oi.id = os.operation_info_id", subQueryState).
+		Where("chain = ?", chain).
+		Find(&list).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return converCryptoAddressList(list), nil
 }
 
 func convertOperationInfoList(list []*model.OperationInfo) []model.OperationInfo {

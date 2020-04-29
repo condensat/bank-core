@@ -48,8 +48,8 @@ func CryptoAddressModel() []model.Model {
 }
 
 func OperationInfoModel() []model.Model {
-	return []model.Model{
+	return append(CryptoAddressModel(), []model.Model{
 		model.Model(new(model.OperationInfo)),
 		model.Model(new(model.OperationStatus)),
-	}
+	}...)
 }

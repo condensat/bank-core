@@ -177,3 +177,38 @@ func createOperationInfoList(operations ...model.OperationInfo) []model.Operatio
 	var result []model.OperationInfo
 	return append(result, operations...)
 }
+
+func TestFindCryptoAddressesByOperationInfoState(t *testing.T) {
+	const databaseName = "TestFindCryptoAddressesByOperationInfoState"
+	t.Parallel()
+
+	db := setup(databaseName, OperationInfoModel())
+	defer teardown(db, databaseName)
+
+	type args struct {
+		chain model.String
+		state model.String
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []model.CryptoAddress
+		wantErr bool
+	}{
+		{"default", args{}, nil, true},
+		{"validEmpty", args{"chain", "state"}, nil, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := FindCryptoAddressesByOperationInfoState(db, tt.args.chain, tt.args.state)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FindCryptoAddressesByOperationInfoState() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("FindCryptoAddressesByOperationInfoState() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
