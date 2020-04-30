@@ -17,6 +17,7 @@ var (
 	ErrInvalidOperationInfoID          = errors.New("Invalid OperationInfo")
 	ErrOperationInfoUpdateNotPermitted = errors.New("OperationInfo Update Not Permitted")
 	ErrInvalidTransactionID            = errors.New("Invalid Transaction ID")
+	ErrInvalidOperationAmount          = errors.New("Invalid Operation Amount")
 )
 
 // AddOperationInfo
@@ -36,6 +37,9 @@ func AddOperationInfo(db bank.Database, operation model.OperationInfo) (model.Op
 
 	if len(operation.TxID) == 0 {
 		return model.OperationInfo{}, ErrInvalidTransactionID
+	}
+	if operation.Amount < 0.0 {
+		return model.OperationInfo{}, ErrInvalidOperationAmount
 	}
 
 	operation.Timestamp = time.Now().UTC().Truncate(time.Second)
