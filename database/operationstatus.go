@@ -45,3 +45,27 @@ func AddOrUpdateOperationStatus(db bank.Database, operation model.OperationStatu
 
 	return result, err
 }
+
+// GetOperationStatus
+func GetOperationStatus(db bank.Database, operationInfoID model.ID) (model.OperationStatus, error) {
+	gdb := db.DB().(*gorm.DB)
+	if db == nil {
+		return model.OperationStatus{}, errors.New("Invalid appcontext.Database")
+	}
+
+	if operationInfoID == 0 {
+		return model.OperationStatus{}, ErrInvalidOperationInfoID
+	}
+
+	var result model.OperationStatus
+	err := gdb.
+		Where(model.OperationStatus{
+			OperationInfoID: operationInfoID,
+		}).
+		First(&result).Error
+	if err != nil {
+		return model.OperationStatus{}, err
+	}
+
+	return result, nil
+}

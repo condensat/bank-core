@@ -56,6 +56,45 @@ func TestAddOrUpdateOperationStatus(t *testing.T) {
 	}
 }
 
+func TestGetOperationStatus(t *testing.T) {
+	const databaseName = "TestGetOperationStatus"
+	t.Parallel()
+
+	db := setup(databaseName, OperationInfoModel())
+	defer teardown(db, databaseName)
+
+	const infoID = model.ID(42)
+	ref1, _ := AddOrUpdateOperationStatus(db, model.OperationStatus{OperationInfoID: infoID, State: "state"})
+
+	type args struct {
+		operationInfoID model.ID
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    model.OperationStatus
+		wantErr bool
+	}{
+		{"default", args{}, model.OperationStatus{}, true},
+		{"notExists", args{1337}, model.OperationStatus{}, true},
+
+		{"valid", args{ref1.OperationInfoID}, ref1, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetOperationStatus(db, tt.args.operationInfoID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetOperationStatus() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetOperationStatus() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func updateOperationSate(operation model.OperationStatus, state string) model.OperationStatus {
 	result := operation
 	result.State = state
