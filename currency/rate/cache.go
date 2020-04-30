@@ -139,6 +139,11 @@ func FetchRedisRate(ctx context.Context, name, base string) (Rate, error) {
 		alias = "BTC"
 	}
 
+	// 1 CDT = 1 DOGE
+	if name == "CDT" {
+		alias = "DOGE"
+	}
+
 	key := formatRateKey(alias, base)
 
 	data, err := rdb.Get(key).Bytes()
