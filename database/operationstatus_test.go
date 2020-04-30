@@ -95,6 +95,67 @@ func TestGetOperationStatus(t *testing.T) {
 	}
 }
 
+func TestFindActiveOperationInfo(t *testing.T) {
+	const databaseName = "TestFindActiveOperationInfo"
+	t.Parallel()
+
+	db := setup(databaseName, OperationInfoModel())
+	defer teardown(db, databaseName)
+
+	tests := []struct {
+		name    string
+		want    []model.OperationInfo
+		wantErr bool
+	}{
+		{"default", nil, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := FindActiveOperationInfo(db)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FindActiveOperationInfo() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("FindActiveOperationInfo() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFindActiveOperationStatus(t *testing.T) {
+	const databaseName = "TestFindActiveOperationStatus"
+	t.Parallel()
+
+	db := setup(databaseName, OperationInfoModel())
+	defer teardown(db, databaseName)
+
+	_, _ = AddOrUpdateOperationStatus(db, model.OperationStatus{OperationInfoID: 42, State: "settled"})
+	active, _ := AddOrUpdateOperationStatus(db, model.OperationStatus{OperationInfoID: 43, State: "active"})
+
+	tests := []struct {
+		name    string
+		want    []model.OperationStatus
+		wantErr bool
+	}{
+		{"active", []model.OperationStatus{active}, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := FindActiveOperationStatus(db)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FindActiveOperationStatus() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("FindActiveOperationStatus() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func updateOperationSate(operation model.OperationStatus, state string) model.OperationStatus {
 	result := operation
 	result.State = state

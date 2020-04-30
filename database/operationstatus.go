@@ -69,3 +69,50 @@ func GetOperationStatus(db bank.Database, operationInfoID model.ID) (model.Opera
 
 	return result, nil
 }
+
+func FindActiveOperationStatus(db bank.Database) ([]model.OperationStatus, error) {
+	gdb := db.DB().(*gorm.DB)
+
+	var list []*model.OperationStatus
+	err := gdb.
+		Where("accounted NOT IN (?)", "settled").
+		Find(&list).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return convertOperationStatusList(list), nil
+}
+
+func FindActiveOperationInfo(db bank.Database) ([]model.OperationInfo, error) {
+	gdb := db.DB().(*gorm.DB)
+
+	subQueryState := gdb.Model(&model.OperationStatus{}).
+		Select("operation_info_id").
+		Where("state <> ?", "settled").
+		SubQuery()
+
+	var list []*model.OperationInfo
+	err := gdb.Model(&model.OperationInfo{}).
+		Joins("JOIN (?) AS os ON operation_info.id = os.operation_info_id", subQueryState).
+		Find(&list).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return convertOperationInfoList(list), nil
+}
+
+func convertOperationStatusList(list []*model.OperationStatus) []model.OperationStatus {
+	var result []model.OperationStatus
+	for _, curr := range list {
+		if curr == nil {
+			continue
+		}
+		result = append(result, *curr)
+	}
+
+	return result[:]
+}
