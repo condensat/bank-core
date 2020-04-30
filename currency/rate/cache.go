@@ -137,7 +137,6 @@ func FetchRedisRate(ctx context.Context, name, base string) (Rate, error) {
 	// 1 TBTC == 1 BTC
 	if name == "TBTC" {
 		alias = "BTC"
-		ratio = 1.0 / 100000000.0 // 1 TBTC = 1 satoshi
 	}
 
 	key := formatRateKey(alias, base)
