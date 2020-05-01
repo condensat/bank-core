@@ -141,43 +141,47 @@ func FetchChainAddressesInfo(ctx context.Context, chain string, currentHeight, m
 		maxConf, minConf = minConf, maxConf
 	}
 
-	list, err := client.ListUnspent(ctx, int(minConf), int(maxConf), publicAddresses...)
-	if err != nil {
-		log.WithError(err).
-			Error("Failed to ListUnspent")
-		return nil, err
-	}
-	// Order oldest first
-	sort.Slice(list, func(i, j int) bool {
-		return list[i].Confirmations > list[j].Confirmations
-	})
-
 	firsts := make(map[string]*AddressInfo)
-	for _, utxo := range list {
-		// create if address is already not exists
-		if _, ok := firsts[utxo.Address]; !ok {
+	batches := batchAddresses(16, publicAddresses...)
+	for _, batch := range batches {
 
-			// zero confirmation mean in mempool
-			var blockHeight uint64
-			if utxo.Confirmations > 0 {
-				blockHeight = currentHeight - uint64(utxo.Confirmations)
-			}
-
-			// create new map entry
-			firsts[utxo.Address] = &AddressInfo{
-				Chain:         chain,
-				PublicAddress: utxo.Address,
-				Mined:         blockHeight,
-			}
+		list, err := client.ListUnspent(ctx, int(minConf), int(maxConf), batch...)
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to ListUnspent")
+			return nil, err
 		}
-
-		// append TxID to transactions
-		addr := firsts[utxo.Address]
-		addr.Transactions = append(addr.Transactions, TransactionInfo{
-			TxID:          utxo.TxID,
-			Amount:        utxo.Amount,
-			Confirmations: utxo.Confirmations,
+		// Order oldest first
+		sort.Slice(list, func(i, j int) bool {
+			return list[i].Confirmations > list[j].Confirmations
 		})
+
+		for _, utxo := range list {
+			// create if address is already not exists
+			if _, ok := firsts[utxo.Address]; !ok {
+
+				// zero confirmation mean in mempool
+				var blockHeight uint64
+				if utxo.Confirmations > 0 {
+					blockHeight = currentHeight - uint64(utxo.Confirmations)
+				}
+
+				// create new map entry
+				firsts[utxo.Address] = &AddressInfo{
+					Chain:         chain,
+					PublicAddress: utxo.Address,
+					Mined:         blockHeight,
+				}
+			}
+
+			// append TxID to transactions
+			addr := firsts[utxo.Address]
+			addr.Transactions = append(addr.Transactions, TransactionInfo{
+				TxID:          utxo.TxID,
+				Amount:        utxo.Amount,
+				Confirmations: utxo.Confirmations,
+			})
+		}
 	}
 
 	var result []AddressInfo
@@ -189,4 +193,21 @@ func FetchChainAddressesInfo(ctx context.Context, chain string, currentHeight, m
 	}
 
 	return result, nil
+}
+
+func batchAddresses(batchSize int, addresses ...string) [][]string {
+	if batchSize < 1 {
+		batchSize = 1
+	}
+	if batchSize > 32 {
+		batchSize = 32
+	}
+	batches := make([][]string, 0, (len(addresses)+batchSize-1)/batchSize)
+
+	for batchSize < len(addresses) {
+		addresses, batches = addresses[batchSize:], append(batches, addresses[0:batchSize:batchSize])
+	}
+	batches = append(batches, addresses)
+
+	return batches[:]
 }
