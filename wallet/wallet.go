@@ -138,14 +138,26 @@ func scheduledChainUpdate(ctx context.Context, chains []string, interval time.Du
 
 			// fetch unused addresses from database
 			{
-				unused, err := database.AllMempoolCryptoAddresses(db, chain)
+				unused, err := database.AllUnusedCryptoAddresses(db, chain)
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to AllUnusedCryptoAddresses")
+					continue
+				}
+
+				addNewAddress(allAddresses, unused...)
+			}
+
+			// fetch mempool addresses from database
+			{
+				mempool, err := database.AllMempoolCryptoAddresses(db, chain)
 				if err != nil {
 					log.WithError(err).
 						Error("Failed to AllMempoolCryptoAddresses")
 					continue
 				}
 
-				addNewAddress(allAddresses, unused...)
+				addNewAddress(allAddresses, mempool...)
 			}
 
 			// fetch unconfirmed addresses from database
