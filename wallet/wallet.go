@@ -199,67 +199,64 @@ func scheduledChainUpdate(ctx context.Context, chains []string, interval time.Du
 			}
 
 			// local map for lookup cryptoAddresses from PublicAddress
-			cryptoAddresses := make(map[model.String]*model.CryptoAddress)
+			type CryptoTransaction struct {
+				CryptoAddress model.CryptoAddress
+				Transactions  []TransactionInfo
+			}
+			cryptoTransactions := make(map[string]CryptoTransaction)
 
 			// update firstBlockId for NextDeposit
-			for _, addr := range addresses {
-				// search from
-				for _, info := range infos {
-					// the address is found
-					if string(addr.PublicAddress) == info.PublicAddress {
-
-						// update FirstBlockId
-						firstBlockId := model.MemPoolBlockID // if returned FetchChainAddressesInfo, a tx exists at least in the mempool
-						if info.Mined > 0 {
-							firstBlockId = model.BlockID(info.Mined)
-						}
-						// skip if no changed
-						if firstBlockId == addr.FirstBlockId {
-							// store into local map
-							cryptoAddresses[addr.PublicAddress] = &addr
-							continue
-						}
-
-						// update FirstBlockId
-						addr.FirstBlockId = firstBlockId
-
-						// store into db
-						cryptoAddress, err := database.AddOrUpdateCryptoAddress(db, addr)
-						if err != nil {
-							log.WithError(err).
-								Error("Failed to AddOrUpdateCryptoAddress")
-						}
-
-						// update into local map
-						cryptoAddresses[addr.PublicAddress] = &cryptoAddress
-						break
+			for _, info := range infos {
+				for _, cryptoAddress := range addresses {
+					// search for matching public address
+					publicAddress := string(cryptoAddress.PublicAddress)
+					if string(cryptoAddress.PublicAddress) != info.PublicAddress {
+						continue
 					}
+
+					// store into local map
+					cryptoTransaction := CryptoTransaction{
+						CryptoAddress: cryptoAddress,
+						Transactions:  info.Transactions[:],
+					}
+					cryptoTransactions[publicAddress] = cryptoTransaction
+
+					// update FirstBlockId
+					firstBlockId := model.MemPoolBlockID // if returned FetchChainAddressesInfo, a tx exists at least in the mempool
+					if info.Mined > 0 {
+						firstBlockId = model.BlockID(info.Mined)
+					}
+					// skip if not changed
+					if firstBlockId == cryptoAddress.FirstBlockId {
+						continue
+					}
+
+					// update FirstBlockId
+					cryptoTransaction.CryptoAddress.FirstBlockId = firstBlockId
+
+					// store into db
+					cryptoAddressUpdate, err := database.AddOrUpdateCryptoAddress(db, cryptoTransaction.CryptoAddress)
+					if err != nil {
+						log.WithError(err).
+							Error("Failed to AddOrUpdateCryptoAddress")
+					}
+
+					// update cryptoAddress
+					cryptoTransaction.CryptoAddress = cryptoAddressUpdate
+					// update local map
+					cryptoTransactions[publicAddress] = cryptoTransaction
+					break
 				}
 			}
 
-			// lookup for txid for account operations
-			for _, addr := range addresses {
-				// search from
-				for _, info := range infos {
-					// the address is found
-					if string(addr.PublicAddress) == info.PublicAddress {
-
-						// get assoiciated cryptoAddress from local map
-						cryptoAddress := cryptoAddresses[addr.PublicAddress]
-						if cryptoAddress == nil && cryptoAddress.ID == 0 {
-							continue
-						}
-
-						// foreach transactions
-						for _, transaction := range info.Transactions {
-							// updateOperation
-							err := updateOperation(ctx, cryptoAddress.ID, transaction)
-							if err != nil {
-								log.WithError(err).
-									Error("Failed to updateOperation")
-								continue
-							}
-						}
+			// updateOperation transactions
+			for _, cryptoTransaction := range cryptoTransactions {
+				for _, transactions := range cryptoTransaction.Transactions {
+					err := updateOperation(ctx, cryptoTransaction.CryptoAddress.ID, transactions)
+					if err != nil {
+						log.WithError(err).
+							Error("Failed to updateOperation")
+						continue
 					}
 				}
 			}
