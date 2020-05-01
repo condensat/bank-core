@@ -267,7 +267,7 @@ func scheduledChainUpdate(ctx context.Context, chains []string, interval time.Du
 	}
 }
 
-func updateOperation(ctx context.Context, cryptoAddressID model.ID, transaction TransactionInfo) error {
+func updateOperation(ctx context.Context, cryptoAddressID model.CryptoAddressID, transaction TransactionInfo) error {
 	log := logger.Logger(ctx).WithField("Method", "Wallet.updateOperation")
 	db := appcontext.Database(ctx)
 
@@ -453,7 +453,7 @@ func scheduledOperationsUpdate(ctx context.Context, chains []string, interval ti
 	}
 }
 
-func getOperationInfos(db bank.Database, operationInfoID model.ID) (model.CryptoAddress, model.OperationInfo, error) {
+func getOperationInfos(db bank.Database, operationInfoID model.OperationInfoID) (model.CryptoAddress, model.OperationInfo, error) {
 	// fetch OperationInfo from db
 	operation, err := database.GetOperationInfo(db, operationInfoID)
 	if err != nil {

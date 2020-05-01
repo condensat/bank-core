@@ -63,11 +63,11 @@ func TestGetOperationStatus(t *testing.T) {
 	db := setup(databaseName, OperationInfoModel())
 	defer teardown(db, databaseName)
 
-	const infoID = model.ID(42)
+	const infoID = model.OperationInfoID(42)
 	ref1, _ := AddOrUpdateOperationStatus(db, model.OperationStatus{OperationInfoID: infoID, State: "state"})
 
 	type args struct {
-		operationInfoID model.ID
+		operationInfoID model.OperationInfoID
 	}
 	tests := []struct {
 		name    string
@@ -131,8 +131,8 @@ func TestFindActiveOperationStatus(t *testing.T) {
 	db := setup(databaseName, OperationInfoModel())
 	defer teardown(db, databaseName)
 
-	_, _ = AddOrUpdateOperationStatus(db, model.OperationStatus{OperationInfoID: 42, State: "settled"})
-	active, _ := AddOrUpdateOperationStatus(db, model.OperationStatus{OperationInfoID: 43, State: "active"})
+	_, _ = AddOrUpdateOperationStatus(db, model.OperationStatus{OperationInfoID: 42, State: "state", Accounted: "settled"})
+	active, _ := AddOrUpdateOperationStatus(db, model.OperationStatus{OperationInfoID: 43, State: "state", Accounted: "active"})
 
 	tests := []struct {
 		name    string

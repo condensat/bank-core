@@ -73,7 +73,7 @@ func AddOrUpdateCryptoAddress(db bank.Database, address model.CryptoAddress) (mo
 	return result, err
 }
 
-func GetCryptoAddress(db bank.Database, ID model.ID) (model.CryptoAddress, error) {
+func GetCryptoAddress(db bank.Database, ID model.CryptoAddressID) (model.CryptoAddress, error) {
 	var result model.CryptoAddress
 	gdb := db.DB().(*gorm.DB)
 	if gdb == nil {

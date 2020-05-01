@@ -47,7 +47,7 @@ func AddOrUpdateOperationStatus(db bank.Database, operation model.OperationStatu
 }
 
 // GetOperationStatus
-func GetOperationStatus(db bank.Database, operationInfoID model.ID) (model.OperationStatus, error) {
+func GetOperationStatus(db bank.Database, operationInfoID model.OperationInfoID) (model.OperationStatus, error) {
 	gdb := db.DB().(*gorm.DB)
 	if db == nil {
 		return model.OperationStatus{}, errors.New("Invalid appcontext.Database")

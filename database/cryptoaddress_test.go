@@ -114,7 +114,7 @@ func TestGetCryptoAddress(t *testing.T) {
 	ref1, _ := AddOrUpdateCryptoAddress(db, model.CryptoAddress{AccountID: accountID, PublicAddress: "ref1", Chain: chain})
 
 	type args struct {
-		ID model.ID
+		ID model.CryptoAddressID
 	}
 	tests := []struct {
 		name    string

@@ -61,12 +61,12 @@ func TestGetOperationInfo(t *testing.T) {
 	db := setup(databaseName, OperationInfoModel())
 	defer teardown(db, databaseName)
 
-	const cryptoAddressID = model.ID(42)
+	const cryptoAddressID = model.CryptoAddressID(42)
 	ref1, _ := AddOperationInfo(db, model.OperationInfo{CryptoAddressID: cryptoAddressID, TxID: ":txid1"})
 	ref2, _ := AddOperationInfo(db, model.OperationInfo{CryptoAddressID: cryptoAddressID, TxID: ":txid2", Amount: 0.1337})
 
 	type args struct {
-		operationID model.ID
+		operationID model.OperationInfoID
 	}
 	tests := []struct {
 		name    string
@@ -102,7 +102,7 @@ func TestGetOperationInfoByTxId(t *testing.T) {
 	db := setup(databaseName, OperationInfoModel())
 	defer teardown(db, databaseName)
 
-	const cryptoAddressID = model.ID(42)
+	const cryptoAddressID = model.CryptoAddressID(42)
 	ref1, _ := AddOperationInfo(db, model.OperationInfo{CryptoAddressID: cryptoAddressID, TxID: ":txid1"})
 
 	type args struct {
@@ -142,13 +142,13 @@ func TestGetOperationInfoByCryptoAddress(t *testing.T) {
 	db := setup(databaseName, OperationInfoModel())
 	defer teardown(db, databaseName)
 
-	const cryptoAddressID = model.ID(42)
+	const cryptoAddressID = model.CryptoAddressID(42)
 	ref1, _ := AddOperationInfo(db, model.OperationInfo{CryptoAddressID: cryptoAddressID, TxID: ":txid1"})
 	ref2, _ := AddOperationInfo(db, model.OperationInfo{CryptoAddressID: cryptoAddressID, TxID: ":txid2"})
 	ref3, _ := AddOperationInfo(db, model.OperationInfo{CryptoAddressID: cryptoAddressID, TxID: ":txid3"})
 
 	type args struct {
-		cryptoAddressID model.ID
+		cryptoAddressID model.CryptoAddressID
 	}
 	tests := []struct {
 		name    string
