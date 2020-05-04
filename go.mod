@@ -4,8 +4,6 @@ go 1.14
 
 require (
 	github.com/bsm/redislock v0.5.0
-	github.com/btcsuite/btcd v0.20.1-beta
-	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
 	github.com/condensat/secureid v0.1.0
 	github.com/emef/bitfield v0.0.0-20170503144143-7d3f8f823065
 	github.com/go-redis/redis/v7 v7.2.0
@@ -30,5 +28,3 @@ require (
 	github.com/ybbus/jsonrpc v2.1.2+incompatible
 	golang.org/x/crypto v0.0.0-20200323165209-0ec3e9974c59
 )
-
-replace github.com/btcsuite/btcd => github.com/condensat/btcd v0.20.1-beta.0.20200424100000-5dc523e373e2

@@ -52,6 +52,7 @@ func (p *Wallet) Run(ctx context.Context, options WalletOptions) {
 			Info("Adding rpc client")
 		ctx = common.ChainClientContext(ctx, chainOption.Chain, bitcoin.New(ctx, bitcoin.BitcoinOptions{
 			ServerOptions: bank.ServerOptions{
+				Protocol: "http",
 				HostName: chainOption.HostName,
 				Port:     chainOption.Port,
 			},
