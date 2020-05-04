@@ -7,6 +7,7 @@ package commands
 type Address string
 
 type TransactionInfo struct {
+	// Bitcoin
 	TxID          string  `json:"txid"`
 	Vout          int     `json:"vout"`
 	Address       Address `json:"address"`
@@ -18,6 +19,13 @@ type TransactionInfo struct {
 	Solvable      bool    `json:"solvable"`
 	Desc          string  `json:"desc,omitempty"`
 	Safe          bool    `json:"safe"`
+
+	// Liquid Specific
+	AssetCommitment  string `json:"assetcommitment"`
+	Asset            string `json:"asset"`
+	AmountCommitment string `json:"amountcommitment"`
+	AmountBlinder    string `json:"amountblinder"`
+	AssetBlinder     string `json:"assetblinder"`
 }
 
 type AddressInfo struct {
@@ -53,4 +61,9 @@ type AddressInfo struct {
 		Name    string `json:"name"`
 		Purpose string `json:"purpose"`
 	} `json:"labels"`
+
+	// Liquid Specific
+	Confidential    string `json:"confidential"`
+	ConfidentialKey string `json:"confidential_key"`
+	Unconfidential  string `json:"unconfidential"`
 }
