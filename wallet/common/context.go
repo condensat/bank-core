@@ -2,13 +2,11 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package wallet
+package common
 
 import (
 	"context"
 	"sync"
-
-	"github.com/condensat/bank-core/wallet/common"
 )
 
 const (
@@ -18,7 +16,7 @@ const (
 type ChainClient interface {
 	GetNewAddress(ctx context.Context, account string) (string, error)
 	GetBlockCount(ctx context.Context) (int64, error)
-	ListUnspent(ctx context.Context, minConf, maxConf int, addresses ...string) ([]common.AddressInfo, error)
+	ListUnspent(ctx context.Context, minConf, maxConf int, addresses ...string) ([]AddressInfo, error)
 }
 
 func ChainClientContext(ctx context.Context, chain string, client ChainClient) context.Context {

@@ -6,17 +6,18 @@ package model
 
 import "time"
 
+type CryptoAddressID ID
 type BlockID ID
 
 const MemPoolBlockID = BlockID(1)
 
 type CryptoAddress struct {
-	ID            ID         `gorm:"primary_key"`                   // [PK] CryptoAddress
-	AccountID     AccountID  `gorm:"index;not null"`                // [FK] Reference to Account table
-	PublicAddress String     `gorm:"unique_index;not null;size:64"` // CryptoAddress public key, non mutable
-	Chain         String     `gorm:"index;not null;size:16"`        // CryptoAddress chain, non mutable
-	CreationDate  *time.Time `gorm:"index;not null"`                // CryptoAddress creation date, non mutable
-	FirstBlockId  BlockID    `gorm:"index;not null"`                // Block height of the first transaction
+	ID            CryptoAddressID `gorm:"primary_key"`                    // [PK] CryptoAddress
+	AccountID     AccountID       `gorm:"index;not null"`                 // [FK] Reference to Account table
+	PublicAddress String          `gorm:"unique_index;not null;size:128"` // CryptoAddress public key, non mutable
+	Chain         String          `gorm:"index;not null;size:16"`         // CryptoAddress chain, non mutable
+	CreationDate  *time.Time      `gorm:"index;not null"`                 // CryptoAddress creation date, non mutable
+	FirstBlockId  BlockID         `gorm:"index;not null"`                 // Block height of the first transaction
 }
 
 func (p *CryptoAddress) IsUsed() bool {

@@ -73,7 +73,7 @@ func AddOrUpdateCryptoAddress(db bank.Database, address model.CryptoAddress) (mo
 	return result, err
 }
 
-func GetCryptoAddress(db bank.Database, ID model.ID) (model.CryptoAddress, error) {
+func GetCryptoAddress(db bank.Database, ID model.CryptoAddressID) (model.CryptoAddress, error) {
 	var result model.CryptoAddress
 	gdb := db.DB().(*gorm.DB)
 	if gdb == nil {
@@ -166,14 +166,22 @@ func AllUnusedAccountCryptoAddresses(db bank.Database, accountID model.AccountID
 	if accountID == 0 {
 		return nil, ErrInvalidAccountID
 	}
-	return findUnusedCryptoAddresses(db, accountID, AllChains)
+	return findUnusedCryptoAddresses(db, accountID, 0, AllChains)
 }
 
 func AllUnusedCryptoAddresses(db bank.Database, chain model.String) ([]model.CryptoAddress, error) {
-	return findUnusedCryptoAddresses(db, 0, chain)
+	return findUnusedCryptoAddresses(db, 0, 0, chain)
 }
 
-func findUnusedCryptoAddresses(db bank.Database, accountID model.AccountID, chain model.String) ([]model.CryptoAddress, error) {
+func AllMempoolCryptoAddresses(db bank.Database, chain model.String) ([]model.CryptoAddress, error) {
+	return findUnusedCryptoAddresses(db, 0, model.MemPoolBlockID, chain)
+}
+
+func AllUnconfirmedCryptoAddresses(db bank.Database, chain model.String, afterBlock model.BlockID) ([]model.CryptoAddress, error) {
+	return findUnusedCryptoAddresses(db, 0, afterBlock, chain)
+}
+
+func findUnusedCryptoAddresses(db bank.Database, accountID model.AccountID, blockID model.BlockID, chain model.String) ([]model.CryptoAddress, error) {
 	gdb := db.DB().(*gorm.DB)
 	if gdb == nil {
 		return nil, errors.New("Invalid appcontext.Database")
@@ -188,13 +196,23 @@ func findUnusedCryptoAddresses(db bank.Database, accountID model.AccountID, chai
 		chain = ""
 	}
 
+	var filter func(db *gorm.DB) *gorm.DB
+	// filter for confirmed or unconfirmed
+	if blockID > model.MemPoolBlockID {
+		// filter confirmed
+		filter = ScopeFirstBlockIDAfter(blockID)
+	} else {
+		// filter unconfirmed
+		filter = ScopeFirstBlockIDExact(blockID)
+	}
+
 	var list []*model.CryptoAddress
 	err := gdb.
 		Where(model.CryptoAddress{
 			AccountID: accountID,
 			Chain:     chain,
 		}).
-		Where("first_block_id = ?", 0).
+		Scopes(filter).
 		Order("id ASC").
 		Find(&list).Error
 
@@ -214,4 +232,73 @@ func converCryptoAddressList(list []*model.CryptoAddress) []model.CryptoAddress 
 	}
 
 	return result[:]
+}
+
+// ScopeFirstBefore
+func ScopeFirstBefore(blockID model.BlockID) func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		return db.Where(reqFirstBlockIDBefore(), blockID)
+	}
+}
+
+// ScopeFirstBlockIDExact
+func ScopeFirstBlockIDExact(blockID model.BlockID) func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		return db.Where(reqFirstBlockIDExact(), blockID)
+	}
+}
+
+// ScopeFirstBlockIDAfter
+func ScopeFirstBlockIDAfter(blockID model.BlockID) func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		return db.Where(reqFirstBlockIDAfter(), blockID)
+	}
+}
+
+const (
+	colAccountID     = "account_id"
+	colPublicAddress = "public_address"
+	colChain         = "chain"
+	colCreationDate  = "creation_date"
+	colFirstBlockID  = "first_block_id"
+)
+
+func cryptoAddressColumnNames() []string {
+	return []string{
+		colID,
+		colAccountID,
+		colPublicAddress,
+		colChain,
+		colCreationDate,
+		colFirstBlockID,
+	}
+}
+
+const ()
+
+func reqFirstBlockIDBefore() string {
+	var req [len(colFirstBlockID) + len(reqLTE)]byte
+	off := 0
+	off += copy(req[off:], colFirstBlockID)
+	copy(req[off:], reqLTE)
+
+	return string(req[:])
+}
+
+func reqFirstBlockIDExact() string {
+	var req [len(colFirstBlockID) + len(reqEQ)]byte
+	off := 0
+	off += copy(req[off:], colFirstBlockID)
+	copy(req[off:], reqEQ)
+
+	return string(req[:])
+}
+
+func reqFirstBlockIDAfter() string {
+	var req [len(colFirstBlockID) + len(reqGTE)]byte
+	off := 0
+	off += copy(req[off:], colFirstBlockID)
+	copy(req[off:], reqGTE)
+
+	return string(req[:])
 }

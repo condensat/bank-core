@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package wallet
+package chain
 
 import (
 	"context"
@@ -11,7 +11,16 @@ import (
 
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
+
+	"github.com/condensat/bank-core/wallet/common"
+
+	"github.com/condensat/bank-core/utils"
+
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	AddressBatchSize = 16 // maximum address count for RPC requests
 )
 
 var (
@@ -23,10 +32,16 @@ type ChainState struct {
 	Height uint64
 }
 
+type TransactionInfo struct {
+	TxID          string
+	Amount        float64
+	Confirmations int64
+}
 type AddressInfo struct {
 	Chain         string
 	PublicAddress string
 	Mined         uint64 // 0 unknown, 1 mempool, BlockHeight
+	Transactions  []TransactionInfo
 }
 
 func GetNewAddress(ctx context.Context, chain, account string) (string, error) {
@@ -34,7 +49,7 @@ func GetNewAddress(ctx context.Context, chain, account string) (string, error) {
 
 	log = log.WithField("Chain", chain)
 
-	client := ChainClientFromContext(ctx, chain)
+	client := common.ChainClientFromContext(ctx, chain)
 	if client == nil {
 		return "", ErrChainClientNotFound
 	}
@@ -76,7 +91,7 @@ func fetchChainState(ctx context.Context, chain string) (ChainState, error) {
 
 	log = log.WithField("Chain", chain)
 
-	client := ChainClientFromContext(ctx, chain)
+	client := common.ChainClientFromContext(ctx, chain)
 	if client == nil {
 		return ChainState{}, ErrChainClientNotFound
 	}
@@ -107,18 +122,26 @@ func fetchChainState(ctx context.Context, chain string) (ChainState, error) {
 	}, nil
 }
 
-func FetchChainAddressesInfo(ctx context.Context, chain string, currentHeight uint64, publicAddresses ...string) ([]AddressInfo, error) {
+func FetchChainAddressesInfo(ctx context.Context, state ChainState, minConf, maxConf uint64, publicAddresses ...string) ([]AddressInfo, error) {
 	log := logger.Logger(ctx).WithField("Method", "wallet.FetchChainAddresses")
 
-	log = log.WithField("Chain", chain)
+	log = log.WithFields(logrus.Fields{
+		"Chain":  state.Chain,
+		"Height": state.Height,
+	})
 
-	client := ChainClientFromContext(ctx, chain)
+	client := common.ChainClientFromContext(ctx, state.Chain)
 	if client == nil {
 		return nil, ErrChainClientNotFound
 	}
 
+	if len(publicAddresses) == 0 {
+		log.Debug("No addresses provided")
+		return nil, nil
+	}
+
 	// Acquire Lock
-	lock, err := cache.LockChain(ctx, chain)
+	lock, err := cache.LockChain(ctx, state.Chain)
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to lock chain")
@@ -126,35 +149,52 @@ func FetchChainAddressesInfo(ctx context.Context, chain string, currentHeight ui
 	}
 	defer lock.Unlock()
 
-	list, err := client.ListUnspent(ctx, 0, 6, publicAddresses...)
-	if err != nil {
-		log.WithError(err).
-			Error("Failed to ListUnspent")
-		return nil, err
+	if minConf > maxConf {
+		maxConf, minConf = minConf, maxConf
 	}
-	// Order oldest first
-	sort.Slice(list, func(i, j int) bool {
-		return list[i].Confirmations > list[j].Confirmations
-	})
 
 	firsts := make(map[string]*AddressInfo)
-	for _, utxo := range list {
-		// skip if address is already found
-		if _, ok := firsts[utxo.Address]; ok {
-			continue
+	batches := utils.BatchString(AddressBatchSize, publicAddresses...)
+	for _, batch := range batches {
+
+		// RPC requets
+		list, err := client.ListUnspent(ctx, int(minConf), int(maxConf), batch...)
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to ListUnspent")
+			return nil, err
 		}
 
-		// zero confirmation mean in mempool
-		var blockHeight uint64
-		if utxo.Confirmations > 0 {
-			blockHeight = currentHeight - uint64(utxo.Confirmations)
-		}
+		// Order oldest first
+		sort.Slice(list, func(i, j int) bool {
+			return list[i].Confirmations > list[j].Confirmations
+		})
 
-		// create new map entry
-		firsts[utxo.Address] = &AddressInfo{
-			Chain:         chain,
-			PublicAddress: utxo.Address,
-			Mined:         blockHeight,
+		for _, utxo := range list {
+			// create if address is already not exists
+			if _, ok := firsts[utxo.Address]; !ok {
+
+				// zero confirmation mean in mempool
+				var blockHeight uint64
+				if utxo.Confirmations > 0 {
+					blockHeight = state.Height - uint64(utxo.Confirmations)
+				}
+
+				// create new map entry
+				firsts[utxo.Address] = &AddressInfo{
+					Chain:         state.Chain,
+					PublicAddress: utxo.Address,
+					Mined:         blockHeight,
+				}
+			}
+
+			// append TxID to transactions
+			addr := firsts[utxo.Address]
+			addr.Transactions = append(addr.Transactions, TransactionInfo{
+				TxID:          utxo.TxID,
+				Amount:        utxo.Amount,
+				Confirmations: utxo.Confirmations,
+			})
 		}
 	}
 

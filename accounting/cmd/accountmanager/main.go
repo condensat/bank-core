@@ -95,7 +95,7 @@ func createAndListAccount(ctx context.Context, currencies []common.CurrencyInfo,
 			continue
 		}
 
-		_, err = client.AccountDeposit(ctx, account.Info.AccountID, 42, 10.0, "First Deposit")
+		_, err = client.AccountDepositSync(ctx, account.Info.AccountID, 42, 10.0, "First Deposit")
 		if err != nil {
 			log.WithError(err).
 				Error("AccountDeposit Failed")
@@ -107,8 +107,8 @@ func createAndListAccount(ctx context.Context, currencies []common.CurrencyInfo,
 
 		// force write
 		for i := 0; i < 1; i++ {
-			client.AccountDeposit(ctx, account.AccountID, 42, 0.1, "Batch Deposit")
-			client.AccountDeposit(ctx, account.AccountID, 42, -0.1, "Batch Deposit")
+			client.AccountDepositSync(ctx, account.AccountID, 42, 0.1, "Batch Deposit")
+			client.AccountDepositSync(ctx, account.AccountID, 42, -0.1, "Batch Deposit")
 		}
 
 		if account.AccountID > 4 {
