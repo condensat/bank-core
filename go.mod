@@ -27,6 +27,7 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/thoas/stats v0.0.0-20190407194641-965cb2de1678
 	github.com/urfave/negroni v1.0.0
+	github.com/ybbus/jsonrpc v2.1.2+incompatible
 	golang.org/x/crypto v0.0.0-20200323165209-0ec3e9974c59
 )
 
