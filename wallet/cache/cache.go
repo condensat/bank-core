@@ -2,13 +2,15 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package wallet
+package cache
 
 import (
 	"context"
+
+	"github.com/condensat/bank-core/wallet/chain"
 )
 
-func UpdateRedisChain(ctx context.Context, chainsStates []ChainState) error {
+func UpdateRedisChain(ctx context.Context, chainsStates ...chain.ChainState) error {
 	// Todo: store chains states into redis
 	return nil
 }
