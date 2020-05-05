@@ -50,6 +50,7 @@ func AddOrUpdateCryptoAddress(db bank.Database, address model.CryptoAddress) (mo
 		// do not update non mutable fields
 		address.CreationDate = nil
 		address.PublicAddress = ""
+		address.Unconfidential = ""
 		address.Chain = ""
 	}
 
@@ -60,8 +61,9 @@ func AddOrUpdateCryptoAddress(db bank.Database, address model.CryptoAddress) (mo
 	// create entry
 	if address.ID == 0 {
 		search = model.CryptoAddress{
-			AccountID:     address.AccountID,
-			PublicAddress: address.PublicAddress,
+			AccountID:      address.AccountID,
+			PublicAddress:  address.PublicAddress,
+			Unconfidential: address.Unconfidential,
 		}
 	}
 
@@ -256,11 +258,12 @@ func ScopeFirstBlockIDAfter(blockID model.BlockID) func(db *gorm.DB) *gorm.DB {
 }
 
 const (
-	colAccountID     = "account_id"
-	colPublicAddress = "public_address"
-	colChain         = "chain"
-	colCreationDate  = "creation_date"
-	colFirstBlockID  = "first_block_id"
+	colAccountID      = "account_id"
+	colPublicAddress  = "public_address"
+	colUnconfidential = "unconfidential"
+	colChain          = "chain"
+	colCreationDate   = "creation_date"
+	colFirstBlockID   = "first_block_id"
 )
 
 func cryptoAddressColumnNames() []string {
@@ -268,6 +271,7 @@ func cryptoAddressColumnNames() []string {
 		colID,
 		colAccountID,
 		colPublicAddress,
+		colUnconfidential,
 		colChain,
 		colCreationDate,
 		colFirstBlockID,
