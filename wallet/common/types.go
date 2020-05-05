@@ -9,9 +9,10 @@ import (
 )
 
 type CryptoAddress struct {
-	Chain         string
-	AccountID     uint64
-	PublicAddress string
+	Chain          string
+	AccountID      uint64
+	PublicAddress  string
+	Unconfidential string
 }
 
 type TransactionInfo struct {

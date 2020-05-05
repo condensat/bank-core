@@ -77,9 +77,10 @@ func CryptoAddressNextDeposit(ctx context.Context, address common.CryptoAddress)
 			log.Debug("Found unused deposit address")
 
 			result = common.CryptoAddress{
-				Chain:         string(addr.Chain),
-				AccountID:     uint64(addr.AccountID),
-				PublicAddress: string(addr.PublicAddress),
+				Chain:          string(addr.Chain),
+				AccountID:      uint64(addr.AccountID),
+				PublicAddress:  string(addr.PublicAddress),
+				Unconfidential: string(addr.Unconfidential),
 			}
 			return nil
 		}
@@ -92,10 +93,18 @@ func CryptoAddressNextDeposit(ctx context.Context, address common.CryptoAddress)
 			return ErrGenAddress
 		}
 
+		info, err := chainHandler.GetAddressInfo(ctx, string(chain), publicAddress)
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to GetAddressInfo")
+			return ErrGenAddress
+		}
+
 		addr, err := database.AddOrUpdateCryptoAddress(db, model.CryptoAddress{
-			Chain:         chain,
-			AccountID:     accountID,
-			PublicAddress: model.String(publicAddress),
+			Chain:          chain,
+			AccountID:      accountID,
+			PublicAddress:  model.String(publicAddress),
+			Unconfidential: model.String(info.Unconfidential),
 		})
 		if err != nil {
 			log.WithError(err).
@@ -104,9 +113,10 @@ func CryptoAddressNextDeposit(ctx context.Context, address common.CryptoAddress)
 		}
 
 		result = common.CryptoAddress{
-			Chain:         string(addr.Chain),
-			AccountID:     uint64(addr.AccountID),
-			PublicAddress: string(addr.PublicAddress),
+			Chain:          string(addr.Chain),
+			AccountID:      uint64(addr.AccountID),
+			PublicAddress:  string(addr.PublicAddress),
+			Unconfidential: string(addr.Unconfidential),
 		}
 
 		return nil
@@ -149,9 +159,10 @@ func OnCryptoAddressNextDeposit(ctx context.Context, subject string, message *ba
 
 			// create & return response
 			return &common.CryptoAddress{
-				Chain:         request.Chain,
-				AccountID:     request.AccountID,
-				PublicAddress: nextDeposit.PublicAddress,
+				Chain:          request.Chain,
+				AccountID:      request.AccountID,
+				PublicAddress:  nextDeposit.PublicAddress,
+				Unconfidential: nextDeposit.Unconfidential,
 			}, nil
 		})
 }
