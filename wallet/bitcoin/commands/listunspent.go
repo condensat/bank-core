@@ -15,12 +15,12 @@ const (
 	AddressInfoMaxConfirmation = 6
 )
 
-func ListUnspent(ctx context.Context, rpcClient RpcClient, filter []Address) ([]AddressInfo, error) {
+func ListUnspent(ctx context.Context, rpcClient RpcClient, filter []Address) ([]TransactionInfo, error) {
 	return ListUnspentMinMaxAddresses(ctx, rpcClient, AddressInfoMinConfirmation, AddressInfoMaxConfirmation, filter)
 }
 
-func ListUnspentMinMaxAddresses(ctx context.Context, rpcClient RpcClient, minConf, maxConf int, filter []Address) ([]AddressInfo, error) {
-	list := make([]AddressInfo, 0)
+func ListUnspentMinMaxAddresses(ctx context.Context, rpcClient RpcClient, minConf, maxConf int, filter []Address) ([]TransactionInfo, error) {
+	list := make([]TransactionInfo, 0)
 	err := callCommand(rpcClient, CmdListUnspent, &list, minConf, maxConf, filter)
 	if err != nil {
 		return nil, rpc.ErrRpcError

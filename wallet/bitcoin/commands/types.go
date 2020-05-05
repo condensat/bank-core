@@ -6,7 +6,7 @@ package commands
 
 type Address string
 
-type AddressInfo struct {
+type TransactionInfo struct {
 	TxID          string  `json:"txid"`
 	Vout          int     `json:"vout"`
 	Address       Address `json:"address"`
