@@ -19,3 +19,38 @@ type TransactionInfo struct {
 	Desc          string  `json:"desc,omitempty"`
 	Safe          bool    `json:"safe"`
 }
+
+type AddressInfo struct {
+	Address        string `json:"address"`
+	ScriptPubKey   string `json:"scriptPubKey"`
+	Ismine         bool   `json:"ismine"`
+	Solvable       bool   `json:"solvable"`
+	Desc           string `json:"desc"`
+	IsWatchonly    bool   `json:"iswatchonly"`
+	IsScript       bool   `json:"isscript"`
+	IsWitness      bool   `json:"iswitness"`
+	WitnessVersion int    `json:"witness_version"`
+	WitnessProgram string `json:"witness_program"`
+	Script         string `json:"script"`
+	Hex            string `json:"hex"`
+	Pubkey         string `json:"pubkey"`
+	Embedded       struct {
+		IsScript       bool   `json:"isscript"`
+		IsWitness      bool   `json:"iswitness"`
+		WitnessVersion int    `json:"witness_version"`
+		WitnessProgram string `json:"witness_program"`
+		Pubkey         string `json:"pubkey"`
+		Address        string `json:"address"`
+		ScriptPubKey   string `json:"scriptPubKey"`
+	} `json:"embedded"`
+	Label               string `json:"label"`
+	IsChange            bool   `json:"ischange"`
+	Timestamp           int    `json:"timestamp"`
+	HdKeyPath           string `json:"hdkeypath"`
+	HdSeedID            string `json:"hdseedid"`
+	HdMasterfingerprint string `json:"hdmasterfingerprint"`
+	Labels              []struct {
+		Name    string `json:"name"`
+		Purpose string `json:"purpose"`
+	} `json:"labels"`
+}
