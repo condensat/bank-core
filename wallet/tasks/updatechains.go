@@ -76,7 +76,7 @@ func updateChain(ctx context.Context, epoch time.Time, state chain.ChainState) {
 		for _, cryptoAddress := range addresses {
 			// search for matching public address
 			publicAddress := string(cryptoAddress.PublicAddress)
-			if string(cryptoAddress.PublicAddress) != info.PublicAddress {
+			if !matchPublicAddress(cryptoAddress, info.PublicAddress) {
 				continue
 			}
 
@@ -126,6 +126,13 @@ func updateChain(ctx context.Context, epoch time.Time, state chain.ChainState) {
 			}
 		}
 	}
+}
+
+func matchPublicAddress(crytoAddress model.CryptoAddress, address string) bool {
+	if len(address) == 0 {
+		return false
+	}
+	return string(crytoAddress.PublicAddress) == address || string(crytoAddress.Unconfidential) == address
 }
 
 func updateOperation(ctx context.Context, cryptoAddressID model.CryptoAddressID, transaction chain.TransactionInfo) error {
@@ -306,9 +313,14 @@ func fetchActiveAddresses(ctx context.Context, state chain.ChainState) ([]string
 	// create final addresses lists
 	var result []string                 // addresses for rpc call
 	var addresses []model.CryptoAddress // addresses for operations update
-	for publicAddress, address := range allAddresses {
-		result = append(result, publicAddress)
-		addresses = append(addresses, address)
+	for _, cryptoAddress := range allAddresses {
+		address := string(cryptoAddress.PublicAddress)
+		if len(cryptoAddress.Unconfidential) != 0 {
+			// use unconfidential address for listunspent call
+			address = string(cryptoAddress.Unconfidential)
+		}
+		result = append(result, address)
+		addresses = append(addresses, cryptoAddress)
 	}
 	return result, addresses
 }
