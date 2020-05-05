@@ -66,6 +66,37 @@ func GetNewAddress(ctx context.Context, chain, account string) (string, error) {
 	return client.GetNewAddress(ctx, account)
 }
 
+func GetAddressInfo(ctx context.Context, chain, address string) (common.AddressInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "wallet.GetAddressInfo")
+
+	log = log.WithField("Chain", chain)
+
+	client := common.ChainClientFromContext(ctx, chain)
+	if client == nil {
+		return common.AddressInfo{}, ErrChainClientNotFound
+	}
+
+	// Acquire Lock
+	lock, err := cache.LockChain(ctx, chain)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to lock chain")
+		return common.AddressInfo{}, cache.ErrLockError
+	}
+	defer lock.Unlock()
+
+	info, err := client.GetAddressInfo(ctx, address)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to lock chain")
+		return common.AddressInfo{}, cache.ErrLockError
+	}
+
+	info.Chain = chain
+
+	return info, nil
+}
+
 func FetchChainsState(ctx context.Context, chains ...string) ([]ChainState, error) {
 	log := logger.Logger(ctx).WithField("Method", "wallet.FetchChainsState")
 

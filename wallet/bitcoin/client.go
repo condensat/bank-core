@@ -97,6 +97,43 @@ func (p *BitcoinClient) GetNewAddress(ctx context.Context, account string) (stri
 	return string(result), nil
 }
 
+func (p *BitcoinClient) GetAddressInfo(ctx context.Context, address string) (common.AddressInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "bitcoin.GetNewAddress")
+
+	client := p.client
+	if p.client == nil {
+		return common.AddressInfo{}, ErrInternalError
+	}
+	if len(address) == 0 {
+		return common.AddressInfo{}, ErrInvalidAddress
+	}
+
+	info, err := commands.GetAddressInfo(ctx, client.Client, commands.Address(address))
+	if err != nil {
+		log.WithError(err).
+			Error("GetAddressInfo failed")
+		return common.AddressInfo{}, ErrRPCError
+	}
+
+	publicAddress := info.Address
+	// Get confidential if request address is different
+	if len(info.Confidential) > 0 && info.Confidential != info.Address {
+		publicAddress = info.Confidential
+	}
+
+	result := common.AddressInfo{
+		PublicAddress:  publicAddress,
+		Unconfidential: info.Unconfidential,
+	}
+
+	log.WithFields(logrus.Fields{
+		"PublicAddress":  result.PublicAddress,
+		"Unconfidential": result.Unconfidential,
+	}).Debug("Bitcoin RPC")
+
+	return result, nil
+}
+
 func (p *BitcoinClient) ListUnspent(ctx context.Context, minConf, maxConf int, addresses ...string) ([]common.TransactionInfo, error) {
 	log := logger.Logger(ctx).WithField("Method", "bitcoin.ListUnspent")
 
