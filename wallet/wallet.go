@@ -114,3 +114,7 @@ func mainScheduler(ctx context.Context, chains []string) {
 func (p *Wallet) GetNewAddress(ctx context.Context, chainName, account string) (string, error) {
 	return chain.GetNewAddress(ctx, chainName, account)
 }
+
+func (p *Wallet) GetAddressInfo(ctx context.Context, chainName, address string) (common.AddressInfo, error) {
+	return chain.GetAddressInfo(ctx, chainName, address)
+}
