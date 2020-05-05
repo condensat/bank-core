@@ -19,6 +19,7 @@ type TransactionInfo struct {
 	Chain         string
 	Account       string
 	Address       string
+	Asset         string
 	TxID          string
 	Amount        float64
 	Confirmations int64

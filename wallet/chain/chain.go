@@ -34,6 +34,7 @@ type ChainState struct {
 
 type TransactionInfo struct {
 	TxID          string
+	Asset         string
 	Amount        float64
 	Confirmations int64
 }
@@ -223,6 +224,7 @@ func FetchChainAddressesInfo(ctx context.Context, state ChainState, minConf, max
 			addr := firsts[utxo.Address]
 			addr.Transactions = append(addr.Transactions, TransactionInfo{
 				TxID:          utxo.TxID,
+				Asset:         utxo.Asset,
 				Amount:        utxo.Amount,
 				Confirmations: utxo.Confirmations,
 			})
