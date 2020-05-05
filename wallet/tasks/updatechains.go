@@ -6,9 +6,12 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/accounting/client"
+	"github.com/condensat/bank-core/accounting/common"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 
@@ -68,6 +71,7 @@ func updateChain(ctx context.Context, epoch time.Time, state chain.ChainState) {
 	type CryptoTransaction struct {
 		CryptoAddress model.CryptoAddress
 		Transactions  []chain.TransactionInfo
+		Currency      common.CurrencyInfo
 	}
 	cryptoTransactions := make(map[string]CryptoTransaction)
 
@@ -118,7 +122,14 @@ func updateChain(ctx context.Context, epoch time.Time, state chain.ChainState) {
 	// updateOperation transactions
 	for _, cryptoTransaction := range cryptoTransactions {
 		for _, transactions := range cryptoTransaction.Transactions {
-			err := updateOperation(ctx, cryptoTransaction.CryptoAddress.ID, transactions)
+			// ensure currency exists
+			assetID, err := createAssetCurrency(ctx, transactions.Asset)
+			if err != nil {
+				log.WithError(err).
+					Error("createAssetCurrency failed")
+				continue
+			}
+			err = updateOperation(ctx, cryptoTransaction.CryptoAddress.ID, assetID, transactions)
 			if err != nil {
 				log.WithError(err).
 					Error("Failed to updateOperation")
@@ -135,7 +146,7 @@ func matchPublicAddress(crytoAddress model.CryptoAddress, address string) bool {
 	return string(crytoAddress.PublicAddress) == address || string(crytoAddress.Unconfidential) == address
 }
 
-func updateOperation(ctx context.Context, cryptoAddressID model.CryptoAddressID, transaction chain.TransactionInfo) error {
+func updateOperation(ctx context.Context, cryptoAddressID model.CryptoAddressID, assetID model.AssetID, transaction chain.TransactionInfo) error {
 	log := logger.Logger(ctx).WithField("Method", "Wallet.updateOperation")
 	db := appcontext.Database(ctx)
 
@@ -161,6 +172,7 @@ func updateOperation(ctx context.Context, cryptoAddressID model.CryptoAddressID,
 			info, err := database.AddOperationInfo(db, model.OperationInfo{
 				CryptoAddressID: cryptoAddressID,
 				TxID:            txID,
+				AssetID:         assetID,
 				Amount:          model.Float(transaction.Amount),
 			})
 			if err != nil {
@@ -235,6 +247,65 @@ func addNewAddress(allAddresses AddressMap, addresses ...model.CryptoAddress) {
 			allAddresses[publicAddress] = address
 		}
 	}
+}
+
+func createAssetCurrency(ctx context.Context, assetHash string) (model.AssetID, error) {
+	log := logger.Logger(ctx).WithField("Method", "tasks.createAssetCurrency")
+	db := appcontext.Database(ctx)
+
+	// no asset, no error
+	if len(assetHash) == 0 {
+		return 0, nil
+	}
+
+	// check if asset exists
+	asset, err := database.GetAssetByHash(db, model.AssetHash(assetHash))
+	if err == nil {
+		return asset.ID, nil
+	}
+
+	// create asset & currency
+	assetCount, err := database.AssetCount(db)
+	if err != nil {
+		log.WithError(err).
+			Error("AssetCount failed")
+		return 0, nil
+	}
+
+	// create CurrencyName
+	currencyName := fmt.Sprintf("Li#%05d", assetCount+1)
+	log = log.WithFields(logrus.Fields{
+		"AssetHash":    assetHash,
+		"CurrencyName": currencyName,
+	})
+
+	_, err = client.CurrencyCreate(ctx, currencyName, true, 0)
+	if err != nil {
+		log.WithError(err).
+			Error("CurrencyCreate failed")
+		return 0, err
+	}
+
+	// activate currency
+	_, err = client.CurrencySetAvailable(ctx, currencyName, true)
+	if err != nil {
+		log.WithError(err).
+			Error("CurrencySetAvailable failed")
+		return 0, err
+	}
+
+	asset, err = database.AddAsset(db, model.AssetHash(assetHash), model.CurrencyName(currencyName))
+	if err != nil {
+		log.WithError(err).
+			Error("AddAsset failed")
+		return 0, err
+	}
+
+	log.
+		WithField("AssetID", asset.ID).
+		Debug("Asset Created")
+
+	return asset.ID, nil
 }
 
 func fetchActiveAddresses(ctx context.Context, state chain.ChainState) ([]string, []model.CryptoAddress) {
