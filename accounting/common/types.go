@@ -14,6 +14,7 @@ type CurrencyInfo struct {
 	Name             string
 	Available        bool
 	Crypto           bool
+	Asset            bool
 	DisplayPrecision uint
 }
 
