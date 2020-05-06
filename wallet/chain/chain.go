@@ -129,6 +129,64 @@ func LockUnspent(ctx context.Context, chain string, unlock bool, utxos ...common
 	return nil
 }
 
+func ListLockUnspent(ctx context.Context, chain string) ([]common.TransactionInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "wallet.ListLockUnspent")
+
+	log = log.WithField("Chain", chain)
+
+	client := common.ChainClientFromContext(ctx, chain)
+	if client == nil {
+		return nil, ErrChainClientNotFound
+	}
+
+	// Acquire Lock
+	lock, err := cache.LockChain(ctx, chain)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to lock chain")
+		return nil, cache.ErrLockError
+	}
+	defer lock.Unlock()
+
+	list, err := client.ListLockUnspent(ctx)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to ListLockUnspent")
+		return nil, err
+	}
+
+	return list, nil
+}
+
+func GetTransaction(ctx context.Context, chain string, txID string) (common.TransactionInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "wallet.GetTransaction")
+
+	log = log.WithField("Chain", chain)
+
+	client := common.ChainClientFromContext(ctx, chain)
+	if client == nil {
+		return common.TransactionInfo{}, ErrChainClientNotFound
+	}
+
+	// Acquire Lock
+	lock, err := cache.LockChain(ctx, chain)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to lock chain")
+		return common.TransactionInfo{}, cache.ErrLockError
+	}
+	defer lock.Unlock()
+
+	result, err := client.GetTransaction(ctx, txID)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to GetTransaction")
+		return common.TransactionInfo{}, cache.ErrLockError
+	}
+
+	return result, nil
+}
+
 func FetchChainsState(ctx context.Context, chains ...string) ([]ChainState, error) {
 	log := logger.Logger(ctx).WithField("Method", "wallet.FetchChainsState")
 
@@ -226,6 +284,22 @@ func FetchChainAddressesInfo(ctx context.Context, state ChainState, minConf, max
 			log.WithError(err).
 				Error("Failed to ListUnspent")
 			return nil, err
+		}
+
+		lockedUtxos, err := client.ListLockUnspent(ctx)
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to ListLockUnspent")
+			return nil, err
+		}
+		for _, utxo := range lockedUtxos {
+			tx, err := client.GetTransaction(ctx, utxo.TxID)
+			if err != nil {
+				log.WithError(err).
+					Error("Failed to GetTransaction")
+				return nil, err
+			}
+			list = append(list, tx)
 		}
 
 		// Order oldest first

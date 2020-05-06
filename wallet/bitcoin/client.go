@@ -161,15 +161,7 @@ func (p *BitcoinClient) ListUnspent(ctx context.Context, minConf, maxConf int, a
 
 	var result []common.TransactionInfo
 	for _, tx := range list {
-		result = append(result, common.TransactionInfo{
-			Account:       tx.Label,
-			Address:       string(tx.Address),
-			Asset:         string(tx.Asset),
-			TxID:          tx.TxID,
-			Amount:        tx.Amount,
-			Confirmations: tx.Confirmations,
-			Spendable:     tx.Spendable,
-		})
+		result = append(result, convertTransactionInfo(tx))
 	}
 
 	log.
@@ -207,4 +199,61 @@ func (p *BitcoinClient) LockUnspent(ctx context.Context, unlock bool, transactio
 	}
 
 	return nil
+}
+
+func (p *BitcoinClient) ListLockUnspent(ctx context.Context) ([]common.TransactionInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "bitcoin.ListLockUnspent")
+
+	client := p.client
+	if p.client == nil {
+		return nil, ErrInternalError
+	}
+
+	list, err := commands.ListLockUnspent(ctx, client.Client)
+	if err != nil {
+		log.WithError(err).
+			Error("LockUnspent failed")
+		return nil, ErrRPCError
+	}
+
+	var result []common.TransactionInfo
+	for _, tx := range list {
+		result = append(result, common.TransactionInfo{
+			TxID: tx.TxID,
+			Vout: int64(tx.Vout),
+		})
+	}
+
+	return result, nil
+}
+
+func (p *BitcoinClient) GetTransaction(ctx context.Context, txID string) (common.TransactionInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "bitcoin.GetTransaction")
+
+	client := p.client
+	if p.client == nil {
+		return common.TransactionInfo{}, ErrInternalError
+	}
+
+	tx, err := commands.GetTransaction(ctx, client.Client, txID)
+	if err != nil {
+		log.WithError(err).
+			Error("GetTransaction failed")
+		return common.TransactionInfo{}, ErrRPCError
+	}
+
+	return convertTransactionInfo(tx), nil
+}
+
+func convertTransactionInfo(tx commands.TransactionInfo) common.TransactionInfo {
+	return common.TransactionInfo{
+		Account:       tx.Label,
+		Address:       string(tx.Address),
+		Asset:         string(tx.Asset),
+		TxID:          tx.TxID,
+		Vout:          int64(tx.Vout),
+		Amount:        tx.Amount,
+		Confirmations: tx.Confirmations,
+		Spendable:     tx.Spendable,
+	}
 }
