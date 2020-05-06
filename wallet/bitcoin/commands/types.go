@@ -20,6 +20,18 @@ type TransactionInfo struct {
 	Desc          string  `json:"desc,omitempty"`
 	Safe          bool    `json:"safe"`
 
+	// gettransaction
+	Details []struct {
+		Address       string  `json:"address"`
+		Category      string  `json:"category"`
+		Amount        float64 `json:"amount"`
+		AmountBlinder string  `json:"amountblinder"`
+		Asset         string  `json:"asset"`
+		AssetBlinder  string  `json:"assetblinder"`
+		Label         string  `json:"label"`
+		Vout          int     `json:"vout"`
+	}
+
 	// Liquid Specific
 	AssetCommitment  string `json:"assetcommitment"`
 	Asset            string `json:"asset"`
