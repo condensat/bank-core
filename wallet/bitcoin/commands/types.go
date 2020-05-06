@@ -67,3 +67,8 @@ type AddressInfo struct {
 	ConfidentialKey string `json:"confidential_key"`
 	Unconfidential  string `json:"unconfidential"`
 }
+
+type UTXOInfo struct {
+	TxID string `json:"txid"`
+	Vout int    `json:"vout"`
+}
