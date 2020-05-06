@@ -6,6 +6,8 @@ package utils
 
 import (
 	"math"
+	"math/big"
+	"strconv"
 )
 
 const (
@@ -21,6 +23,17 @@ func RoundUnit(x, unit float64) float64 {
 }
 
 func ToFixed(num float64, precision int) float64 {
-	output := math.Pow(10, float64(precision))
-	return float64(Round(num*output)) / output
+	if precision < 0 {
+		precision = 0
+	}
+
+	var f big.Float
+	f.SetMode(big.AwayFromZero).SetFloat64(num)
+	str := f.Text('f', precision)
+
+	round, err := strconv.ParseFloat(str, 64)
+	if err != nil {
+		return num // return original value
+	}
+	return round
 }
