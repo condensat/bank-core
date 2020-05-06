@@ -20,10 +20,11 @@ import (
 )
 
 var (
-	ErrInternalError  = errors.New("Internal Error")
-	ErrRPCError       = errors.New("RPC Error")
-	ErrInvalidAccount = errors.New("Invalid Account")
-	ErrInvalidAddress = errors.New("Invalid Address format")
+	ErrInternalError    = errors.New("Internal Error")
+	ErrRPCError         = errors.New("RPC Error")
+	ErrInvalidAccount   = errors.New("Invalid Account")
+	ErrInvalidAddress   = errors.New("Invalid Address format")
+	ErrLockUnspentFails = errors.New("LockUnpent Failed")
 )
 
 const (
@@ -176,4 +177,34 @@ func (p *BitcoinClient) ListUnspent(ctx context.Context, minConf, maxConf int, a
 		Debug("Bitcoin RPC")
 
 	return result, nil
+}
+
+func (p *BitcoinClient) LockUnspent(ctx context.Context, unlock bool, transactions ...common.TransactionInfo) error {
+	log := logger.Logger(ctx).WithField("Method", "bitcoin.ListUnspent")
+
+	client := p.client
+	if p.client == nil {
+		return ErrInternalError
+	}
+
+	var utxos []commands.UTXOInfo
+	for _, tx := range transactions {
+		utxos = append(utxos, commands.UTXOInfo{
+			TxID: tx.TxID,
+			Vout: int(tx.Vout),
+		})
+	}
+
+	success, err := commands.LockUnspent(ctx, client.Client, unlock, utxos)
+	if err != nil {
+		log.WithError(err).
+			Error("LockUnspent failed")
+		return ErrRPCError
+	}
+
+	if !success {
+		return ErrLockUnspentFails
+	}
+
+	return nil
 }

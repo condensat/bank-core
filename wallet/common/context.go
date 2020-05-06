@@ -18,6 +18,7 @@ type ChainClient interface {
 	GetAddressInfo(ctx context.Context, address string) (AddressInfo, error)
 	GetBlockCount(ctx context.Context) (int64, error)
 	ListUnspent(ctx context.Context, minConf, maxConf int, addresses ...string) ([]TransactionInfo, error)
+	LockUnspent(ctx context.Context, unlock bool, transactions ...TransactionInfo) error
 }
 
 func ChainClientContext(ctx context.Context, chain string, client ChainClient) context.Context {

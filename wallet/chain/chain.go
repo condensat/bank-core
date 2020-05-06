@@ -100,6 +100,35 @@ func GetAddressInfo(ctx context.Context, chain, address string) (common.AddressI
 	return info, nil
 }
 
+func LockUnspent(ctx context.Context, chain string, unlock bool, utxos ...common.TransactionInfo) error {
+	log := logger.Logger(ctx).WithField("Method", "wallet.LockUnspent")
+
+	log = log.WithField("Chain", chain)
+
+	client := common.ChainClientFromContext(ctx, chain)
+	if client == nil {
+		return ErrChainClientNotFound
+	}
+
+	// Acquire Lock
+	lock, err := cache.LockChain(ctx, chain)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to lock chain")
+		return cache.ErrLockError
+	}
+	defer lock.Unlock()
+
+	err = client.LockUnspent(ctx, unlock, utxos...)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to LockUnspent")
+		return cache.ErrLockError
+	}
+
+	return nil
+}
+
 func FetchChainsState(ctx context.Context, chains ...string) ([]ChainState, error) {
 	log := logger.Logger(ctx).WithField("Method", "wallet.FetchChainsState")
 
