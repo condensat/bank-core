@@ -21,6 +21,7 @@ type TransactionInfo struct {
 	Address       string
 	Asset         string
 	TxID          string
+	Vout          int64
 	Amount        float64
 	Confirmations int64
 	Spendable     bool

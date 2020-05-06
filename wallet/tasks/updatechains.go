@@ -151,9 +151,11 @@ func updateOperation(ctx context.Context, cryptoAddressID model.CryptoAddressID,
 	db := appcontext.Database(ctx)
 
 	txID := model.TxID(transaction.TxID)
+	vout := model.Vout(transaction.Vout)
 
 	log = log.WithFields(logrus.Fields{
 		"CryptoAddressID": cryptoAddressID,
+		"Vout":            vout,
 		"TxID":            txID,
 	})
 
@@ -172,6 +174,7 @@ func updateOperation(ctx context.Context, cryptoAddressID model.CryptoAddressID,
 			info, err := database.AddOperationInfo(db, model.OperationInfo{
 				CryptoAddressID: cryptoAddressID,
 				TxID:            txID,
+				Vout:            vout,
 				AssetID:         assetID,
 				Amount:          model.Float(transaction.Amount),
 			})
