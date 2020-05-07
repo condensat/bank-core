@@ -131,15 +131,17 @@ func TestFindActiveOperationStatus(t *testing.T) {
 	db := setup(databaseName, OperationInfoModel())
 	defer teardown(db, databaseName)
 
-	_, _ = AddOrUpdateOperationStatus(db, model.OperationStatus{OperationInfoID: 42, State: "state", Accounted: "settled"})
-	active, _ := AddOrUpdateOperationStatus(db, model.OperationStatus{OperationInfoID: 43, State: "state", Accounted: "active"})
+	_, _ = AddOrUpdateOperationStatus(db, model.OperationStatus{OperationInfoID: 42, State: "settled", Accounted: "settled"})
+	active1, _ := AddOrUpdateOperationStatus(db, model.OperationStatus{OperationInfoID: 43, State: "state", Accounted: "active"})
+	active2, _ := AddOrUpdateOperationStatus(db, model.OperationStatus{OperationInfoID: 44, State: "settled", Accounted: "active"})
+	active3, _ := AddOrUpdateOperationStatus(db, model.OperationStatus{OperationInfoID: 45, State: "state", Accounted: "settled"})
 
 	tests := []struct {
 		name    string
 		want    []model.OperationStatus
 		wantErr bool
 	}{
-		{"active", []model.OperationStatus{active}, false},
+		{"active", []model.OperationStatus{active1, active2, active3}, false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
