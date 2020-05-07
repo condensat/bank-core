@@ -37,6 +37,10 @@ func UpdateOperations(ctx context.Context, epoch time.Time, chains []string) {
 		if status.State == status.Accounted {
 			continue
 		}
+		// skip already Accounted statuses
+		if status.Accounted == "settled" {
+			continue
+		}
 
 		userID, addr, operation, err := getOperationInfos(db, status.OperationInfoID)
 		if err != nil {
@@ -94,9 +98,6 @@ func UpdateOperations(ctx context.Context, epoch time.Time, chains []string) {
 
 		// update Accounted status
 		status.Accounted = accountedStatus
-		if status.Accounted == "settled" {
-			status.State = accountedStatus
-		}
 		_, err = database.AddOrUpdateOperationStatus(db, status)
 		if err != nil {
 			log.WithError(err).
