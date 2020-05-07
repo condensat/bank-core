@@ -17,6 +17,7 @@ import (
 
 	"github.com/condensat/bank-core/wallet/cache"
 	"github.com/condensat/bank-core/wallet/chain"
+	wcommon "github.com/condensat/bank-core/wallet/common"
 
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
@@ -129,7 +130,7 @@ func updateChain(ctx context.Context, epoch time.Time, state chain.ChainState) {
 					Error("createAssetCurrency failed")
 				continue
 			}
-			err = updateOperation(ctx, cryptoTransaction.CryptoAddress.ID, assetID, transactions)
+			err = updateOperation(ctx, state, cryptoTransaction.CryptoAddress.ID, assetID, transactions)
 			if err != nil {
 				log.WithError(err).
 					Error("Failed to updateOperation")
@@ -146,7 +147,7 @@ func matchPublicAddress(crytoAddress model.CryptoAddress, address string) bool {
 	return string(crytoAddress.PublicAddress) == address || string(crytoAddress.Unconfidential) == address
 }
 
-func updateOperation(ctx context.Context, cryptoAddressID model.CryptoAddressID, assetID model.AssetID, transaction chain.TransactionInfo) error {
+func updateOperation(ctx context.Context, state chain.ChainState, cryptoAddressID model.CryptoAddressID, assetID model.AssetID, transaction chain.TransactionInfo) error {
 	log := logger.Logger(ctx).WithField("Method", "Wallet.updateOperation")
 	db := appcontext.Database(ctx)
 
@@ -207,12 +208,50 @@ func updateOperation(ctx context.Context, cryptoAddressID model.CryptoAddressID,
 		// fetch OperationStatus if exists
 		status, _ := database.GetOperationStatus(db, operationInfo.ID)
 		if status.Accounted == "settled" {
+			// time to settle
 			operationState = status.Accounted
 		}
 
 		// check if update is needed
 		if status.State == operationState {
 			return nil
+		}
+
+		client := wcommon.ChainClientFromContext(ctx, state.Chain)
+		if client == nil {
+			return chain.ErrChainClientNotFound
+		}
+
+		var unlockMode int
+		switch operationState {
+		case "received":
+			// lock utxo
+			unlockMode = 1
+
+		case "settled":
+			// unlock utxo
+			unlockMode = 2
+		}
+
+		if unlockMode > 0 {
+			// mode=1 lock (unlock=false)
+			// mode=2 unlock (unlock=true)
+			unlock := unlockMode == 2
+
+			err = client.LockUnspent(ctx, unlock, wcommon.TransactionInfo{
+				TxID: string(operationInfo.TxID),
+				Vout: int64(operationInfo.Vout),
+			})
+			if err != nil {
+				// non fatal
+				// this can occure when state was not seen recieved
+				log.WithError(err).
+					WithField("Unlock", unlock).
+					Warn("Failed to LockUnspent")
+			}
+			log.
+				WithField("Unlock", unlock).
+				Debug("LockUnspent done")
 		}
 
 		// update state
@@ -376,9 +415,13 @@ func fetchActiveAddresses(ctx context.Context, state chain.ChainState) ([]string
 		addNewAddress(allAddresses, missing...)
 	}
 
-	// fetch addresses with status received from database
+	// fetch addresses with active state from database
 	{
-		received, err := database.FindCryptoAddressesByOperationInfoState(db, chainName, model.String("received"))
+		activeStates := []model.String{
+			"received",
+			"confirmed",
+		}
+		received, err := database.FindCryptoAddressesByOperationInfoState(db, chainName, activeStates...)
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to FindCryptoAddressesByOperationInfoState")
