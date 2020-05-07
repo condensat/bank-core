@@ -257,6 +257,10 @@ func createAssetCurrency(ctx context.Context, assetHash string) (model.AssetID, 
 	if len(assetHash) == 0 {
 		return 0, nil
 	}
+	// 1 L-BTC = 1 L-BTC
+	if assetHash == PolicyAssetLiquid {
+		return 0, nil
+	}
 
 	// check if asset exists
 	asset, err := database.GetAssetByHash(db, model.AssetHash(assetHash))
