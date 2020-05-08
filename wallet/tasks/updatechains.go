@@ -304,54 +304,67 @@ func createAssetCurrency(ctx context.Context, assetHash string) (model.AssetID, 
 		return 0, nil
 	}
 
-	// check if asset exists
-	asset, err := database.GetAssetByHash(db, model.AssetHash(assetHash))
-	if err == nil {
-		return asset.ID, nil
-	}
-
-	// create asset & currency
-	assetCount, err := database.AssetCount(db)
+	asset, currencyName, err := getCurrencyNameFromAssetHash(db, model.AssetHash(assetHash))
 	if err != nil {
 		log.WithError(err).
-			Error("AssetCount failed")
-		return 0, nil
-	}
-
-	// create CurrencyName
-	currencyName := fmt.Sprintf("Li#%05d", assetCount+1)
-	log = log.WithFields(logrus.Fields{
-		"AssetHash":    assetHash,
-		"CurrencyName": currencyName,
-	})
-
-	_, err = client.CurrencyCreate(ctx, currencyName, true, 0)
-	if err != nil {
-		log.WithError(err).
-			Error("CurrencyCreate failed")
+			Error("getCurrencyNameFromAssetHash failed")
 		return 0, err
 	}
 
-	// activate currency
-	_, err = client.CurrencySetAvailable(ctx, currencyName, true)
-	if err != nil {
-		log.WithError(err).
-			Error("CurrencySetAvailable failed")
-		return 0, err
+	// check of currency exists
+	if _, err := client.CurrencyInfo(ctx, string(currencyName)); err != nil {
+		// currency must be created
+		_, err = client.CurrencyCreate(ctx, string(currencyName), true, 0)
+		if err != nil {
+			log.WithError(err).
+				Error("CurrencyCreate failed")
+			return 0, err
+		}
+
+		// activate currency
+		_, err = client.CurrencySetAvailable(ctx, string(currencyName), true)
+		if err != nil {
+			log.WithError(err).
+				Error("CurrencySetAvailable failed")
+			return 0, err
+		}
 	}
 
-	asset, err = database.AddAsset(db, model.AssetHash(assetHash), model.CurrencyName(currencyName))
-	if err != nil {
-		log.WithError(err).
-			Error("AddAsset failed")
-		return 0, err
-	}
+	// asset must be created
+	if asset.ID == 0 {
+		asset, err = database.AddAsset(db, model.AssetHash(assetHash), currencyName)
+		if err != nil {
+			log.WithError(err).
+				Error("AddAsset failed")
+			return 0, err
+		}
 
-	log.
-		WithField("AssetID", asset.ID).
-		Debug("Asset Created")
+		log.
+			WithField("AssetID", asset.ID).
+			Debug("Asset Created")
+	}
 
 	return asset.ID, nil
+}
+
+func getCurrencyNameFromAssetHash(db bank.Database, assetHash model.AssetHash) (model.Asset, model.CurrencyName, error) {
+	// check if asset exists
+	asset, err := database.GetAssetByHash(db, model.AssetHash(assetHash))
+	if err != nil {
+		// format new currency name
+		assetCount, err := database.AssetCount(db)
+		if err != nil {
+			return model.Asset{}, "", err
+		}
+		return model.Asset{}, model.CurrencyName(fmt.Sprintf("Li#%05d", assetCount+1)), nil
+	}
+
+	// return asset CurrencyName
+	if len(asset.CurrencyName) == 0 {
+		return model.Asset{}, "", database.ErrInvalidCurrencyName
+	}
+
+	return asset, asset.CurrencyName, nil
 }
 
 func fetchActiveAddresses(ctx context.Context, state chain.ChainState) ([]string, []model.CryptoAddress) {
