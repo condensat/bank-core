@@ -13,6 +13,6 @@ func Models() []model.Model {
 	var result []model.Model
 	result = append(result, database.CryptoAddressModel()...)
 	result = append(result, database.OperationInfoModel()...)
-	result = append(result, new(model.Asset))
+	result = append(result, database.AssetModel()...)
 	return result
 }
