@@ -100,3 +100,24 @@ func GetAssetByHash(db bank.Database, assetHash model.AssetHash) (model.Asset, e
 
 	return result, nil
 }
+
+func AssetHashExists(db bank.Database, assetHash model.AssetHash) bool {
+	gdb := db.DB().(*gorm.DB)
+	if db == nil {
+		return false
+	}
+
+	if len(assetHash) == 0 {
+		return false
+	}
+
+	var result model.Asset
+	err := gdb.
+		Where(&model.Asset{Hash: assetHash}).
+		First(&result).Error
+	if err != nil && err == gorm.ErrRecordNotFound {
+		return false
+	}
+
+	return true
+}

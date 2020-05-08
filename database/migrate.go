@@ -53,3 +53,11 @@ func OperationInfoModel() []model.Model {
 		model.Model(new(model.OperationStatus)),
 	}...)
 }
+
+func AssetModel() []model.Model {
+	return []model.Model{
+		model.Model(new(model.Asset)),
+		model.Model(new(model.AssetInfo)),
+		model.Model(new(model.AssetIcon)),
+	}
+}
