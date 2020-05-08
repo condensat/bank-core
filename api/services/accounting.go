@@ -178,8 +178,8 @@ func (p *AccountingService) List(r *http.Request, request *AccountRequest, reply
 			TotalLocked:      utils.ToFixed(account.TotalLocked/finaleRate, int(info.DisplayPrecision)),
 		}
 
-		if info.Asset {
-			// asset does not have notional
+		if info.Asset || account.Currency.Name == "TBTC" {
+			// asset and TBTC does not have notional
 			notional = Notional{}
 		}
 
