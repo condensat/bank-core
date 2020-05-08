@@ -7,7 +7,6 @@ package handlers
 import (
 	"context"
 	"math"
-	"strings"
 
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
@@ -79,12 +78,20 @@ func txGetAccountInfo(db bank.Database, account model.Account) (common.AccountIn
 		totalLocked = float64(*last.TotalLocked)
 	}
 
-	isAsset := strings.HasPrefix(string(currency.Name), "Li#")
+	asset, _ := database.GetAssetByCurrencyName(db, currency.Name)
+	isAsset := asset.ID > 0
+
 	displayPrecision := currency.DisplayPrecision()
-	tickerPrecision := -1 // no ticker precison
+	tickerPrecision := -1 // no ticker precison if not crypto
+	if currency.IsCrypto() {
+		tickerPrecision = 8 // BTC precision
+	}
 	if isAsset {
 		displayPrecision = 0
 		tickerPrecision = 0
+		if assetInfo, err := database.GetAssetInfo(db, asset.ID); err == nil {
+			tickerPrecision = int(assetInfo.Precision)
+		}
 	}
 
 	return common.AccountInfo{
@@ -132,8 +139,11 @@ func convertAssetAmount(amount float64, tickerPrecision int) float64 {
 	if tickerPrecision < 0 {
 		return amount
 	}
-	const toSatoshi = 100000000
-	amount *= toSatoshi * math.Pow(10.0, float64(tickerPrecision))
+	const btcPrecision = 8
+	if tickerPrecision > btcPrecision {
+		tickerPrecision = btcPrecision
+	}
+	amount *= math.Pow(10.0, float64(btcPrecision-tickerPrecision))
 
 	return utils.ToFixed(amount, tickerPrecision)
 }

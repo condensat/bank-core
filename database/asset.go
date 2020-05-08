@@ -101,6 +101,27 @@ func GetAssetByHash(db bank.Database, assetHash model.AssetHash) (model.Asset, e
 	return result, nil
 }
 
+func GetAssetByCurrencyName(db bank.Database, currencyName model.CurrencyName) (model.Asset, error) {
+	gdb := db.DB().(*gorm.DB)
+	if db == nil {
+		return model.Asset{}, errors.New("Invalid appcontext.Database")
+	}
+
+	if len(currencyName) == 0 {
+		return model.Asset{}, ErrInvalidCurrencyName
+	}
+
+	var result model.Asset
+	err := gdb.
+		Where(&model.Asset{CurrencyName: currencyName}).
+		First(&result).Error
+	if err != nil {
+		return model.Asset{}, err
+	}
+
+	return result, nil
+}
+
 func AssetHashExists(db bank.Database, assetHash model.AssetHash) bool {
 	gdb := db.DB().(*gorm.DB)
 	if db == nil {
