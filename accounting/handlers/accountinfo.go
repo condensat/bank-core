@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"math"
 
 	"github.com/condensat/bank-core"
@@ -79,18 +80,22 @@ func txGetAccountInfo(db bank.Database, account model.Account) (common.AccountIn
 	}
 
 	asset, _ := database.GetAssetByCurrencyName(db, currency.Name)
-	isAsset := asset.ID > 0
 
+	isAsset := currency.IsCrypto() && asset.ID > 0
+
+	currencyName := string(currency.Name)
 	displayPrecision := currency.DisplayPrecision()
 	tickerPrecision := -1 // no ticker precison if not crypto
 	if currency.IsCrypto() {
 		tickerPrecision = 8 // BTC precision
 	}
 	if isAsset {
+		currencyName = shortAssetHash(string(asset.Hash))
 		displayPrecision = 0
 		tickerPrecision = 0
 		if assetInfo, err := database.GetAssetInfo(db, asset.ID); err == nil {
 			tickerPrecision = int(assetInfo.Precision)
+			currencyName = assetInfo.Name
 		}
 	}
 
@@ -98,7 +103,7 @@ func txGetAccountInfo(db bank.Database, account model.Account) (common.AccountIn
 		Timestamp: last.Timestamp,
 		AccountID: uint64(account.ID),
 		Currency: common.CurrencyInfo{
-			Name:             string(currency.Name),
+			Name:             currencyName,
 			Crypto:           currency.IsCrypto(),
 			Asset:            isAsset,
 			DisplayPrecision: uint(displayPrecision),
@@ -133,6 +138,14 @@ func OnAccountInfo(ctx context.Context, subject string, message *bank.Message) (
 			// create & return response
 			return &info, nil
 		})
+}
+
+func shortAssetHash(hash string) string {
+	const limit = 5
+	if len(hash) <= 2*limit {
+		return hash
+	}
+	return fmt.Sprintf("%s...%s", hash[:limit], hash[len(hash)-limit:])
 }
 
 func convertAssetAmount(amount float64, tickerPrecision int) float64 {
