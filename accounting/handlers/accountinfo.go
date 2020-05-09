@@ -81,9 +81,10 @@ func txGetAccountInfo(db bank.Database, account model.Account) (common.AccountIn
 
 	asset, _ := database.GetAssetByCurrencyName(db, currency.Name)
 
-	isAsset := currency.IsCrypto() && asset.ID > 0
+	isAsset := currency.IsCrypto() && currency.GetType() == 2 && asset.ID > 0
 
 	currencyName := string(currency.Name)
+	displayName := string(currency.DisplayName)
 	displayPrecision := currency.DisplayPrecision()
 	tickerPrecision := -1 // no ticker precison if not crypto
 	if currency.IsCrypto() {
@@ -95,7 +96,17 @@ func txGetAccountInfo(db bank.Database, account model.Account) (common.AccountIn
 		tickerPrecision = 0
 		if assetInfo, err := database.GetAssetInfo(db, asset.ID); err == nil {
 			tickerPrecision = int(assetInfo.Precision)
-			currencyName = assetInfo.Name
+			currencyName = assetInfo.Ticker
+			displayName = assetInfo.Name
+		}
+
+		// currencyName is listed in Asset and AssetIcon tables, but not in AssetInfo
+		// override currencyName
+		if currency.Name == "LBTC" {
+			currencyName = string(currency.Name)
+			// restore ticker precisions for LBTC
+			displayPrecision = currency.DisplayPrecision()
+			tickerPrecision = 8 // BTC precision
 		}
 	}
 
@@ -104,8 +115,9 @@ func txGetAccountInfo(db bank.Database, account model.Account) (common.AccountIn
 		AccountID: uint64(account.ID),
 		Currency: common.CurrencyInfo{
 			Name:             currencyName,
+			DisplayName:      displayName,
 			Crypto:           currency.IsCrypto(),
-			Asset:            isAsset,
+			Type:             common.CurrencyType(currency.GetType()),
 			DisplayPrecision: uint(displayPrecision),
 		},
 		Name:        string(account.Name),

@@ -10,10 +10,15 @@ import (
 	"github.com/condensat/bank-core"
 )
 
+type CurrencyType int
+
 type CurrencyInfo struct {
 	Name             string
+	DisplayName      string
 	Available        bool
+	AutoCreate       bool
 	Crypto           bool
+	Type             CurrencyType
 	Asset            bool
 	DisplayPrecision uint
 }

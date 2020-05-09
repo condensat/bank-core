@@ -313,8 +313,8 @@ func createAssetCurrency(ctx context.Context, assetHash string) (model.AssetID, 
 
 	// check of currency exists
 	if _, err := client.CurrencyInfo(ctx, string(currencyName)); err != nil {
-		// currency must be created
-		_, err = client.CurrencyCreate(ctx, string(currencyName), true, 0)
+		// currency must be created for asset
+		_, err = client.CurrencyCreate(ctx, string(currencyName), "", common.CurrencyType(2), true, 0)
 		if err != nil {
 			log.WithError(err).
 				Error("CurrencyCreate failed")

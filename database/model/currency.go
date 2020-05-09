@@ -8,13 +8,16 @@ type CurrencyName String
 type CurrencyAvailable ZeroInt
 
 type Currency struct {
-	Name      CurrencyName `gorm:"primary_key;type:varchar(16)"` // [PK] Currency
-	Available ZeroInt      `gorm:"default:0;not null"`
-	Crypto    ZeroInt      `gorm:"default:0;not null"`
-	Precision ZeroInt      `gorm:"default:2;not null"`
+	Name        CurrencyName `gorm:"primary_key;type:varchar(16)"` // [PK] Currency
+	DisplayName CurrencyName `gorm:"type:varchar(32)"`
+	Type        ZeroInt      `gorm:"default:0;not null"` // currencyType [Fiat=0, CryptoNative=1, CryptoAsset=2]
+	Available   ZeroInt      `gorm:"default:0;not null"`
+	Crypto      ZeroInt      `gorm:"default:0;not null"`
+	Precision   ZeroInt      `gorm:"default:0;not null"`
+	AutoCreate  bool         `gorm:"default:false"` // Automatic creation for accounts
 }
 
-func NewCurrency(name CurrencyName, available, crypto, precision Int) Currency {
+func NewCurrency(name, displayName CurrencyName, currencyType, available, crypto, precision Int) Currency {
 	if len(name) == 0 {
 		return Currency{}
 	}
@@ -29,10 +32,12 @@ func NewCurrency(name CurrencyName, available, crypto, precision Int) Currency {
 	}
 
 	return Currency{
-		Name:      name,
-		Available: ZeroInt(&available),
-		Crypto:    ZeroInt(&crypto),
-		Precision: ZeroInt(&precision),
+		Name:        name,
+		DisplayName: displayName,
+		Type:        ZeroInt(&currencyType),
+		Available:   ZeroInt(&available),
+		Crypto:      ZeroInt(&crypto),
+		Precision:   ZeroInt(&precision),
 	}
 }
 
@@ -42,6 +47,13 @@ func (p *Currency) IsAvailable() bool {
 
 func (p *Currency) IsCrypto() bool {
 	return len(p.Name) > 0 && p.Crypto != nil && *p.Crypto > 0
+}
+
+func (p *Currency) GetType() Int {
+	if p.Type == nil {
+		return 0
+	}
+	return *p.Type
 }
 
 func (p *Currency) DisplayPrecision() Int {

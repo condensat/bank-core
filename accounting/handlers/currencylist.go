@@ -38,7 +38,10 @@ func CurrencyList(ctx context.Context) (common.CurrencyList, error) {
 		for _, currency := range list {
 			result.Currencies = append(result.Currencies, common.CurrencyInfo{
 				Name:             string(currency.Name),
+				DisplayName:      string(currency.DisplayName),
 				Available:        currency.IsAvailable(),
+				AutoCreate:       currency.AutoCreate,
+				Type:             common.CurrencyType(currency.GetType()),
 				Crypto:           currency.IsCrypto(),
 				DisplayPrecision: uint(currency.DisplayPrecision()),
 			})

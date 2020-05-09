@@ -31,7 +31,10 @@ func CurrencyInfo(ctx context.Context, currencyName string) (common.CurrencyInfo
 
 	log.WithFields(logrus.Fields{
 		"Name":             result.Name,
+		"DisplayName":      result.DisplayName,
 		"Available":        result.Available,
+		"AutoCreate":       result.AutoCreate,
+		"Type":             result.Type,
 		"Crypto":           result.Crypto,
 		"DisplayPrecision": result.DisplayPrecision,
 	}).Trace("Currency CurrencyInfo")

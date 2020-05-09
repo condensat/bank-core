@@ -178,8 +178,8 @@ func createTestAccountData(db bank.Database) AccountTestData {
 
 	userTest1, _ := FindOrCreateUser(db, model.User{Name: "test1", Email: "test1@condensat.tech"})
 	userTest2, _ := FindOrCreateUser(db, model.User{Name: "test2", Email: "test2@condensat.tech"})
-	currTest1, _ := AddOrUpdateCurrency(db, model.NewCurrency("TBTC1", FlagCurencyAvailable, 1, 2))
-	currTest2, _ := AddOrUpdateCurrency(db, model.NewCurrency("TBTC2", FlagCurencyAvailable, 1, 2))
+	currTest1, _ := AddOrUpdateCurrency(db, model.NewCurrency("TBTC1", "", 1, FlagCurencyAvailable, 1, 2))
+	currTest2, _ := AddOrUpdateCurrency(db, model.NewCurrency("TBTC2", "", 1, FlagCurencyAvailable, 1, 2))
 
 	data.Users = append(data.Users, userTest1)
 	data.Users = append(data.Users, userTest2)

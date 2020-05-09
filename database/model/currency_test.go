@@ -17,31 +17,34 @@ func TestNewCurrency(t *testing.T) {
 	t.Parallel()
 
 	type args struct {
-		name      CurrencyName
-		available Int
-		crypto    Int
-		precision Int
+		name         CurrencyName
+		displayName  CurrencyName
+		currencyType Int
+		available    Int
+		crypto       Int
+		precision    Int
 	}
 	tests := []struct {
 		name string
 		args args
 		want Currency
 	}{
-		{"Default", args{"", 0, 0, 0}, Currency{}},
-		{"InvalidCurrency", args{"", 1, 1, 2}, Currency{}},
-		{"DefaultAvailable", args{"BTC", -1, 1, 2}, Currency{"BTC", newInt(0), newInt(1), newInt(2)}},
-		{"DefaultCrypto", args{"BTC", 1, -1, 2}, Currency{"BTC", newInt(1), newInt(0), newInt(2)}},
-		{"DefaultPrecision", args{"BTC", 1, 1, -2}, Currency{"BTC", newInt(1), newInt(1), newInt(2)}},
+		{"Default", args{"", "", 0, 0, 0, 0}, Currency{}},
+		{"InvalidCurrency", args{"", "", 0, 1, 1, 2}, Currency{}},
+		{"DefaultAvailable", args{"BTC", "", 1, -1, 1, 2}, Currency{"BTC", "", newInt(1), newInt(0), newInt(1), newInt(2), false}},
+		{"DefaultCrypto", args{"BTC", "", 1, 1, -1, 2}, Currency{"BTC", "", newInt(1), newInt(1), newInt(0), newInt(2), false}},
+		{"DefaultPrecision", args{"BTC", "", 1, 1, 1, -2}, Currency{"BTC", "", newInt(1), newInt(1), newInt(1), newInt(2), false}},
 
-		{"Valid", args{"BTC", 0, 0, 0}, Currency{"BTC", newInt(0), newInt(0), newInt(0)}},
-		{"ValidAvailable", args{"BTC", 1, 0, 0}, Currency{"BTC", newInt(1), newInt(0), newInt(0)}},
-		{"ValidCrypto", args{"BTC", 0, 1, 0}, Currency{"BTC", newInt(0), newInt(1), newInt(0)}},
-		{"ValidPrecision", args{"BTC", 0, 0, 1}, Currency{"BTC", newInt(0), newInt(0), newInt(1)}},
+		{"Valid", args{"BTC", "", 1, 0, 0, 0}, Currency{"BTC", "", newInt(1), newInt(0), newInt(0), newInt(0), false}},
+		{"ValidDisplayName", args{"BTC", "Bitcoin", 1, 0, 0, 0}, Currency{"BTC", "Bitcoin", newInt(1), newInt(0), newInt(0), newInt(0), false}},
+		{"ValidAvailable", args{"BTC", "", 1, 1, 0, 0}, Currency{"BTC", "", newInt(1), newInt(1), newInt(0), newInt(0), false}},
+		{"ValidCrypto", args{"BTC", "", 1, 0, 1, 0}, Currency{"BTC", "", newInt(1), newInt(0), newInt(1), newInt(0), false}},
+		{"ValidPrecision", args{"BTC", "", 1, 0, 0, 1}, Currency{"BTC", "", newInt(1), newInt(0), newInt(0), newInt(1), false}},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewCurrency(tt.args.name, tt.args.available, tt.args.crypto, tt.args.precision); !reflect.DeepEqual(got, tt.want) {
+			if got := NewCurrency(tt.args.name, tt.args.displayName, tt.args.currencyType, tt.args.available, tt.args.crypto, tt.args.precision); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewCurrency() = %v, want %v", got, tt.want)
 			}
 		})
