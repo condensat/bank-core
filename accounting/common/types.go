@@ -73,10 +73,11 @@ type AccountTransfert struct {
 }
 
 type AccountHistory struct {
-	AccountID uint64
-	Currency  string
-	From      time.Time
-	To        time.Time
+	AccountID   uint64
+	DisplayName string
+	Ticker      string
+	From        time.Time
+	To          time.Time
 
 	Entries []AccountEntry
 }
