@@ -33,9 +33,10 @@ type WalletNextDepositRequest struct {
 
 // WalletNextDepositResponse holds args for accounting requests
 type WalletNextDepositResponse struct {
-	Currency      string `json:"currency"`
-	PublicAddress string `json:"publicAddress"`
-	URL           string `json:"url"`
+	Currency        string `json:"currency"`
+	DisplayCurrency string `json:"displayCurrency"`
+	PublicAddress   string `json:"publicAddress"`
+	URL             string `json:"url"`
 }
 
 // WalletService operation return deposit address for account
@@ -107,9 +108,10 @@ func (p *WalletService) NextDeposit(r *http.Request, request *WalletNextDepositR
 	// Reply
 	protocol, err := getProtocolFromCurrencyName(account.Currency.Crypto, account.Currency.Name)
 	*reply = WalletNextDepositResponse{
-		Currency:      account.Currency.Name,
-		PublicAddress: addr.PublicAddress,
-		URL:           fmt.Sprintf("%s:%s", protocol, addr.PublicAddress),
+		Currency:        account.Currency.Name,
+		DisplayCurrency: account.Currency.DisplayName,
+		PublicAddress:   addr.PublicAddress,
+		URL:             fmt.Sprintf("%s:%s", protocol, addr.PublicAddress),
 	}
 	if err != nil {
 		log.WithError(err).
