@@ -6,7 +6,6 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"math"
 
 	"github.com/condensat/bank-core"
@@ -91,7 +90,7 @@ func txGetAccountInfo(db bank.Database, account model.Account) (common.AccountIn
 		tickerPrecision = 8 // BTC precision
 	}
 	if isAsset {
-		currencyName = shortAssetHash(string(asset.Hash))
+		currencyName = utils.EllipsisCentral(string(asset.Hash), 5)
 		displayPrecision = 0
 		tickerPrecision = 0
 		if assetInfo, err := database.GetAssetInfo(db, asset.ID); err == nil {
@@ -150,14 +149,6 @@ func OnAccountInfo(ctx context.Context, subject string, message *bank.Message) (
 			// create & return response
 			return &info, nil
 		})
-}
-
-func shortAssetHash(hash string) string {
-	const limit = 5
-	if len(hash) <= 2*limit {
-		return hash
-	}
-	return fmt.Sprintf("%s...%s", hash[:limit], hash[len(hash)-limit:])
 }
 
 func convertAssetAmount(amount float64, tickerPrecision int) float64 {
