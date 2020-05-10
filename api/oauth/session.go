@@ -62,8 +62,8 @@ func UpdateUserSession(ctx context.Context, req *http.Request, w http.ResponseWr
 				}
 
 				for _, currency := range list.Currencies {
-					// do not create account for disableds currencies
-					if !currency.Available {
+					// do not create account for disableds or not autocreate currencies
+					if !currency.Available || !currency.AutoCreate {
 						continue
 					}
 

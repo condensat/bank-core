@@ -107,10 +107,6 @@ func (p *AccountingService) List(r *http.Request, request *AccountRequest, reply
 	// prepare response
 	var result []AccountInfo
 	for _, account := range list.Accounts {
-		// skip empty crypto accounts
-		if account.Currency.Crypto && !request.WithEmptyCrypto && math.Abs(account.Balance) <= 0.0 {
-			continue
-		}
 		// create SecureID from AccountID
 		secureID, err := sID.ToSecureID("account", secureid.Value(account.AccountID))
 		if err != nil {
