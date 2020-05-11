@@ -5,6 +5,7 @@
 package services
 
 import (
+	"math"
 	"net/http"
 
 	"github.com/condensat/bank-core/appcontext"
@@ -24,13 +25,17 @@ type AccountingService int
 // AccountRequest holds args for accounting requests
 type AccountRequest struct {
 	SessionArgs
-	RateBase string `json:"rateBase"`
+	RateBase        string `json:"rateBase"`
+	WithEmptyCrypto bool   `json:"withEmptyCrypto"`
 }
 
 type CurrencyInfo struct {
-	Name             string `json:"name"`
+	DisplayName      string `json:"displayName"`
+	Ticker           string `json:"ticker"`
 	IsCrypto         bool   `json:"isCrypto"`
+	IsAsset          bool   `json:"isAsset"`
 	DisplayPrecision uint   `json:"displayPrecision"`
+	Icon             []byte `json:"icon,omitempty"`
 }
 
 type Notional struct {
@@ -156,25 +161,48 @@ func (p *AccountingService) List(r *http.Request, request *AccountRequest, reply
 			info.DisplayPrecision = account.Currency.DisplayPrecision
 		}
 
+		info.Asset = account.Currency.Type == 2 && account.Currency.Name != "LBTC"
+
+		if info.Asset {
+			finaleRate = 1.0
+		}
+
+		notional := Notional{
+			RateBase:         request.RateBase,
+			DisplayPrecision: info.DisplayPrecision,
+			Rate:             utils.ToFixed(finaleRate, 12), // maximum precision for rates
+			Balance:          utils.ToFixed(account.Balance/finaleRate, int(info.DisplayPrecision)),
+			TotalLocked:      utils.ToFixed(account.TotalLocked/finaleRate, int(info.DisplayPrecision)),
+		}
+
+		if info.Asset || account.Currency.Name == "TBTC" {
+			// asset and TBTC does not have notional
+			notional = Notional{}
+		}
+
+		icon := getTickerIcon(ctx, account.Currency.Name)
+
+		displayName := account.Currency.DisplayName
+		if account.Currency.Name == "TBTC" {
+			displayName = "Bitcoin testnet"
+		}
+
 		result = append(result, AccountInfo{
 			Timestamp: makeTimestampMillis(account.Timestamp),
 			AccountID: sID.ToString(secureID),
 			Currency: CurrencyInfo{
-				Name:             account.Currency.Name,
+				DisplayName:      displayName,
+				Ticker:           account.Currency.Name,
 				IsCrypto:         account.Currency.Crypto,
+				IsAsset:          info.Asset,
 				DisplayPrecision: account.Currency.DisplayPrecision,
+				Icon:             icon,
 			},
 			Name:        account.Name,
 			Status:      account.Status,
 			Balance:     account.Balance,
 			TotalLocked: account.TotalLocked,
-			Notional: Notional{
-				RateBase:         request.RateBase,
-				DisplayPrecision: info.DisplayPrecision,
-				Rate:             utils.ToFixed(finaleRate, 12), // maximum precision for rates
-				Balance:          utils.ToFixed(account.Balance/finaleRate, int(info.DisplayPrecision)),
-				TotalLocked:      utils.ToFixed(account.TotalLocked/finaleRate, int(info.DisplayPrecision)),
-			},
+			Notional:    notional,
 		})
 	}
 
@@ -194,6 +222,7 @@ func (p *AccountingService) List(r *http.Request, request *AccountRequest, reply
 type AccountHistoryRequest struct {
 	SessionArgs
 	AccountID string `json:"accountId"`
+	WithEmpty bool   `json:"withEmpty"`
 	From      int64  `json:"from"`
 	To        int64  `json:"to"`
 }
@@ -210,11 +239,12 @@ type AccountOperation struct {
 
 // AccountHistoryResponse holds args for accounting requests
 type AccountHistoryResponse struct {
-	AccountID  string             `json:"accountId"`
-	Currency   string             `json:"currency"`
-	From       int64              `json:"from"`
-	To         int64              `json:"to"`
-	Operations []AccountOperation `json:"operations"`
+	AccountID   string             `json:"accountId"`
+	DisplayName string             `json:"displayName"`
+	Ticker      string             `json:"ticker"`
+	From        int64              `json:"from"`
+	To          int64              `json:"to"`
+	Operations  []AccountOperation `json:"operations"`
 }
 
 // AccountingService operation return user's accounts
@@ -291,6 +321,10 @@ func (p *AccountingService) History(r *http.Request, request *AccountHistoryRequ
 		to = history.Entries[0].Timestamp
 	}
 	for _, entry := range history.Entries {
+		// skip entries with zero amount (unlock operations)
+		if !request.WithEmpty && math.Abs(entry.Amount) <= 0.0 {
+			continue
+		}
 		// update date range from entry timestamp
 		if from.After(entry.Timestamp) {
 			from = entry.Timestamp
@@ -317,12 +351,18 @@ func (p *AccountingService) History(r *http.Request, request *AccountHistoryRequ
 		})
 	}
 
+	displayName := history.DisplayName
+	if history.DisplayName == "TBTC" {
+		displayName = "Bitcoin testnet"
+	}
+
 	// Reply
 	*reply = AccountHistoryResponse{
-		AccountID: request.AccountID,
-		Currency:  history.Currency,
-		From:      makeTimestampMillis(from),
-		To:        makeTimestampMillis(to),
+		AccountID:   request.AccountID,
+		DisplayName: displayName,
+		Ticker:      history.Ticker,
+		From:        makeTimestampMillis(from),
+		To:          makeTimestampMillis(to),
 
 		Operations: result[:],
 	}

@@ -6,12 +6,14 @@ package handlers
 
 import (
 	"context"
+	"math"
 
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
+	"github.com/condensat/bank-core/utils"
 
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
@@ -76,18 +78,51 @@ func txGetAccountInfo(db bank.Database, account model.Account) (common.AccountIn
 		totalLocked = float64(*last.TotalLocked)
 	}
 
+	asset, _ := database.GetAssetByCurrencyName(db, currency.Name)
+
+	isAsset := currency.IsCrypto() && currency.GetType() == 2 && asset.ID > 0
+
+	currencyName := string(currency.Name)
+	displayName := string(currency.DisplayName)
+	displayPrecision := currency.DisplayPrecision()
+	tickerPrecision := -1 // no ticker precison if not crypto
+	if currency.IsCrypto() {
+		tickerPrecision = 8 // BTC precision
+	}
+	if isAsset {
+		currencyName = utils.EllipsisCentral(string(asset.Hash), 5)
+		displayPrecision = 0
+		tickerPrecision = 0
+		if assetInfo, err := database.GetAssetInfo(db, asset.ID); err == nil {
+			tickerPrecision = int(assetInfo.Precision)
+			currencyName = assetInfo.Ticker
+			displayName = assetInfo.Name
+		}
+
+		// currencyName is listed in Asset and AssetIcon tables, but not in AssetInfo
+		// override currencyName
+		if currency.Name == "LBTC" {
+			currencyName = string(currency.Name)
+			// restore ticker precisions for LBTC
+			displayPrecision = currency.DisplayPrecision()
+			tickerPrecision = 8 // BTC precision
+		}
+	}
+
 	return common.AccountInfo{
 		Timestamp: last.Timestamp,
 		AccountID: uint64(account.ID),
 		Currency: common.CurrencyInfo{
-			Name:             string(currency.Name),
+			Name:             currencyName,
+			DisplayName:      displayName,
 			Crypto:           currency.IsCrypto(),
-			DisplayPrecision: uint(currency.DisplayPrecision()),
+			Type:             common.CurrencyType(currency.GetType()),
+			DisplayPrecision: uint(displayPrecision),
 		},
 		Name:        string(account.Name),
 		Status:      string(accountState.State),
-		Balance:     float64(balance),
-		TotalLocked: float64(totalLocked),
+		Balance:     convertAssetAmount(float64(balance), tickerPrecision),
+		TotalLocked: convertAssetAmount(float64(totalLocked), tickerPrecision),
 	}, nil
 }
 
@@ -114,4 +149,17 @@ func OnAccountInfo(ctx context.Context, subject string, message *bank.Message) (
 			// create & return response
 			return &info, nil
 		})
+}
+
+func convertAssetAmount(amount float64, tickerPrecision int) float64 {
+	if tickerPrecision < 0 {
+		return amount
+	}
+	const btcPrecision = 8
+	if tickerPrecision > btcPrecision {
+		tickerPrecision = btcPrecision
+	}
+	amount *= math.Pow(10.0, float64(btcPrecision-tickerPrecision))
+
+	return utils.ToFixed(amount, tickerPrecision)
 }

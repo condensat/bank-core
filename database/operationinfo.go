@@ -159,16 +159,32 @@ func FindCryptoAddressesNotInOperationInfo(db bank.Database, chain model.String)
 	return converCryptoAddressList(list), nil
 }
 
-func FindCryptoAddressesByOperationInfoState(db bank.Database, chain model.String, state model.String) ([]model.CryptoAddress, error) {
+func FindCryptoAddressesByOperationInfoState(db bank.Database, chain model.String, states ...model.String) ([]model.CryptoAddress, error) {
 	gdb := db.DB().(*gorm.DB)
 
-	if len(state) == 0 {
+	uniq := make(map[model.String]model.String)
+	for _, state := range states {
+		// skip empty states
+		if len(state) == 0 {
+			continue
+		}
+		uniq[state] = state
+	}
+
+	// slice uniq map
+	var slice []model.String
+	for state := range uniq {
+		slice = append(slice, state)
+	}
+
+	// state must not be empty
+	if len(slice) == 0 {
 		return nil, ErrInvalidOperationStatus
 	}
 
 	subQueryState := gdb.Model(&model.OperationStatus{}).
 		Select("operation_info_id").
-		Where("state = ?", state).
+		Where("state IN (?)", slice).
 		SubQuery()
 	subQueryInfo := gdb.Model(&model.OperationInfo{}).
 		Select("id, crypto_address_id").

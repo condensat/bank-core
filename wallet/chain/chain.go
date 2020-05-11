@@ -34,9 +34,12 @@ type ChainState struct {
 
 type TransactionInfo struct {
 	TxID          string
+	Vout          int64
+	Asset         string
 	Amount        float64
 	Confirmations int64
 }
+
 type AddressInfo struct {
 	Chain         string
 	PublicAddress string
@@ -64,6 +67,124 @@ func GetNewAddress(ctx context.Context, chain, account string) (string, error) {
 	defer lock.Unlock()
 
 	return client.GetNewAddress(ctx, account)
+}
+
+func GetAddressInfo(ctx context.Context, chain, address string) (common.AddressInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "wallet.GetAddressInfo")
+
+	log = log.WithField("Chain", chain)
+
+	client := common.ChainClientFromContext(ctx, chain)
+	if client == nil {
+		return common.AddressInfo{}, ErrChainClientNotFound
+	}
+
+	// Acquire Lock
+	lock, err := cache.LockChain(ctx, chain)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to lock chain")
+		return common.AddressInfo{}, cache.ErrLockError
+	}
+	defer lock.Unlock()
+
+	info, err := client.GetAddressInfo(ctx, address)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to lock chain")
+		return common.AddressInfo{}, cache.ErrLockError
+	}
+
+	info.Chain = chain
+
+	return info, nil
+}
+
+func LockUnspent(ctx context.Context, chain string, unlock bool, utxos ...common.TransactionInfo) error {
+	log := logger.Logger(ctx).WithField("Method", "wallet.LockUnspent")
+
+	log = log.WithField("Chain", chain)
+
+	client := common.ChainClientFromContext(ctx, chain)
+	if client == nil {
+		return ErrChainClientNotFound
+	}
+
+	// Acquire Lock
+	lock, err := cache.LockChain(ctx, chain)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to lock chain")
+		return cache.ErrLockError
+	}
+	defer lock.Unlock()
+
+	err = client.LockUnspent(ctx, unlock, utxos...)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to LockUnspent")
+		return cache.ErrLockError
+	}
+
+	return nil
+}
+
+func ListLockUnspent(ctx context.Context, chain string) ([]common.TransactionInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "wallet.ListLockUnspent")
+
+	log = log.WithField("Chain", chain)
+
+	client := common.ChainClientFromContext(ctx, chain)
+	if client == nil {
+		return nil, ErrChainClientNotFound
+	}
+
+	// Acquire Lock
+	lock, err := cache.LockChain(ctx, chain)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to lock chain")
+		return nil, cache.ErrLockError
+	}
+	defer lock.Unlock()
+
+	list, err := client.ListLockUnspent(ctx)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to ListLockUnspent")
+		return nil, err
+	}
+
+	return list, nil
+}
+
+func GetTransaction(ctx context.Context, chain string, txID string) (common.TransactionInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "wallet.GetTransaction")
+
+	log = log.WithField("Chain", chain)
+
+	client := common.ChainClientFromContext(ctx, chain)
+	if client == nil {
+		return common.TransactionInfo{}, ErrChainClientNotFound
+	}
+
+	// Acquire Lock
+	lock, err := cache.LockChain(ctx, chain)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to lock chain")
+		return common.TransactionInfo{}, cache.ErrLockError
+	}
+	defer lock.Unlock()
+
+	result, err := client.GetTransaction(ctx, txID)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to GetTransaction")
+		return common.TransactionInfo{}, cache.ErrLockError
+	}
+
+	return result, nil
 }
 
 func FetchChainsState(ctx context.Context, chains ...string) ([]ChainState, error) {
@@ -165,6 +286,22 @@ func FetchChainAddressesInfo(ctx context.Context, state ChainState, minConf, max
 			return nil, err
 		}
 
+		lockedUtxos, err := client.ListLockUnspent(ctx)
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to ListLockUnspent")
+			return nil, err
+		}
+		for _, utxo := range lockedUtxos {
+			tx, err := client.GetTransaction(ctx, utxo.TxID)
+			if err != nil {
+				log.WithError(err).
+					Error("Failed to GetTransaction")
+				return nil, err
+			}
+			list = append(list, tx)
+		}
+
 		// Order oldest first
 		sort.Slice(list, func(i, j int) bool {
 			return list[i].Confirmations > list[j].Confirmations
@@ -192,6 +329,8 @@ func FetchChainAddressesInfo(ctx context.Context, state ChainState, minConf, max
 			addr := firsts[utxo.Address]
 			addr.Transactions = append(addr.Transactions, TransactionInfo{
 				TxID:          utxo.TxID,
+				Vout:          utxo.Vout,
+				Asset:         utxo.Asset,
 				Amount:        utxo.Amount,
 				Confirmations: utxo.Confirmations,
 			})

@@ -7,24 +7,24 @@ package bitcoin
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 
+	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/wallet/common"
+	"github.com/condensat/bank-core/wallet/rpc"
 
-	"github.com/btcsuite/btcd/chaincfg"
-	rpc "github.com/btcsuite/btcd/rpcclient"
-	"github.com/btcsuite/btcutil"
+	"github.com/condensat/bank-core/wallet/bitcoin/commands"
 
 	"github.com/sirupsen/logrus"
 )
 
 var (
-	ErrInternalError  = errors.New("Internal Error")
-	ErrRPCError       = errors.New("RPC Error")
-	ErrInvalidAccount = errors.New("Invalid Account")
-	ErrInvalidAddress = errors.New("Invalid Address format")
+	ErrInternalError    = errors.New("Internal Error")
+	ErrRPCError         = errors.New("RPC Error")
+	ErrInvalidAccount   = errors.New("Invalid Account")
+	ErrInvalidAddress   = errors.New("Invalid Address format")
+	ErrLockUnspentFails = errors.New("LockUnpent Failed")
 )
 
 const (
@@ -34,67 +34,30 @@ const (
 type BitcoinClient struct {
 	sync.Mutex // mutex to change params while RPC
 
-	conn   *rpc.ConnConfig
 	client *rpc.Client
-	params chaincfg.Params
-}
-
-func paramsFromRPCPort(port int) chaincfg.Params {
-	result := chaincfg.MainNetParams
-	if port == 18332 {
-		result = chaincfg.TestNet3Params
-	}
-	return result
-}
-
-func (p *BitcoinClient) changeParams() func() {
-	p.Lock()
-	// copy current params
-	previousParams := chaincfg.MainNetParams
-	// override MainNetParams with client params
-	chaincfg.MainNetParams = p.params
-
-	return func() {
-		defer p.Unlock()
-		// restore params from copy
-		chaincfg.MainNetParams = previousParams
-	}
 }
 
 func New(ctx context.Context, options BitcoinOptions) *BitcoinClient {
-	log := logger.Logger(ctx).WithField("Method", "bitcoin.New")
-	connCfg := &rpc.ConnConfig{
-		Host:         fmt.Sprintf("%s:%d", options.HostName, options.Port),
-		User:         options.User,
-		Pass:         options.Pass,
-		HTTPPostMode: true, // Bitcoin core only supports HTTP POST mode
-		DisableTLS:   true, // Bitcoin core does not provide TLS by default
-	}
-	client, err := rpc.New(connCfg, nil)
-	if err != nil {
-		log.WithError(err).
-			Error("Failed to connect to bitcoin rpc server")
-	}
+	client := rpc.New(rpc.Options{
+		ServerOptions: bank.ServerOptions{Protocol: "http", HostName: options.HostName, Port: options.Port},
+		User:          options.User,
+		Password:      options.Pass,
+	})
 
 	return &BitcoinClient{
-		conn:   connCfg,
 		client: client,
-		params: paramsFromRPCPort(options.Port),
 	}
 }
 
 func (p *BitcoinClient) GetBlockCount(ctx context.Context) (int64, error) {
 	log := logger.Logger(ctx).WithField("Method", "bitcoin.GetBlockCount")
 
-	restore := p.changeParams()
-	defer restore()
-
 	client := p.client
 	if p.client == nil {
 		return 0, ErrInternalError
 	}
 
-	blockCount, err := client.GetBlockCount()
+	blockCount, err := commands.GetBlockCount(ctx, client.Client)
 	if err != nil {
 		log.WithError(err).Error("GetBlockCount failed")
 		return blockCount, ErrRPCError
@@ -110,9 +73,6 @@ func (p *BitcoinClient) GetBlockCount(ctx context.Context) (int64, error) {
 func (p *BitcoinClient) GetNewAddress(ctx context.Context, account string) (string, error) {
 	log := logger.Logger(ctx).WithField("Method", "bitcoin.GetNewAddress")
 
-	restore := p.changeParams()
-	defer restore()
-
 	client := p.client
 	if p.client == nil {
 		return "", ErrInternalError
@@ -121,14 +81,13 @@ func (p *BitcoinClient) GetNewAddress(ctx context.Context, account string) (stri
 		return "", ErrInvalidAccount
 	}
 
-	address, err := client.GetNewAddressWithType(account, AddressTypeBech32)
+	result, err := commands.GetNewAddressWithType(ctx, client.Client, account, AddressTypeBech32)
 	if err != nil {
 		log.WithError(err).
 			Error("GetNewAddress failed")
 		return "", ErrRPCError
 	}
 
-	result := address.EncodeAddress()
 	log.
 		WithFields(logrus.Fields{
 			"Account": account,
@@ -136,52 +95,73 @@ func (p *BitcoinClient) GetNewAddress(ctx context.Context, account string) (stri
 			"Type":    AddressTypeBech32,
 		}).Debug("Bitcoin RPC")
 
+	return string(result), nil
+}
+
+func (p *BitcoinClient) GetAddressInfo(ctx context.Context, address string) (common.AddressInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "bitcoin.GetNewAddress")
+
+	client := p.client
+	if p.client == nil {
+		return common.AddressInfo{}, ErrInternalError
+	}
+	if len(address) == 0 {
+		return common.AddressInfo{}, ErrInvalidAddress
+	}
+
+	info, err := commands.GetAddressInfo(ctx, client.Client, commands.Address(address))
+	if err != nil {
+		log.WithError(err).
+			Error("GetAddressInfo failed")
+		return common.AddressInfo{}, ErrRPCError
+	}
+
+	publicAddress := info.Address
+	// Get confidential if request address is different
+	if len(info.Confidential) > 0 && info.Confidential != info.Address {
+		publicAddress = info.Confidential
+	}
+
+	result := common.AddressInfo{
+		PublicAddress:  publicAddress,
+		Unconfidential: info.Unconfidential,
+	}
+
+	log.WithFields(logrus.Fields{
+		"PublicAddress":  result.PublicAddress,
+		"Unconfidential": result.Unconfidential,
+	}).Debug("Bitcoin RPC")
+
 	return result, nil
 }
 
-func (p *BitcoinClient) ListUnspent(ctx context.Context, minConf, maxConf int, addresses ...string) ([]common.AddressInfo, error) {
+func (p *BitcoinClient) ListUnspent(ctx context.Context, minConf, maxConf int, addresses ...string) ([]common.TransactionInfo, error) {
 	log := logger.Logger(ctx).WithField("Method", "bitcoin.ListUnspent")
-
-	restore := p.changeParams()
-	defer restore()
 
 	client := p.client
 	if p.client == nil {
 		return nil, ErrInternalError
 	}
 
-	var filter []btcutil.Address
+	var filter []commands.Address
 	for _, addr := range addresses {
-		pubKey, err := btcutil.DecodeAddress(addr, &p.params)
-		if err != nil {
-			log.WithError(err).
-				WithField("Address", addr).
-				Error("DecodeAddress failed")
-			continue
-		}
-		filter = append(filter, pubKey)
+		filter = append(filter, commands.Address(addr))
 	}
 
 	if minConf > maxConf {
 		minConf, maxConf = maxConf, minConf
 	}
-	list, err := client.ListUnspentMinMaxAddresses(minConf, maxConf, filter)
+
+	list, err := commands.ListUnspentMinMaxAddresses(ctx, client.Client, minConf, maxConf, filter)
 	if err != nil {
 		log.WithError(err).
 			Error("ListUnspentMinMaxAddresses failed")
 		return nil, ErrRPCError
 	}
 
-	var result []common.AddressInfo
+	var result []common.TransactionInfo
 	for _, tx := range list {
-		result = append(result, common.AddressInfo{
-			Account:       tx.Account,
-			Address:       tx.Address,
-			TxID:          tx.TxID,
-			Amount:        tx.Amount,
-			Confirmations: tx.Confirmations,
-			Spendable:     tx.Spendable,
-		})
+		result = append(result, convertTransactionInfo(tx))
 	}
 
 	log.
@@ -189,4 +169,91 @@ func (p *BitcoinClient) ListUnspent(ctx context.Context, minConf, maxConf int, a
 		Debug("Bitcoin RPC")
 
 	return result, nil
+}
+
+func (p *BitcoinClient) LockUnspent(ctx context.Context, unlock bool, transactions ...common.TransactionInfo) error {
+	log := logger.Logger(ctx).WithField("Method", "bitcoin.ListUnspent")
+
+	client := p.client
+	if p.client == nil {
+		return ErrInternalError
+	}
+
+	var utxos []commands.UTXOInfo
+	for _, tx := range transactions {
+		utxos = append(utxos, commands.UTXOInfo{
+			TxID: tx.TxID,
+			Vout: int(tx.Vout),
+		})
+	}
+
+	success, err := commands.LockUnspent(ctx, client.Client, unlock, utxos)
+	if err != nil {
+		log.WithError(err).
+			Error("LockUnspent failed")
+		return ErrRPCError
+	}
+
+	if !success {
+		return ErrLockUnspentFails
+	}
+
+	return nil
+}
+
+func (p *BitcoinClient) ListLockUnspent(ctx context.Context) ([]common.TransactionInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "bitcoin.ListLockUnspent")
+
+	client := p.client
+	if p.client == nil {
+		return nil, ErrInternalError
+	}
+
+	list, err := commands.ListLockUnspent(ctx, client.Client)
+	if err != nil {
+		log.WithError(err).
+			Error("LockUnspent failed")
+		return nil, ErrRPCError
+	}
+
+	var result []common.TransactionInfo
+	for _, tx := range list {
+		result = append(result, common.TransactionInfo{
+			TxID: tx.TxID,
+			Vout: int64(tx.Vout),
+		})
+	}
+
+	return result, nil
+}
+
+func (p *BitcoinClient) GetTransaction(ctx context.Context, txID string) (common.TransactionInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "bitcoin.GetTransaction")
+
+	client := p.client
+	if p.client == nil {
+		return common.TransactionInfo{}, ErrInternalError
+	}
+
+	tx, err := commands.GetTransaction(ctx, client.Client, txID)
+	if err != nil {
+		log.WithError(err).
+			Error("GetTransaction failed")
+		return common.TransactionInfo{}, ErrRPCError
+	}
+
+	return convertTransactionInfo(tx), nil
+}
+
+func convertTransactionInfo(tx commands.TransactionInfo) common.TransactionInfo {
+	return common.TransactionInfo{
+		Account:       tx.Label,
+		Address:       string(tx.Address),
+		Asset:         string(tx.Asset),
+		TxID:          tx.TxID,
+		Vout:          int64(tx.Vout),
+		Amount:        tx.Amount,
+		Confirmations: tx.Confirmations,
+		Spendable:     tx.Spendable,
+	}
 }

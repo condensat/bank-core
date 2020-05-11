@@ -21,6 +21,7 @@ const (
 )
 
 var (
+	ErrInvalidCurrencyName  = errors.New("Invalid Currency Name")
 	ErrCurrencyNotFound     = errors.New("Currency Not found")
 	ErrCurrencyNotAvailable = errors.New("Currency Not Available")
 	ErrCurrencyNotCrypto    = errors.New("Currency Not Crypto")
@@ -139,18 +140,24 @@ func convertCurrencyList(list []*model.Currency) []model.Currency {
 }
 
 const (
-	colCurrencyName      = "name"
-	colCurrencyAvailable = "available"
-	colCurrencyCrypto    = "crypto"
-	colCurrencyPrecision = "precision"
+	colCurrencyName        = "name"
+	colCurrencyDisplayName = "display_name"
+	colCurrencyType        = "type"
+	colCurrencyAvailable   = "available"
+	colCurrencyCrypto      = "crypto"
+	colCurrencyPrecision   = "precision"
+	colCurrencyAutoCreate  = "auto_create"
 )
 
 func currencyColumnNames() []string {
 	return []string{
 		colCurrencyName,
+		colCurrencyDisplayName,
+		colCurrencyType,
 		colCurrencyAvailable,
 		colCurrencyCrypto,
 		colCurrencyPrecision,
+		colCurrencyAutoCreate,
 	}
 }
 

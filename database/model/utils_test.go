@@ -20,6 +20,9 @@ func TestToFixedFloat(t *testing.T) {
 		{"piOverflow", args{3.14159265358979}, 3.14159265359},
 		{"roundFloor", args{0.1234567890121}, 0.123456789012},
 		{"roundCeil", args{0.1234567890129}, 0.123456789013},
+
+		{"roundBig", args{2.1e+11}, 2.1e+11},
+		{"roundSmall", args{2.1e-11}, 2.1e-11},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

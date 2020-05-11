@@ -10,10 +10,16 @@ import (
 	"github.com/condensat/bank-core"
 )
 
+type CurrencyType int
+
 type CurrencyInfo struct {
 	Name             string
+	DisplayName      string
 	Available        bool
+	AutoCreate       bool
 	Crypto           bool
+	Type             CurrencyType
+	Asset            bool
 	DisplayPrecision uint
 }
 
@@ -67,10 +73,11 @@ type AccountTransfert struct {
 }
 
 type AccountHistory struct {
-	AccountID uint64
-	Currency  string
-	From      time.Time
-	To        time.Time
+	AccountID   uint64
+	DisplayName string
+	Ticker      string
+	From        time.Time
+	To          time.Time
 
 	Entries []AccountEntry
 }

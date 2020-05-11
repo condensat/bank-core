@@ -33,9 +33,10 @@ type WalletNextDepositRequest struct {
 
 // WalletNextDepositResponse holds args for accounting requests
 type WalletNextDepositResponse struct {
-	Currency      string `json:"currency"`
-	PublicAddress string `json:"publicAddress"`
-	URL           string `json:"url"`
+	Currency        string `json:"currency"`
+	DisplayCurrency string `json:"displayCurrency"`
+	PublicAddress   string `json:"publicAddress"`
+	URL             string `json:"url"`
 }
 
 // WalletService operation return deposit address for account
@@ -84,7 +85,7 @@ func (p *WalletService) NextDeposit(r *http.Request, request *WalletNextDepositR
 			Error("Non Crypto Account")
 		return sessions.ErrInternalError
 	}
-	chain, err := getChainFromCurrencyName(account.Currency.Name)
+	chain, err := getChainFromCurrencyName(account.Currency.Crypto, account.Currency.Name)
 	if err != nil {
 		log.WithError(err).
 			WithField("AccountID", request.AccountID).
@@ -105,11 +106,12 @@ func (p *WalletService) NextDeposit(r *http.Request, request *WalletNextDepositR
 	}
 
 	// Reply
-	protocol, err := getProtocolFromCurrencyName(account.Currency.Name)
+	protocol, err := getProtocolFromCurrencyName(account.Currency.Crypto, account.Currency.Name)
 	*reply = WalletNextDepositResponse{
-		Currency:      account.Currency.Name,
-		PublicAddress: addr.PublicAddress,
-		URL:           fmt.Sprintf("%s:%s", protocol, addr.PublicAddress),
+		Currency:        account.Currency.Name,
+		DisplayCurrency: account.Currency.DisplayName,
+		PublicAddress:   addr.PublicAddress,
+		URL:             fmt.Sprintf("%s:%s", protocol, addr.PublicAddress),
 	}
 	if err != nil {
 		log.WithError(err).
@@ -128,7 +130,7 @@ func (p *WalletService) NextDeposit(r *http.Request, request *WalletNextDepositR
 	return nil
 }
 
-func getChainFromCurrencyName(currencyName string) (string, error) {
+func getChainFromCurrencyName(isCrypto bool, currencyName string) (string, error) {
 	switch currencyName {
 	case "BTC":
 		return "bitcoin-mainnet", nil
@@ -138,11 +140,14 @@ func getChainFromCurrencyName(currencyName string) (string, error) {
 		return "liquid-mainnet", nil
 
 	default:
+		if isCrypto {
+			return "liquid-mainnet", nil
+		}
 		return "", ErrWalletChainNotFoundError
 	}
 }
 
-func getProtocolFromCurrencyName(currencyName string) (string, error) {
+func getProtocolFromCurrencyName(isCrypto bool, currencyName string) (string, error) {
 	switch currencyName {
 	case "BTC":
 		return "bitcoin", nil
@@ -152,6 +157,9 @@ func getProtocolFromCurrencyName(currencyName string) (string, error) {
 		return "liquid", nil
 
 	default:
+		if isCrypto {
+			return "liquid", nil
+		}
 		return "", ErrWalletChainNotFoundError
 	}
 }

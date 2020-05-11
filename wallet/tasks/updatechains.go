@@ -6,14 +6,18 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/accounting/client"
+	"github.com/condensat/bank-core/accounting/common"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 
 	"github.com/condensat/bank-core/wallet/cache"
 	"github.com/condensat/bank-core/wallet/chain"
+	wcommon "github.com/condensat/bank-core/wallet/common"
 
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
@@ -68,6 +72,7 @@ func updateChain(ctx context.Context, epoch time.Time, state chain.ChainState) {
 	type CryptoTransaction struct {
 		CryptoAddress model.CryptoAddress
 		Transactions  []chain.TransactionInfo
+		Currency      common.CurrencyInfo
 	}
 	cryptoTransactions := make(map[string]CryptoTransaction)
 
@@ -76,7 +81,7 @@ func updateChain(ctx context.Context, epoch time.Time, state chain.ChainState) {
 		for _, cryptoAddress := range addresses {
 			// search for matching public address
 			publicAddress := string(cryptoAddress.PublicAddress)
-			if string(cryptoAddress.PublicAddress) != info.PublicAddress {
+			if !matchPublicAddress(cryptoAddress, info.PublicAddress) {
 				continue
 			}
 
@@ -118,7 +123,14 @@ func updateChain(ctx context.Context, epoch time.Time, state chain.ChainState) {
 	// updateOperation transactions
 	for _, cryptoTransaction := range cryptoTransactions {
 		for _, transactions := range cryptoTransaction.Transactions {
-			err := updateOperation(ctx, cryptoTransaction.CryptoAddress.ID, transactions)
+			// ensure currency exists
+			assetID, err := createAssetCurrency(ctx, transactions.Asset)
+			if err != nil {
+				log.WithError(err).
+					Error("createAssetCurrency failed")
+				continue
+			}
+			err = updateOperation(ctx, state, cryptoTransaction.CryptoAddress.ID, assetID, transactions)
 			if err != nil {
 				log.WithError(err).
 					Error("Failed to updateOperation")
@@ -128,14 +140,23 @@ func updateChain(ctx context.Context, epoch time.Time, state chain.ChainState) {
 	}
 }
 
-func updateOperation(ctx context.Context, cryptoAddressID model.CryptoAddressID, transaction chain.TransactionInfo) error {
+func matchPublicAddress(crytoAddress model.CryptoAddress, address string) bool {
+	if len(address) == 0 {
+		return false
+	}
+	return string(crytoAddress.PublicAddress) == address || string(crytoAddress.Unconfidential) == address
+}
+
+func updateOperation(ctx context.Context, state chain.ChainState, cryptoAddressID model.CryptoAddressID, assetID model.AssetID, transaction chain.TransactionInfo) error {
 	log := logger.Logger(ctx).WithField("Method", "Wallet.updateOperation")
 	db := appcontext.Database(ctx)
 
 	txID := model.TxID(transaction.TxID)
+	vout := model.Vout(transaction.Vout)
 
 	log = log.WithFields(logrus.Fields{
 		"CryptoAddressID": cryptoAddressID,
+		"Vout":            vout,
 		"TxID":            txID,
 	})
 
@@ -154,6 +175,8 @@ func updateOperation(ctx context.Context, cryptoAddressID model.CryptoAddressID,
 			info, err := database.AddOperationInfo(db, model.OperationInfo{
 				CryptoAddressID: cryptoAddressID,
 				TxID:            txID,
+				Vout:            vout,
+				AssetID:         assetID,
 				Amount:          model.Float(transaction.Amount),
 			})
 			if err != nil {
@@ -185,12 +208,50 @@ func updateOperation(ctx context.Context, cryptoAddressID model.CryptoAddressID,
 		// fetch OperationStatus if exists
 		status, _ := database.GetOperationStatus(db, operationInfo.ID)
 		if status.Accounted == "settled" {
+			// time to settle
 			operationState = status.Accounted
 		}
 
 		// check if update is needed
 		if status.State == operationState {
 			return nil
+		}
+
+		client := wcommon.ChainClientFromContext(ctx, state.Chain)
+		if client == nil {
+			return chain.ErrChainClientNotFound
+		}
+
+		var unlockMode int
+		switch operationState {
+		case "received":
+			// lock utxo
+			unlockMode = 1
+
+		case "settled":
+			// unlock utxo
+			unlockMode = 2
+		}
+
+		if unlockMode > 0 {
+			// mode=1 lock (unlock=false)
+			// mode=2 unlock (unlock=true)
+			unlock := unlockMode == 2
+
+			err = client.LockUnspent(ctx, unlock, wcommon.TransactionInfo{
+				TxID: string(operationInfo.TxID),
+				Vout: int64(operationInfo.Vout),
+			})
+			if err != nil {
+				// non fatal
+				// this can occure when state was not seen recieved
+				log.WithError(err).
+					WithField("Unlock", unlock).
+					Warn("Failed to LockUnspent")
+			}
+			log.
+				WithField("Unlock", unlock).
+				Debug("LockUnspent done")
 		}
 
 		// update state
@@ -228,6 +289,82 @@ func addNewAddress(allAddresses AddressMap, addresses ...model.CryptoAddress) {
 			allAddresses[publicAddress] = address
 		}
 	}
+}
+
+func createAssetCurrency(ctx context.Context, assetHash string) (model.AssetID, error) {
+	log := logger.Logger(ctx).WithField("Method", "tasks.createAssetCurrency")
+	db := appcontext.Database(ctx)
+
+	// no asset, no error
+	if len(assetHash) == 0 {
+		return 0, nil
+	}
+	// 1 L-BTC = 1 L-BTC
+	if assetHash == PolicyAssetLiquid {
+		return 0, nil
+	}
+
+	asset, currencyName, err := getCurrencyNameFromAssetHash(db, model.AssetHash(assetHash))
+	if err != nil {
+		log.WithError(err).
+			Error("getCurrencyNameFromAssetHash failed")
+		return 0, err
+	}
+
+	// check of currency exists
+	if _, err := client.CurrencyInfo(ctx, string(currencyName)); err != nil {
+		// currency must be created for asset
+		_, err = client.CurrencyCreate(ctx, string(currencyName), "", common.CurrencyType(2), true, 0)
+		if err != nil {
+			log.WithError(err).
+				Error("CurrencyCreate failed")
+			return 0, err
+		}
+
+		// activate currency
+		_, err = client.CurrencySetAvailable(ctx, string(currencyName), true)
+		if err != nil {
+			log.WithError(err).
+				Error("CurrencySetAvailable failed")
+			return 0, err
+		}
+	}
+
+	// asset must be created
+	if asset.ID == 0 {
+		asset, err = database.AddAsset(db, model.AssetHash(assetHash), currencyName)
+		if err != nil {
+			log.WithError(err).
+				Error("AddAsset failed")
+			return 0, err
+		}
+
+		log.
+			WithField("AssetID", asset.ID).
+			Debug("Asset Created")
+	}
+
+	return asset.ID, nil
+}
+
+func getCurrencyNameFromAssetHash(db bank.Database, assetHash model.AssetHash) (model.Asset, model.CurrencyName, error) {
+	// check if asset exists
+	asset, err := database.GetAssetByHash(db, model.AssetHash(assetHash))
+	if err != nil {
+		// format new currency name
+		assetCount, err := database.AssetCount(db)
+		if err != nil {
+			return model.Asset{}, "", err
+		}
+		return model.Asset{}, model.CurrencyName(fmt.Sprintf("Li#%05d", assetCount+1)), nil
+	}
+
+	// return asset CurrencyName
+	if len(asset.CurrencyName) == 0 {
+		return model.Asset{}, "", database.ErrInvalidCurrencyName
+	}
+
+	return asset, asset.CurrencyName, nil
 }
 
 func fetchActiveAddresses(ctx context.Context, state chain.ChainState) ([]string, []model.CryptoAddress) {
@@ -291,9 +428,13 @@ func fetchActiveAddresses(ctx context.Context, state chain.ChainState) ([]string
 		addNewAddress(allAddresses, missing...)
 	}
 
-	// fetch addresses with status received from database
+	// fetch addresses with active state from database
 	{
-		received, err := database.FindCryptoAddressesByOperationInfoState(db, chainName, model.String("received"))
+		activeStates := []model.String{
+			"received",
+			"confirmed",
+		}
+		received, err := database.FindCryptoAddressesByOperationInfoState(db, chainName, activeStates...)
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to FindCryptoAddressesByOperationInfoState")
@@ -306,9 +447,14 @@ func fetchActiveAddresses(ctx context.Context, state chain.ChainState) ([]string
 	// create final addresses lists
 	var result []string                 // addresses for rpc call
 	var addresses []model.CryptoAddress // addresses for operations update
-	for publicAddress, address := range allAddresses {
-		result = append(result, publicAddress)
-		addresses = append(addresses, address)
+	for _, cryptoAddress := range allAddresses {
+		address := string(cryptoAddress.PublicAddress)
+		if len(cryptoAddress.Unconfidential) != 0 {
+			// use unconfidential address for listunspent call
+			address = string(cryptoAddress.Unconfidential)
+		}
+		result = append(result, address)
+		addresses = append(addresses, cryptoAddress)
 	}
 	return result, addresses
 }

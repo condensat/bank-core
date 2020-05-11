@@ -16,7 +16,7 @@ func TestModels(t *testing.T) {
 		name string
 		want int
 	}{
-		{"default", 4},
+		{"default", 7},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable

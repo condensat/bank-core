@@ -44,7 +44,10 @@ func CurrencyInfo(ctx context.Context, currencyName string) (common.CurrencyInfo
 
 		result = common.CurrencyInfo{
 			Name:             string(currency.Name),
+			DisplayName:      string(currency.DisplayName),
 			Available:        currency.IsAvailable(),
+			AutoCreate:       currency.AutoCreate,
+			Type:             common.CurrencyType(currency.GetType()),
 			Crypto:           currency.IsCrypto(),
 			DisplayPrecision: uint(currency.DisplayPrecision()),
 		}
@@ -54,8 +57,12 @@ func CurrencyInfo(ctx context.Context, currencyName string) (common.CurrencyInfo
 
 	if err == nil {
 		log.WithFields(logrus.Fields{
-			"Name":      result.Name,
-			"Available": result.Available,
+			"Name":        result.Name,
+			"DisplayName": result.DisplayName,
+			"Available":   result.Available,
+			"AutoCreate":  result.AutoCreate,
+			"Type":        result.Type,
+			"Crypto":      result.Crypto,
 		}).Debug("Currency info")
 	}
 
@@ -85,7 +92,10 @@ func OnCurrencyInfo(ctx context.Context, subject string, message *bank.Message) 
 			// create & return response
 			return &common.CurrencyInfo{
 				Name:             currency.Name,
+				DisplayName:      currency.DisplayName,
 				Available:        currency.Available,
+				AutoCreate:       currency.AutoCreate,
+				Type:             currency.Type,
 				Crypto:           currency.Crypto,
 				DisplayPrecision: currency.DisplayPrecision,
 			}, nil
