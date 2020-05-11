@@ -21,6 +21,7 @@ func TestOperationType_Valid(t *testing.T) {
 		{"Invalid", OperationType("invalid"), false},
 		{"NotValid", OperationType("not-valid"), false},
 
+		{"Deposit", OperationType("init"), true},
 		{"Deposit", OperationType("deposit"), true},
 		{"Withdraw", OperationType("withdraw"), true},
 		{"Transfert", OperationType("transfert"), true},
@@ -55,6 +56,7 @@ func TestParseOperationType(t *testing.T) {
 		{"Invalid", args{"invalid"}, OperationTypeInvalid},
 		{"NotValid", args{"not-valid"}, OperationTypeInvalid},
 
+		{"Init", args{"init"}, OperationTypeInit},
 		{"Deposit", args{"deposit"}, OperationTypeDeposit},
 		{"Withdraw", args{"withdraw"}, OperationTypeWithdraw},
 		{"Transfert", args{"transfert"}, OperationTypeTransfert},
@@ -87,6 +89,7 @@ func TestOperationType_String(t *testing.T) {
 		{"Invalid", OperationType("invalid"), ""},
 		{"NotValid", OperationType("not-valid"), ""},
 
+		{"Init", OperationType("init"), "init"},
 		{"Deposit", OperationType("deposit"), "deposit"},
 		{"Withdraw", OperationType("withdraw"), "withdraw"},
 		{"Transfert", OperationType("transfert"), "transfert"},
@@ -115,6 +118,7 @@ func Test_knownOperationType(t *testing.T) {
 	knownEnums := []string{
 		"", //OperationTypeInvalid
 
+		"init",       // OperationTypeInit
 		"deposit",    // OperationTypeDeposit
 		"withdraw",   //OperationTypeWithdraw
 		"transfert",  // OperationTypeTransfert

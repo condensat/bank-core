@@ -8,12 +8,14 @@ import (
 	"context"
 
 	"github.com/condensat/bank-core"
-	"github.com/condensat/bank-core/accounting/common"
-	"github.com/condensat/bank-core/accounting/internal"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/logger"
+
+	"github.com/condensat/bank-core/accounting/common"
+
+	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
-	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
 
 	"github.com/sirupsen/logrus"
@@ -31,11 +33,11 @@ func AccountOperation(ctx context.Context, entry common.AccountEntry) (common.Ac
 	})
 
 	// Acquire Lock
-	lock, err := internal.LockAccount(ctx, entry.AccountID)
+	lock, err := cache.LockAccount(ctx, entry.AccountID)
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to lock account")
-		return common.AccountEntry{}, internal.ErrLockError
+		return common.AccountEntry{}, cache.ErrLockError
 	}
 	defer lock.Unlock()
 
@@ -114,7 +116,7 @@ func OnAccountOperation(ctx context.Context, subject string, message *bank.Messa
 			if err != nil {
 				log.WithError(err).
 					Errorf("Failed to AccountOperation")
-				return nil, internal.ErrInternalError
+				return nil, cache.ErrInternalError
 			}
 
 			// create & return response

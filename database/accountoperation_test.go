@@ -259,8 +259,7 @@ func cloneOperation(operation model.AccountOperation) model.AccountOperation {
 }
 
 func createLinkedOperations(db bank.Database, account model.AccountID, count int, amount model.Float) []model.AccountOperation {
-	var list []model.AccountOperation
-
+	list, _ := GeAccountHistory(db, account)
 	var balance model.Float
 	for i := 0; i < count; i++ {
 		balance += amount

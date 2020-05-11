@@ -37,6 +37,7 @@ func RegisterServices(ctx context.Context, mux *mux.Router, corsAllowedOrigins [
 	mux.Handle("/api/v1/session", corsHandler.Handler(NewSessionHandler(ctx)))
 	mux.Handle("/api/v1/user", corsHandler.Handler(NewUserHandler(ctx)))
 	mux.Handle("/api/v1/accounting", corsHandler.Handler(NewAccountingHandler(ctx)))
+	mux.Handle("/api/v1/wallet", corsHandler.Handler(NewWalletHandler(ctx)))
 }
 
 func NewSessionHandler(ctx context.Context) http.Handler {
@@ -77,6 +78,21 @@ func NewAccountingHandler(ctx context.Context) http.Handler {
 	server.RegisterCodec(jsonCodec, "application/json; charset=UTF-8") // For firefox 11 and other browsers which append the charset=UTF-8
 
 	err := server.RegisterService(new(AccountingService), "accounting")
+	if err != nil {
+		panic(err)
+	}
+
+	return server
+}
+
+func NewWalletHandler(ctx context.Context) http.Handler {
+	server := rpc.NewServer()
+
+	jsonCodec := NewCookieCodec(ctx)
+	server.RegisterCodec(jsonCodec, "application/json")
+	server.RegisterCodec(jsonCodec, "application/json; charset=UTF-8") // For firefox 11 and other browsers which append the charset=UTF-8
+
+	err := server.RegisterService(new(WalletService), "wallet")
 	if err != nil {
 		panic(err)
 	}

@@ -8,15 +8,17 @@ import (
 	"context"
 
 	"github.com/condensat/bank-core"
-	"github.com/condensat/bank-core/accounting/common"
-	"github.com/condensat/bank-core/accounting/internal"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/logger"
+
+	"github.com/condensat/bank-core/accounting/common"
+
+	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/messaging"
-	"github.com/sirupsen/logrus"
 
-	"github.com/condensat/bank-core/logger"
+	"github.com/sirupsen/logrus"
 )
 
 func AccountList(ctx context.Context, userID uint64) ([]common.AccountInfo, error) {
@@ -26,11 +28,11 @@ func AccountList(ctx context.Context, userID uint64) ([]common.AccountInfo, erro
 	log = log.WithField("UserID", userID)
 
 	// Acquire Lock
-	lock, err := internal.LockUser(ctx, userID)
+	lock, err := cache.LockUser(ctx, userID)
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to lock user")
-		return result, internal.ErrLockError
+		return result, cache.ErrLockError
 	}
 	defer lock.Unlock()
 
@@ -43,40 +45,13 @@ func AccountList(ctx context.Context, userID uint64) ([]common.AccountInfo, erro
 		}
 
 		for _, account := range accounts {
-			currency, err := database.GetCurrencyByName(db, account.CurrencyName)
-			if err != nil {
-				return err
-			}
-			accountState, err := database.GetAccountStatusByAccountID(db, account.ID)
-			if err != nil {
-				return err
-			}
 
-			last, err := database.GetLastAccountOperation(db, account.ID)
+			account, err := txGetAccountInfo(db, account)
 			if err != nil {
 				return err
 			}
 
-			var balance float64
-			var totalLocked float64
-			if last.IsValid() {
-				balance = float64(*last.Balance)
-				totalLocked = float64(*last.TotalLocked)
-			}
-
-			result = append(result, common.AccountInfo{
-				Timestamp: last.Timestamp,
-				AccountID: uint64(account.ID),
-				Currency: common.CurrencyInfo{
-					Name:             string(currency.Name),
-					Crypto:           currency.IsCrypto(),
-					DisplayPrecision: uint(currency.DisplayPrecision()),
-				},
-				Name:        string(account.Name),
-				Status:      string(accountState.State),
-				Balance:     float64(balance),
-				TotalLocked: float64(totalLocked),
-			})
+			result = append(result, account)
 		}
 
 		return nil
@@ -107,7 +82,7 @@ func OnAccountList(ctx context.Context, subject string, message *bank.Message) (
 			if err != nil {
 				log.WithError(err).
 					Errorf("Failed to list user accounts")
-				return nil, internal.ErrInternalError
+				return nil, cache.ErrInternalError
 			}
 
 			// create & return response

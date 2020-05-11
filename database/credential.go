@@ -22,7 +22,7 @@ import (
 var (
 	ErrUserNotFound        = errors.New("User not found")
 	ErrInvalidPasswordHash = errors.New("Invalid PasswordHash")
-	ErrDatabaseError       = errors.New("Invalid PasswordHash")
+	ErrDatabaseError       = errors.New("Database Operation failed")
 )
 
 func HashEntry(entry model.Base58) model.Base58 {
