@@ -8,12 +8,14 @@ import (
 	"context"
 
 	"github.com/condensat/bank-core"
-	"github.com/condensat/bank-core/accounting/common"
-	"github.com/condensat/bank-core/accounting/internal"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/logger"
+
+	"github.com/condensat/bank-core/accounting/common"
+
+	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
-	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
 
 	"github.com/sirupsen/logrus"
@@ -65,19 +67,19 @@ func AccountTransfert(ctx context.Context, transfert common.AccountTransfert) (c
 	}
 
 	// Acquire Locks for source and destination accounts
-	lockSource, err := internal.LockAccount(ctx, transfert.Source.AccountID)
+	lockSource, err := cache.LockAccount(ctx, transfert.Source.AccountID)
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to lock account")
-		return common.AccountTransfert{}, internal.ErrLockError
+		return common.AccountTransfert{}, cache.ErrLockError
 	}
 	defer lockSource.Unlock()
 
-	lockDestination, err := internal.LockAccount(ctx, transfert.Destination.AccountID)
+	lockDestination, err := cache.LockAccount(ctx, transfert.Destination.AccountID)
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to lock account")
-		return common.AccountTransfert{}, internal.ErrLockError
+		return common.AccountTransfert{}, cache.ErrLockError
 	}
 	defer lockDestination.Unlock()
 
@@ -137,7 +139,7 @@ func OnAccountTransfert(ctx context.Context, subject string, message *bank.Messa
 						"SrcAccountID": request.Source.AccountID,
 						"DstAccountID": request.Destination.AccountID,
 					}).Errorf("Failed to AccountTransfert")
-				return nil, internal.ErrInternalError
+				return nil, cache.ErrInternalError
 			}
 
 			// return response

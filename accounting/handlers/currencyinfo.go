@@ -8,12 +8,14 @@ import (
 	"context"
 
 	"github.com/condensat/bank-core"
-	"github.com/condensat/bank-core/accounting/common"
-	"github.com/condensat/bank-core/accounting/internal"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/logger"
+
+	"github.com/condensat/bank-core/accounting/common"
+
+	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
-	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
 
 	"github.com/sirupsen/logrus"
@@ -42,7 +44,10 @@ func CurrencyInfo(ctx context.Context, currencyName string) (common.CurrencyInfo
 
 		result = common.CurrencyInfo{
 			Name:             string(currency.Name),
+			DisplayName:      string(currency.DisplayName),
 			Available:        currency.IsAvailable(),
+			AutoCreate:       currency.AutoCreate,
+			Type:             common.CurrencyType(currency.GetType()),
 			Crypto:           currency.IsCrypto(),
 			DisplayPrecision: uint(currency.DisplayPrecision()),
 		}
@@ -52,9 +57,13 @@ func CurrencyInfo(ctx context.Context, currencyName string) (common.CurrencyInfo
 
 	if err == nil {
 		log.WithFields(logrus.Fields{
-			"Name":      result.Name,
-			"Available": result.Available,
-		}).Warn("Currency updated")
+			"Name":        result.Name,
+			"DisplayName": result.DisplayName,
+			"Available":   result.Available,
+			"AutoCreate":  result.AutoCreate,
+			"Type":        result.Type,
+			"Crypto":      result.Crypto,
+		}).Debug("Currency info")
 	}
 
 	return result, err
@@ -77,13 +86,16 @@ func OnCurrencyInfo(ctx context.Context, subject string, message *bank.Message) 
 			if err != nil {
 				log.WithError(err).
 					Errorf("Failed to CurrencyInfo")
-				return nil, internal.ErrInternalError
+				return nil, cache.ErrInternalError
 			}
 
 			// create & return response
 			return &common.CurrencyInfo{
 				Name:             currency.Name,
+				DisplayName:      currency.DisplayName,
 				Available:        currency.Available,
+				AutoCreate:       currency.AutoCreate,
+				Type:             currency.Type,
 				Crypto:           currency.Crypto,
 				DisplayPrecision: currency.DisplayPrecision,
 			}, nil

@@ -136,12 +136,12 @@ func TestCurrency(t *testing.T) {
 
 func createTestData() []model.Currency {
 	return []model.Currency{
-		model.NewCurrency("USD", 0, 1, 2),
-		model.NewCurrency("BTC", 1, 1, 2),
-		model.NewCurrency("USD2", 0, 0, 2),
-		model.NewCurrency("BTC2", 1, 1, 2),
-		model.NewCurrency("USD3", 0, 1, 0),
-		model.NewCurrency("BTC3", 1, 1, 12),
+		model.NewCurrency("USD", "", 0, 0, 1, 2),
+		model.NewCurrency("BTC", "", 0, 1, 1, 2),
+		model.NewCurrency("USD2", "", 2, 0, 0, 2),
+		model.NewCurrency("BTC2", "", 2, 1, 1, 2),
+		model.NewCurrency("USD3", "", 2, 0, 1, 0),
+		model.NewCurrency("BTC3", "", 1, 1, 1, 12),
 	}
 }
 

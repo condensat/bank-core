@@ -127,10 +127,21 @@ func FetchRedisRate(ctx context.Context, name, base string) (Rate, error) {
 		return Rate{}, errors.New("Internal Error")
 	}
 
+	ratio := 1.0
 	alias := name
 	// 1 LBTC == 1 BTC
 	if name == "LBTC" {
 		alias = "BTC"
+	}
+
+	// 1 TBTC == 1 BTC
+	if name == "TBTC" {
+		alias = "BTC"
+	}
+
+	// 1 CDT = 1 DOGE
+	if name == "CDT" {
+		alias = "DOGE"
 	}
 
 	key := formatRateKey(alias, base)
@@ -151,6 +162,7 @@ func FetchRedisRate(ctx context.Context, name, base string) (Rate, error) {
 	}
 	// override aliases
 	result.Name = name
+	result.Rate *= ratio
 	return result, nil
 }
 

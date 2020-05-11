@@ -75,6 +75,30 @@ func TestNewAccountOperation(t *testing.T) {
 	}
 }
 
+func TestNewInitOperation(t *testing.T) {
+	t.Parallel()
+
+	type args struct {
+		accountID   AccountID
+		referenceID RefID
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{"Init", args{42, 0}, true},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			if got := NewInitOperation(tt.args.accountID, tt.args.referenceID); got.PreCheck() != tt.want {
+				t.Errorf("NewInitOperation() = %v, want %v", got.IsValid(), tt.want)
+			}
+		})
+	}
+}
+
 func TestAccountOperation_IsValid(t *testing.T) {
 	t.Parallel()
 
@@ -88,6 +112,8 @@ func TestAccountOperation_IsValid(t *testing.T) {
 	}{
 		{"Default", fields{AccountOperation{}}, false},
 		{"Valid", fields{NewAccountOperation(1, 0, 42, SynchroneousTypeSync, OperationTypeNone, 0, time.Now(), 1.0, 1.0, 1.0, 1.0)}, true},
+		{"Init", fields{NewAccountOperation(1, 0, 42, SynchroneousTypeSync, OperationTypeInit, 0, time.Now(), 0.0, 0.0, 0.0, 0.0)}, true},
+		{"NotInit", fields{NewAccountOperation(1, 0, 42, SynchroneousTypeSync, OperationTypeDeposit, 0, time.Now(), 0.0, 0.0, 0.0, 0.0)}, false},
 		{"ValidUTC", fields{NewAccountOperation(1, 0, 42, SynchroneousTypeSync, OperationTypeNone, 0, time.Now().UTC(), 1.0, 1.0, 1.0, 1.0)}, true},
 
 		{"InvalidID", fields{NewAccountOperation(0, 0, 42, SynchroneousTypeSync, OperationTypeNone, 0, time.Now(), 1.0, 1.0, 0.0, 0.0)}, false},
