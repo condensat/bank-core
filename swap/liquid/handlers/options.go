@@ -65,7 +65,7 @@ func liquidSwapOptions(args ...interface{}) shellexec.Options {
 
 func LiquidSwapPropose(address common.ConfidentialAddress, proposal common.ProposalInfo, feeRate float64) shellexec.Options {
 	if feeRate < common.MinumumFeeRate {
-		feeRate = common.DefaultFeeRate
+		feeRate = common.MinumumFeeRate
 	}
 	feeRate = utils.ToFixed(feeRate, FeeRatePrecision)
 
@@ -78,4 +78,12 @@ func LiquidSwapPropose(address common.ConfidentialAddress, proposal common.Propo
 
 func LiquidSwapInfo(payload common.Payload) shellexec.Options {
 	return liquidSwapOptions(SwapCommandInfo, payload)
+}
+
+func LiquidSwapFinalize(payload common.Payload) shellexec.Options {
+	return liquidSwapOptions(
+		SwapCommandFinalize,
+		"--send",
+		payload,
+	)
 }

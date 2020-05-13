@@ -46,4 +46,14 @@ func main() {
 		}
 		log.Printf("Info: %+v", info)
 	}
+
+	if proposal, err := client.FinalizeSwapProposal(ctx, 42, payload); true {
+		if err != nil {
+			panic(err)
+		}
+		if !proposal.Payload.Valid() {
+			panic(common.ErrInvalidPayload)
+		}
+		log.Printf("Finalize: %+v", proposal)
+	}
 }

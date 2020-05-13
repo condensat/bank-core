@@ -41,6 +41,7 @@ func (p *Swap) registerHandlers(ctx context.Context) {
 
 	nats.SubscribeWorkers(ctx, common.SwapCreateProposalSubject, 2*concurencyLevel, handlers.OnCreateSwapProposal)
 	nats.SubscribeWorkers(ctx, common.SwapInfoProposalSubject, 2*concurencyLevel, handlers.OnInfoSwapProposal)
+	nats.SubscribeWorkers(ctx, common.SwapFinalizeProposalSubject, 2*concurencyLevel, handlers.OnFinalizeSwapProposal)
 
 	log.Debug("Liquid Swap registered")
 }
