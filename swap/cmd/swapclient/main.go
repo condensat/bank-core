@@ -56,4 +56,14 @@ func main() {
 		}
 		log.Printf("Finalize: %+v", proposal)
 	}
+
+	if proposal, err := client.AcceptSwapProposal(ctx, 42, address, "Accept", common.DefaultFeeRate); true {
+		if err != nil {
+			panic(err)
+		}
+		if !proposal.Payload.Valid() {
+			panic(common.ErrInvalidPayload)
+		}
+		log.Printf("Accept: %+v", proposal)
+	}
 }
