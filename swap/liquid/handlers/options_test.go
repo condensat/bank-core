@@ -56,3 +56,41 @@ func TestLiquidSwapPropose(t *testing.T) {
 		})
 	}
 }
+
+func TestLiquidSwapInfo(t *testing.T) {
+	t.Parallel()
+
+	type args struct {
+		payload common.Payload
+	}
+	tests := []struct {
+		name      string
+		args      args
+		wantEnv   int
+		wantArgs  int
+		wantStdIn bool
+	}{
+		{"info", args{"payload"}, 2, 4, true},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got := LiquidSwapInfo(tt.args.payload)
+
+			if got.Program != LiquidSwapCli {
+				t.Errorf("LiquidSwapInfo() wrong Program %v, want %v", got.Program, LiquidSwapCli)
+			}
+			if len(got.Env) != tt.wantEnv {
+				t.Errorf("LiquidSwapInfo() Env = %v, want %v", len(got.Env), tt.wantEnv)
+			}
+			if len(got.Args) != tt.wantArgs {
+				t.Errorf("LiquidSwapInfo() Args = %v, want %v", len(got.Args), tt.wantArgs)
+			}
+			if (got.Stdin != nil) != tt.wantStdIn {
+				t.Errorf("LiquidSwapInfo() Stdin = %v, want %v", got.Stdin != nil, tt.wantStdIn)
+			}
+
+			t.Logf("Args: %v", got.Args)
+		})
+	}
+}
