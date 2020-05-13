@@ -7,9 +7,13 @@ package liquid
 import (
 	"context"
 
+	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/utils"
+
+	"github.com/condensat/bank-core/swap/liquid/common"
+	"github.com/condensat/bank-core/swap/liquid/handlers"
 
 	"github.com/sirupsen/logrus"
 )
@@ -30,6 +34,12 @@ func (p *Swap) Run(ctx context.Context) {
 
 func (p *Swap) registerHandlers(ctx context.Context) {
 	log := logger.Logger(ctx).WithField("Method", "Liquid.RegisterHandlers")
+
+	nats := appcontext.Messaging(ctx)
+
+	const concurencyLevel = 8
+
+	nats.SubscribeWorkers(ctx, common.SwapCreateProposalSubject, 2*concurencyLevel, handlers.OnCreateSwapProposal)
 
 	log.Debug("Liquid Swap registered")
 }
