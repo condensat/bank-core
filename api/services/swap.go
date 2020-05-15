@@ -5,6 +5,8 @@
 package services
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -21,11 +23,13 @@ import (
 	"github.com/condensat/bank-core/swap/liquid/client"
 	"github.com/condensat/bank-core/swap/liquid/common"
 
+	"github.com/jinzhu/gorm"
 	"github.com/sirupsen/logrus"
 )
 
 var (
 	ErrInvalidAccountID = errors.New("Invalid AccountID")
+	ErrInvalidPayload   = errors.New("Invalid Payload")
 
 	ErrInvalidProposal       = errors.New("Invalid Proposal")
 	ErrInsufficientFunds     = errors.New("Insufficient funds")
@@ -253,4 +257,139 @@ func (p *SwapService) Propose(r *http.Request, request *SwapProposeRequest, repl
 		Info("Proposed")
 
 	return nil
+}
+
+// Info operation return proposal payload for swap
+func (p *SwapService) Info(r *http.Request, request *SwapRequest, reply *SwapResponse) error {
+	ctx := r.Context()
+	log := logger.Logger(ctx).WithField("Method", "SwapService.Info")
+	log = GetServiceRequestLog(log, r, "swap", "Info")
+
+	if len(request.Payload) == 0 {
+		return ErrInvalidPayload
+	}
+
+	// Retrieve context values
+	_, session, err := ContextValues(ctx)
+	if err != nil {
+		log.WithError(err).
+			Error("ContextValues Failed")
+		return ErrServiceInternalError
+	}
+
+	// Get userID from session
+	request.SessionID = getSessionCookie(r)
+	sessionID := sessions.SessionID(request.SessionID)
+	userID := session.UserSession(ctx, sessionID)
+	if !sessions.IsUserValid(userID) {
+		log.Error("Invalid userSession")
+		return sessions.ErrInvalidSessionID
+	}
+	log = log.WithFields(logrus.Fields{
+		"SessionID": sessionID,
+		"UserID":    userID,
+	})
+
+	db := appcontext.Database(ctx)
+
+	var swapData SwapData
+	decoded, err := base64.StdEncoding.DecodeString(string(request.Payload))
+	if err != nil {
+		log.WithError(err).
+			Error("Decode request Payload failed")
+		return sessions.ErrInternalError
+	}
+
+	err = json.Unmarshal(decoded, &swapData)
+	if err != nil {
+		log.WithError(err).
+			Error("Unmarshal SwapData failed")
+		return sessions.ErrInternalError
+	}
+
+	var swapID string
+	// try to get swapID from Unconfidential address
+	if len(swapData.ProposerUnconfidentialAddress) != 0 {
+		addr, err := database.GetCryptoAddressWithUnconfidential(db, model.String(swapData.ProposerUnconfidentialAddress))
+		if err != nil && err != gorm.ErrRecordNotFound {
+			log.WithError(err).
+				Error("GetCryptoAddressWithUnconfidential failed")
+			return sessions.ErrInternalError
+		}
+
+		if addr.ID > 0 {
+			swap, err := database.GetSwapByCryptoAddressID(db, addr.ID)
+			if err != nil {
+				log.WithError(err).
+					Error("GetSwapByCryptoAddressID failed")
+				return sessions.ErrInternalError
+			}
+
+			sID := appcontext.SecureID(ctx)
+			secureID, err := sID.ToSecureID("swap", secureid.Value(uint64(swap.ID)))
+			if err != nil {
+				log.WithError(err).
+					WithField("swapID", swapID).
+					Error("ToSecureID failed")
+				return sessions.ErrInternalError
+			}
+			// store swapID for reply
+			swapID = sID.ToString(secureID)
+		}
+	}
+
+	swapInfo, err := client.InfoSwapProposal(ctx, uint64(0), common.Payload(request.Payload))
+	if err != nil {
+		log.WithError(err).
+			Error("InfoSwapProposal failed")
+		return sessions.ErrInternalError
+	}
+
+	// Reply
+	*reply = SwapResponse{
+		SwapID:  swapID,
+		Payload: string(swapInfo.Payload),
+	}
+
+	log.Info("Info")
+
+	return nil
+}
+
+type SwapData struct {
+	ProposerUnconfidentialAddress string `json:"u_address_p"`
+}
+
+type SwapLeg struct {
+	Incoming bool    `json:"incoming"`
+	Funded   bool    `json:"funded"`
+	Asset    string  `json:"asset"`
+	Amount   float64 `json:"amount"`
+	Fee      float64 `json:"fee"`
+}
+
+type SwapInfo struct {
+	Status string    `json:"status"`
+	Legs   []SwapLeg `json:"legs"`
+}
+
+func (p *SwapInfo) CreditLeg() SwapLeg {
+	return legIncoming(p.Legs, true)
+}
+
+func (p *SwapInfo) DebitLeg() SwapLeg {
+	return legIncoming(p.Legs, false)
+}
+
+func legIncoming(legs []SwapLeg, incomming bool) SwapLeg {
+	if len(legs) != 2 {
+		return SwapLeg{}
+	}
+
+	for _, leg := range legs {
+		if leg.Incoming == incomming {
+			return leg
+		}
+	}
+	return SwapLeg{}
 }
