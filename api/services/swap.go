@@ -502,6 +502,200 @@ func (p *SwapService) Finalize(r *http.Request, request *SwapRequest, reply *Swa
 	return nil
 }
 
+// Accept operation return proposal payload for swap
+func (p *SwapService) Accept(r *http.Request, request *SwapRequest, reply *SwapResponse) error {
+	ctx := r.Context()
+	log := logger.Logger(ctx).WithField("Method", "SwapService.Accept")
+	log = GetServiceRequestLog(log, r, "swap", "Accept")
+
+	if len(request.Payload) == 0 {
+		return ErrInvalidPayload
+	}
+
+	// Retrieve context values
+	_, session, err := ContextValues(ctx)
+	if err != nil {
+		log.WithError(err).
+			Error("ContextValues Failed")
+		return ErrServiceInternalError
+	}
+
+	// Get userID from session
+	request.SessionID = getSessionCookie(r)
+	sessionID := sessions.SessionID(request.SessionID)
+	userID := session.UserSession(ctx, sessionID)
+	if !sessions.IsUserValid(userID) {
+		log.Error("Invalid userSession")
+		return sessions.ErrInvalidSessionID
+	}
+	log = log.WithFields(logrus.Fields{
+		"SessionID": sessionID,
+		"UserID":    userID,
+	})
+
+	sID := appcontext.SecureID(ctx)
+	accountID, err := sID.FromSecureID("account", sID.Parse(request.AccountID))
+	if err != nil {
+		log.WithError(err).
+			WithField("AccountID", request.AccountID).
+			Error("Wrong AccountID")
+		return sessions.ErrInternalError
+	}
+
+	swapInfo, err := client.InfoSwapProposal(ctx, 0, common.Payload(request.Payload))
+	if err != nil {
+		log.WithError(err).
+			Error("InfoSwapProposal failed")
+		return sessions.ErrInternalError
+	}
+
+	var decodedInfo SwapInfo
+	err = json.Unmarshal([]byte(swapInfo.Payload), &decodedInfo)
+	if err != nil {
+		log.WithError(err).
+			Error("SwapInfo decoding failed")
+		return ErrInvalidProposal
+	}
+	if decodedInfo.Status != "proposed" {
+		log.WithError(err).
+			Error("SwapInfo status is not proposed")
+		return ErrInvalidProposal
+	}
+
+	db := appcontext.Database(ctx)
+
+	account, err := accounting.AccountInfo(ctx, uint64(accountID))
+	if err != nil {
+		log.WithError(err).
+			WithField("AccountID", accountID).
+			Error("AccountInfo failed")
+		return ErrInvalidAccountID
+	}
+	if !account.Currency.Crypto && !account.Currency.Asset {
+		log.WithField("AccountID", request.AccountID).
+			Error("Non Asset Account")
+		return sessions.ErrInternalError
+	}
+
+	legCredit := decodedInfo.CreditLeg()
+	assetCredit, err := database.GetAssetByHash(db, model.AssetHash(legCredit.Asset))
+	if err != nil {
+		log.WithError(err).
+			Error("GetAssetByHash Failed for asset credit")
+		return ErrInvalidProposerAsset
+	}
+	legDebit := decodedInfo.DebitLeg()
+	assetDebit, err := database.GetAssetByHash(db, model.AssetHash(legDebit.Asset))
+	if err != nil {
+		log.WithError(err).
+			Error("GetAssetByHash Failed for asset debit")
+		return ErrInvalidProposerAsset
+	}
+
+	accountAsset, err := database.GetAssetByCurrencyName(db, model.CurrencyName(account.Currency.Name))
+	if err != nil {
+		log.WithField("CurrencyName", account.Currency.Name).
+			Error("GetAssetByCurrencyName failed")
+		return sessions.ErrInternalError
+	}
+	if accountAsset.Hash != model.AssetHash(legCredit.Asset) {
+		log.
+			WithField("AccountAsset", accountAsset.Hash).
+			WithField("CreditAsset", legCredit.Asset).
+			Error("Wrong Credit AssetHash")
+		return ErrInvalidProposal
+	}
+
+	// check for balances
+	if (account.Balance - account.TotalLocked) < legDebit.Amount {
+		log.WithFields(logrus.Fields{
+			"AccountID":   request.AccountID,
+			"Balance":     account.Balance,
+			"TotalLocked": account.TotalLocked,
+			"DebitAmount": legDebit.Amount,
+		}).Error("Insufficient Funds")
+		return ErrInsufficientFunds
+	}
+
+	chain, err := getChainFromCurrencyName(account.Currency.Crypto, account.Currency.Name)
+	if err != nil {
+		log.WithError(err).
+			Error("getChainFromCurrencyName failed")
+		return sessions.ErrInternalError
+	}
+
+	log = log.WithFields(logrus.Fields{
+		"Chain":        chain,
+		"AccountID":    accountID,
+		"CurrencyName": account.Currency.Name,
+	})
+
+	// generate new dedicated CryptoAddress
+	addr, err := wallet.CryptoAddressNewDeposit(ctx, chain, uint64(accountID))
+	if err != nil {
+		log.WithError(err).
+			Error("CryptoAddressNewDeposit Failed")
+		return ErrServiceInternalError
+	}
+
+	swap, err := database.AddSwap(db, model.SwapTypeBid,
+		model.CryptoAddressID(addr.CryptoAddressID),
+		assetDebit.ID, model.Float(legDebit.Amount),
+		assetCredit.ID, model.Float(legCredit.Amount),
+	)
+	if err != nil {
+		log.WithError(err).
+			Error("AddSwap Failed")
+		return ErrInvalidProposal
+	}
+
+	swapID := uint64(swap.ID)
+	secureID, err := sID.ToSecureID("swap", secureid.Value(swapID))
+	if err != nil {
+		log.WithError(err).
+			WithField("swapID", swapID).
+			Error("ToSecureID failed")
+		return sessions.ErrInternalError
+	}
+
+	address := common.ConfidentialAddress(addr.PublicAddress)
+
+	log = log.WithFields(logrus.Fields{
+		"SwapID":       sID.ToString(secureID),
+		"Address":      address,
+		"DebitAsset":   swap.DebitAsset,
+		"DebitAmount":  swap.DebitAmount,
+		"CredidAsset":  swap.CreditAsset,
+		"CreditAmount": swap.CreditAmount,
+	})
+
+	accepted, err := client.AcceptSwapProposal(ctx, uint64(swapID), address, common.Payload(request.Payload), common.DefaultFeeRate)
+	if err != nil {
+		log.WithError(err).
+			Error("AcceptSwapProposal failed")
+		return sessions.ErrInternalError
+	}
+
+	sInfo, err := database.AddSwapInfo(db, model.SwapID(swapID), model.SwapStatusAccepted, model.Payload(accepted.Payload))
+	if err != nil {
+		log.WithError(err).
+			Error("AddSwapInfo failed")
+		return sessions.ErrInternalError
+	}
+
+	// Reply
+	*reply = SwapResponse{
+		SwapID:  sID.ToString(secureID),
+		Payload: string(accepted.Payload),
+	}
+
+	log.
+		WithField("SwapInfoID", sInfo.ID).
+		Info("Accepted")
+
+	return nil
+}
+
 type SwapData struct {
 	ProposerUnconfidentialAddress string `json:"u_address_p"`
 }
