@@ -29,6 +29,7 @@ import (
 
 var (
 	ErrInvalidAccountID = errors.New("Invalid AccountID")
+	ErrInvalidSwapID    = errors.New("Invalid SwapID")
 	ErrInvalidPayload   = errors.New("Invalid Payload")
 
 	ErrInvalidProposal       = errors.New("Invalid Proposal")
@@ -352,6 +353,151 @@ func (p *SwapService) Info(r *http.Request, request *SwapRequest, reply *SwapRes
 	}
 
 	log.Info("Info")
+
+	return nil
+}
+
+// Finalize operation return proposal payload for swap
+func (p *SwapService) Finalize(r *http.Request, request *SwapRequest, reply *SwapResponse) error {
+	ctx := r.Context()
+	log := logger.Logger(ctx).WithField("Method", "SwapService.Finalize")
+	log = GetServiceRequestLog(log, r, "swap", "Finalize")
+
+	if len(request.SwapID) == 0 {
+		return ErrInvalidSwapID
+	}
+	if len(request.Payload) == 0 {
+		return ErrInvalidPayload
+	}
+
+	// Retrieve context values
+	_, session, err := ContextValues(ctx)
+	if err != nil {
+		log.WithError(err).
+			Error("ContextValues Failed")
+		return ErrServiceInternalError
+	}
+
+	// Get userID from session
+	request.SessionID = getSessionCookie(r)
+	sessionID := sessions.SessionID(request.SessionID)
+	userID := session.UserSession(ctx, sessionID)
+	if !sessions.IsUserValid(userID) {
+		log.Error("Invalid userSession")
+		return sessions.ErrInvalidSessionID
+	}
+	log = log.WithFields(logrus.Fields{
+		"SessionID": sessionID,
+		"UserID":    userID,
+	})
+
+	sID := appcontext.SecureID(ctx)
+	swapID, err := sID.FromSecureID("swap", sID.Parse(request.SwapID))
+	if err != nil {
+		log.WithError(err).
+			WithField("AccountID", request.AccountID).
+			Error("Wrong AccountID")
+		return sessions.ErrInternalError
+	}
+
+	swapInfo, err := client.InfoSwapProposal(ctx, 0, common.Payload(request.Payload))
+	if err != nil {
+		log.WithError(err).
+			Error("InfoSwapProposal failed")
+		return sessions.ErrInternalError
+	}
+
+	var decodedInfo SwapInfo
+	err = json.Unmarshal([]byte(swapInfo.Payload), &decodedInfo)
+	if err != nil {
+		log.WithError(err).
+			Error("SwapInfo decoding failed")
+		return ErrInvalidProposal
+	}
+	if decodedInfo.Status != "accepted" {
+		log.WithError(err).
+			Error("SwapInfo status is not accepted")
+		return ErrInvalidProposal
+	}
+
+	db := appcontext.Database(ctx)
+
+	swap, err := database.GetSwap(db, model.SwapID(swapID))
+	if err != nil {
+		log.WithError(err).
+			WithField("AccountID", request.AccountID).
+			Error("Wrong SwapID")
+		return ErrInvalidSwapID
+	}
+
+	// check if userID & accountID match swap CryptoAddressID
+	addr, err := database.GetCryptoAddress(db, swap.CryptoAddressID)
+	if err != nil {
+		log.WithError(err).
+			WithField("CryptoAddressID", swap.CryptoAddressID).
+			Error("GetCryptoAddress failed")
+		return ErrInvalidSwapID
+	}
+
+	accountID := addr.AccountID
+
+	account, err := accounting.AccountInfo(ctx, uint64(accountID))
+	if err != nil {
+		log.WithError(err).
+			WithField("AccountID", accountID).
+			Error("AccountInfo failed")
+		return ErrInvalidSwapID
+	}
+	if !account.Currency.Crypto && !account.Currency.Asset {
+		log.WithField("AccountID", request.AccountID).
+			Error("Non Asset Account")
+		return ErrInvalidSwapID
+	}
+
+	accountAsset, err := database.GetAssetByCurrencyName(db, model.CurrencyName(account.Currency.Name))
+	if err != nil {
+		log.WithField("CurrencyName", account.Currency.Name).
+			Error("GetAssetByCurrencyName failed")
+		return sessions.ErrInternalError
+	}
+
+	legCredit := decodedInfo.CreditLeg()
+	if accountAsset.Hash != model.AssetHash(legCredit.Asset) {
+		log.
+			WithField("AccountAsset", accountAsset.Hash).
+			WithField("CreditAsset", legCredit.Asset).
+			Error("Wrong Receiver AssetHash")
+		return ErrInvalidProposal
+	}
+
+	log = log.WithFields(logrus.Fields{
+		"SwapID":    swapID,
+		"AccountID": accountID,
+	})
+
+	finalized, err := client.FinalizeSwapProposal(ctx, uint64(swapID), common.Payload(request.Payload))
+	if err != nil {
+		log.WithError(err).
+			Error("FinalizeSwapProposal failed")
+		return sessions.ErrInternalError
+	}
+
+	sInfo, err := database.AddSwapInfo(db, model.SwapID(swapID), model.SwapStatusFinalized, model.Payload(finalized.Payload))
+	if err != nil {
+		log.WithError(err).
+			Error("AddSwapInfo failed")
+		return sessions.ErrInternalError
+	}
+
+	// Reply
+	*reply = SwapResponse{
+		SwapID:  request.SwapID,
+		Payload: string(finalized.Payload),
+	}
+
+	log.
+		WithField("SwapInfoID", sInfo.ID).
+		Info("Finalized")
 
 	return nil
 }
