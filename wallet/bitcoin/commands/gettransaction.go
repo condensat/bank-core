@@ -49,8 +49,17 @@ func parseTransactionInfo(data []byte) (TransactionInfo, error) {
 	}
 
 	result := info
-	if len(info.Address) == 0 && len(info.Details) == 1 {
+	if len(info.Address) == 0 && len(info.Details) > 0 {
 		tx := info.Details[0]
+		// find first receive tx if exists
+		for _, detail := range info.Details {
+			if detail.Category != "receive" {
+				continue
+			}
+			// found first receive tx
+			tx = detail
+			break
+		}
 		result = TransactionInfo{
 			TxID:    info.TxID,
 			Vout:    tx.Vout,
@@ -99,12 +108,22 @@ func parseElementsTransactionInfo(data []byte) (TransactionInfo, error) {
 		return TransactionInfo{}, err
 	}
 
-	if len(info.Details) != 1 {
+	if len(info.Details) == 0 {
 		return TransactionInfo{}, err
 	}
 
 	// create TransactionInfo with first transaction detail
+	// default to first tx
 	tx := info.Details[0]
+	// find first receive tx if exists
+	for _, detail := range info.Details {
+		if detail.Category != "receive" {
+			continue
+		}
+		// found first receive tx
+		tx = detail
+		break
+	}
 	return TransactionInfo{
 		TxID:    info.TxID,
 		Vout:    tx.Vout,
