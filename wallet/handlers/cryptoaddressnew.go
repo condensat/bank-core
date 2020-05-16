@@ -6,8 +6,6 @@ package handlers
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
@@ -20,18 +18,11 @@ import (
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/messaging"
 
-	"github.com/shengdoushi/base58"
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	ErrInvalidChain     = errors.New("Invalid Chain")
-	ErrInvalidAccountID = errors.New("Invalid AccountID")
-	ErrGenAddress       = errors.New("Gen Address Error")
-)
-
-func CryptoAddressNextDeposit(ctx context.Context, address common.CryptoAddress) (common.CryptoAddress, error) {
-	log := logger.Logger(ctx).WithField("Method", "wallet.CryptoAddressNextDeposit")
+func CryptoAddressNewDeposit(ctx context.Context, address common.CryptoAddress) (common.CryptoAddress, error) {
+	log := logger.Logger(ctx).WithField("Method", "wallet.CryptoAddressNewDeposit")
 	var result common.CryptoAddress
 
 	chainHandler := ChainHandlerFromContext(ctx)
@@ -63,29 +54,6 @@ func CryptoAddressNextDeposit(ctx context.Context, address common.CryptoAddress)
 		chain := model.String(address.Chain)
 		accountID := model.AccountID(address.AccountID)
 
-		addresses, err := database.AllUnusedAccountCryptoAddresses(db, accountID)
-		if err != nil {
-			log.WithError(err).
-				Error("Failed to AllUnusedAccountCryptoAddresses")
-			return err
-		}
-
-		// return last unised address
-		if len(addresses) > 0 {
-			addr := addresses[len(addresses)-1]
-
-			log.Debug("Found unused deposit address")
-
-			result = common.CryptoAddress{
-				CryptoAddressID: uint64(addr.ID),
-				Chain:           string(addr.Chain),
-				AccountID:       uint64(addr.AccountID),
-				PublicAddress:   string(addr.PublicAddress),
-				Unconfidential:  string(addr.Unconfidential),
-			}
-			return nil
-		}
-
 		addr, err := txNewCryptoAddress(ctx, db, chainHandler, chain, accountID)
 		if err != nil {
 			log.WithError(err).
@@ -112,8 +80,8 @@ func CryptoAddressNextDeposit(ctx context.Context, address common.CryptoAddress)
 	return result, err
 }
 
-func OnCryptoAddressNextDeposit(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
-	log := logger.Logger(ctx).WithField("Method", "wallet.OnCryptoAddressNextDeposit")
+func OnCryptoAddressNewDeposit(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
+	log := logger.Logger(ctx).WithField("Method", "wallet.OnCryptoAddressNewDeposit")
 	log = log.WithFields(logrus.Fields{
 		"Subject": subject,
 	})
@@ -126,32 +94,58 @@ func OnCryptoAddressNextDeposit(ctx context.Context, subject string, message *ba
 				"AccountID": request.AccountID,
 			})
 
-			nextDeposit, err := CryptoAddressNextDeposit(ctx, request)
+			newDeposit, err := CryptoAddressNewDeposit(ctx, request)
 			if err != nil {
 				log.WithError(err).
-					Errorf("Failed to CryptoAddressNextDeposit")
+					Errorf("Failed to CryptoAddressNewsDeposit")
 				return nil, cache.ErrInternalError
 			}
 
 			log = log.WithFields(logrus.Fields{
-				"PublicAddress": nextDeposit.PublicAddress,
+				"PublicAddress": newDeposit.PublicAddress,
 			})
 
-			log.Info("Next Deposit Address")
+			log.Info("New Deposit Address")
 
 			// create & return response
 			return &common.CryptoAddress{
-				CryptoAddressID: nextDeposit.CryptoAddressID,
+				CryptoAddressID: newDeposit.CryptoAddressID,
 				Chain:           request.Chain,
 				AccountID:       request.AccountID,
-				PublicAddress:   nextDeposit.PublicAddress,
-				Unconfidential:  nextDeposit.Unconfidential,
+				PublicAddress:   newDeposit.PublicAddress,
+				Unconfidential:  newDeposit.Unconfidential,
 			}, nil
 		})
 }
 
-func genAccountLabelFromAccountID(accountID model.AccountID) string {
-	// create account label from accountID
-	accountHash := fmt.Sprintf("bank.account:%d", accountID)
-	return base58.Encode([]byte(accountHash), base58.BitcoinAlphabet)
+func txNewCryptoAddress(ctx context.Context, db bank.Database, chainHandler ChainHandler, chain model.String, accountID model.AccountID) (model.CryptoAddress, error) {
+	log := logger.Logger(ctx).WithField("Method", "wallet.txNewCryptoAddress")
+	account := genAccountLabelFromAccountID(accountID)
+	publicAddress, err := chainHandler.GetNewAddress(ctx, string(chain), account)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to GetNewAddress")
+		return model.CryptoAddress{}, ErrGenAddress
+	}
+
+	info, err := chainHandler.GetAddressInfo(ctx, string(chain), publicAddress)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to GetAddressInfo")
+		return model.CryptoAddress{}, ErrGenAddress
+	}
+
+	addr, err := database.AddOrUpdateCryptoAddress(db, model.CryptoAddress{
+		Chain:          chain,
+		AccountID:      accountID,
+		PublicAddress:  model.String(publicAddress),
+		Unconfidential: model.String(info.Unconfidential),
+	})
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to AddOrUpdateCryptoAddress")
+		return model.CryptoAddress{}, err
+	}
+
+	return addr, nil
 }
