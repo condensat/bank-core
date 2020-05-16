@@ -88,3 +88,24 @@ func GetSwap(db bank.Database, swapID model.SwapID) (model.Swap, error) {
 
 	return result, nil
 }
+
+func GetSwapByCryptoAddressID(db bank.Database, cryptoAddressID model.CryptoAddressID) (model.Swap, error) {
+	gdb := db.DB().(*gorm.DB)
+	if db == nil {
+		return model.Swap{}, errors.New("Invalid appcontext.Database")
+	}
+
+	if cryptoAddressID == 0 {
+		return model.Swap{}, ErrInvalidCryptoAddressID
+	}
+
+	var result model.Swap
+	err := gdb.
+		Where(&model.Swap{CryptoAddressID: cryptoAddressID}).
+		First(&result).Error
+	if err != nil {
+		return model.Swap{}, err
+	}
+
+	return result, nil
+}
