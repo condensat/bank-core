@@ -60,7 +60,7 @@ func (p *Api) Run(ctx context.Context, port int, corsAllowedOrigins []string, oa
 		Addr:           fmt.Sprintf(":%d", port),
 		Handler:        handler,
 		ReadTimeout:    3 * time.Second,
-		WriteTimeout:   3 * time.Second,
+		WriteTimeout:   15 * time.Second,
 		MaxHeaderBytes: 1 << 16, // 16 KiB
 		ConnContext:    func(conCtx context.Context, c net.Conn) context.Context { return ctx },
 	}
