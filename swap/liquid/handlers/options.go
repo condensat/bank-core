@@ -28,6 +28,14 @@ const (
 	FeeRatePrecisionFormat = "%.9f"
 )
 
+var (
+	elementsConfFile = "/etc/liquidswap/elements.conf"
+)
+
+func SetElementsConf(elementsConf string) {
+	elementsConfFile = elementsConf
+}
+
 func liquidSwapOptions(args ...interface{}) shellexec.Options {
 	defaultEnv := []string{
 		"LC_ALL=C.UTF-8",
@@ -36,7 +44,7 @@ func liquidSwapOptions(args ...interface{}) shellexec.Options {
 
 	var payload io.Reader
 	var finalArgs []string
-	finalArgs = append(finalArgs, "--conf-file", "/home/elements/.elements/elements.conf")
+	finalArgs = append(finalArgs, "--conf-file", elementsConfFile)
 
 	for _, a := range args {
 		switch arg := a.(type) {

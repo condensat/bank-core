@@ -20,8 +20,10 @@ import (
 
 type Swap int
 
-func (p *Swap) Run(ctx context.Context) {
+func (p *Swap) Run(ctx context.Context, elementsConf string) {
 	log := logger.Logger(ctx).WithField("Method", "Swap.Run")
+
+	handlers.SetElementsConf(elementsConf)
 
 	p.registerHandlers(cache.RedisMutexContext(ctx))
 
