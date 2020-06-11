@@ -77,46 +77,28 @@ func CryptoAddressNextDeposit(ctx context.Context, address common.CryptoAddress)
 			log.Debug("Found unused deposit address")
 
 			result = common.CryptoAddress{
-				Chain:          string(addr.Chain),
-				AccountID:      uint64(addr.AccountID),
-				PublicAddress:  string(addr.PublicAddress),
-				Unconfidential: string(addr.Unconfidential),
+				CryptoAddressID: uint64(addr.ID),
+				Chain:           string(addr.Chain),
+				AccountID:       uint64(addr.AccountID),
+				PublicAddress:   string(addr.PublicAddress),
+				Unconfidential:  string(addr.Unconfidential),
 			}
 			return nil
 		}
 
-		account := genAccountLabelFromAccountID(accountID)
-		publicAddress, err := chainHandler.GetNewAddress(ctx, string(chain), account)
+		addr, err := txNewCryptoAddress(ctx, db, chainHandler, chain, accountID)
 		if err != nil {
 			log.WithError(err).
-				Error("Failed to GetNewAddress")
-			return ErrGenAddress
-		}
-
-		info, err := chainHandler.GetAddressInfo(ctx, string(chain), publicAddress)
-		if err != nil {
-			log.WithError(err).
-				Error("Failed to GetAddressInfo")
-			return ErrGenAddress
-		}
-
-		addr, err := database.AddOrUpdateCryptoAddress(db, model.CryptoAddress{
-			Chain:          chain,
-			AccountID:      accountID,
-			PublicAddress:  model.String(publicAddress),
-			Unconfidential: model.String(info.Unconfidential),
-		})
-		if err != nil {
-			log.WithError(err).
-				Error("Failed to AddOrUpdateCryptoAddress")
+				Error("Failed to txNewCryptoAddress")
 			return err
 		}
 
 		result = common.CryptoAddress{
-			Chain:          string(addr.Chain),
-			AccountID:      uint64(addr.AccountID),
-			PublicAddress:  string(addr.PublicAddress),
-			Unconfidential: string(addr.Unconfidential),
+			CryptoAddressID: uint64(addr.ID),
+			Chain:           string(addr.Chain),
+			AccountID:       uint64(addr.AccountID),
+			PublicAddress:   string(addr.PublicAddress),
+			Unconfidential:  string(addr.Unconfidential),
 		}
 
 		return nil
@@ -159,10 +141,11 @@ func OnCryptoAddressNextDeposit(ctx context.Context, subject string, message *ba
 
 			// create & return response
 			return &common.CryptoAddress{
-				Chain:          request.Chain,
-				AccountID:      request.AccountID,
-				PublicAddress:  nextDeposit.PublicAddress,
-				Unconfidential: nextDeposit.Unconfidential,
+				CryptoAddressID: nextDeposit.CryptoAddressID,
+				Chain:           request.Chain,
+				AccountID:       request.AccountID,
+				PublicAddress:   nextDeposit.PublicAddress,
+				Unconfidential:  nextDeposit.Unconfidential,
 			}, nil
 		})
 }

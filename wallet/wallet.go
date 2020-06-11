@@ -83,6 +83,7 @@ func (p *Wallet) registerHandlers(ctx context.Context) {
 	const concurencyLevel = 4
 
 	nats.SubscribeWorkers(ctx, common.CryptoAddressNextDepositSubject, concurencyLevel, handlers.OnCryptoAddressNextDeposit)
+	nats.SubscribeWorkers(ctx, common.CryptoAddressNewDepositSubject, concurencyLevel, handlers.OnCryptoAddressNewDeposit)
 
 	log.Debug("Bank Wallet registered")
 }

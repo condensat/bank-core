@@ -31,9 +31,10 @@ func CryptoAddressNextDeposit(ctx context.Context, chain string, accountID uint6
 	}
 
 	log.WithFields(logrus.Fields{
-		"Chain":         result.Chain,
-		"AccountID":     result.AccountID,
-		"PublicAddress": result.PublicAddress,
+		"CryptoAddressID": result.CryptoAddressID,
+		"Chain":           result.Chain,
+		"AccountID":       result.AccountID,
+		"PublicAddress":   result.PublicAddress,
 	}).Debug("Next Deposit Address")
 
 	return result, nil

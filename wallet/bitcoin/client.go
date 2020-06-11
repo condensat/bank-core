@@ -172,7 +172,7 @@ func (p *BitcoinClient) ListUnspent(ctx context.Context, minConf, maxConf int, a
 }
 
 func (p *BitcoinClient) LockUnspent(ctx context.Context, unlock bool, transactions ...common.TransactionInfo) error {
-	log := logger.Logger(ctx).WithField("Method", "bitcoin.ListUnspent")
+	log := logger.Logger(ctx).WithField("Method", "bitcoin.LockUnspent")
 
 	client := p.client
 	if p.client == nil {
