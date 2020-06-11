@@ -17,5 +17,7 @@ func Models() []model.Model {
 		new(model.Asset),
 		new(model.AssetInfo),
 		new(model.AssetIcon),
+		new(model.Swap),
+		new(model.SwapInfo),
 	}
 }
