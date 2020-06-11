@@ -68,3 +68,10 @@ func SwapModel() []model.Model {
 		model.Model(new(model.SwapInfo)),
 	}
 }
+
+func WithdrawModel() []model.Model {
+	return []model.Model{
+		model.Model(new(model.Withdraw)),
+		model.Model(new(model.WithdrawInfo)),
+	}
+}
