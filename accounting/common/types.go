@@ -30,6 +30,7 @@ type CurrencyList struct {
 type AccountInfo struct {
 	Timestamp   time.Time
 	AccountID   uint64
+	UserID      uint64
 	Currency    CurrencyInfo
 	Name        string
 	Status      string

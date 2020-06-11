@@ -112,6 +112,7 @@ func txGetAccountInfo(db bank.Database, account model.Account) (common.AccountIn
 	return common.AccountInfo{
 		Timestamp: last.Timestamp,
 		AccountID: uint64(account.ID),
+		UserID:    uint64(account.UserID),
 		Currency: common.CurrencyInfo{
 			Name:             currencyName,
 			DisplayName:      displayName,

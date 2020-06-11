@@ -103,12 +103,32 @@ func GetCryptoAddressWithPublicAddress(db bank.Database, publicAddress model.Str
 	}
 
 	if len(publicAddress) == 0 {
-		return result, ErrInvalidCryptoAddressID
+		return result, ErrInvalidPublicAddress
 	}
 
 	err := gdb.
 		Where(model.CryptoAddress{
 			PublicAddress: publicAddress,
+		}).
+		First(&result).Error
+
+	return result, err
+}
+
+func GetCryptoAddressWithUnconfidential(db bank.Database, unconfidential model.String) (model.CryptoAddress, error) {
+	var result model.CryptoAddress
+	gdb := db.DB().(*gorm.DB)
+	if gdb == nil {
+		return result, errors.New("Invalid appcontext.Database")
+	}
+
+	if len(unconfidential) == 0 {
+		return result, ErrInvalidPublicAddress
+	}
+
+	err := gdb.
+		Where(model.CryptoAddress{
+			Unconfidential: unconfidential,
 		}).
 		First(&result).Error
 
