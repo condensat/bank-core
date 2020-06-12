@@ -14,9 +14,11 @@ import (
 )
 
 var (
-	ErrInvalidWithdrawID     = errors.New("Invalid WithdrawID")
-	ErrInvalidWithdrawAmount = errors.New("Invalid Amount")
-	ErrInvalidBatchMode      = errors.New("Invalid BatchMode")
+	ErrInvalidWithdrawID              = errors.New("Invalid WithdrawID")
+	ErrInvalidWithdrawAmount          = errors.New("Invalid Amount")
+	ErrInvalidWithdrawAccount         = errors.New("Invalid Withdraw Account")
+	ErrInvalidWithdrawAccountCurrency = errors.New("Invalid Withdraw Account Currency")
+	ErrInvalidBatchMode               = errors.New("Invalid BatchMode")
 )
 
 func AddWithdraw(db bank.Database, from, to model.AccountID, amount model.Float, batch model.BatchMode, data model.WithdrawData) (model.Withdraw, error) {
@@ -34,6 +36,18 @@ func AddWithdraw(db bank.Database, from, to model.AccountID, amount model.Float,
 	if from == to {
 		return model.Withdraw{}, ErrInvalidAccountID
 	}
+	accountFrom, err := GetAccountByID(db, from)
+	if err != nil {
+		return model.Withdraw{}, ErrInvalidWithdrawAccount
+	}
+	accountTo, err := GetAccountByID(db, to)
+	if err != nil {
+		return model.Withdraw{}, ErrInvalidWithdrawAccount
+	}
+	if accountFrom.CurrencyName != accountTo.CurrencyName {
+		return model.Withdraw{}, ErrInvalidWithdrawAccountCurrency
+	}
+
 	if amount <= 0.0 {
 		return model.Withdraw{}, ErrInvalidWithdrawAmount
 	}
@@ -50,7 +64,7 @@ func AddWithdraw(db bank.Database, from, to model.AccountID, amount model.Float,
 		Batch:     batch,
 		Data:      data,
 	}
-	err := gdb.Create(&result).Error
+	err = gdb.Create(&result).Error
 	if err != nil {
 		return model.Withdraw{}, err
 	}

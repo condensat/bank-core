@@ -19,6 +19,11 @@ func TestAddWithdraw(t *testing.T) {
 	db := setup(databaseName, WithdrawModel())
 	defer teardown(db, databaseName)
 
+	data := createTestAccountStateData(db)
+	a1 := data.Accounts[0]
+	a2 := data.Accounts[2]
+	a3 := data.Accounts[1]
+
 	type args struct {
 		from   model.AccountID
 		to     model.AccountID
@@ -33,15 +38,16 @@ func TestAddWithdraw(t *testing.T) {
 		wantErr bool
 	}{
 		{"default", args{}, model.Withdraw{}, true},
-		{"invalid_from", args{0, 1337, 0.1, model.BatchModeNormal, "{}"}, model.Withdraw{}, true},
-		{"invalid_to", args{42, 0, 0.1, model.BatchModeNormal, "{}"}, model.Withdraw{}, true},
-		{"same_from_to", args{42, 42, 0.1, model.BatchModeNormal, "{}"}, model.Withdraw{}, true},
-		{"invalid_amount", args{42, 137, 0.0, model.BatchModeNormal, "{}"}, model.Withdraw{}, true},
-		{"negative_amount", args{42, 137, -0.1, model.BatchModeNormal, "{}"}, model.Withdraw{}, true},
-		{"invalid_batch", args{42, 137, 0.0, "", "{}"}, model.Withdraw{}, true},
+		{"invalid_from", args{0, a2.ID, 0.1, model.BatchModeNormal, "{}"}, model.Withdraw{}, true},
+		{"invalid_to", args{a1.ID, 0, 0.1, model.BatchModeNormal, "{}"}, model.Withdraw{}, true},
+		{"same_from_to", args{a1.ID, a1.ID, 0.1, model.BatchModeNormal, "{}"}, model.Withdraw{}, true},
+		{"wrong_currency", args{a1.ID, a3.ID, 0.1, model.BatchModeNormal, "{}"}, model.Withdraw{}, true},
+		{"invalid_amount", args{a1.ID, a2.ID, 0.0, model.BatchModeNormal, "{}"}, model.Withdraw{}, true},
+		{"negative_amount", args{a1.ID, a2.ID, -0.1, model.BatchModeNormal, "{}"}, model.Withdraw{}, true},
+		{"invalid_batch", args{a1.ID, a2.ID, 0.0, "", "{}"}, model.Withdraw{}, true},
 
-		{"default_data", args{42, 1337, 0.1, model.BatchModeNormal, ""}, createWithdraw(42, 1337, 0.1, model.BatchModeNormal, "{}"), false},
-		{"valid", args{42, 1337, 0.1, model.BatchModeNormal, "{}"}, createWithdraw(42, 1337, 0.1, model.BatchModeNormal, "{}"), false},
+		{"default_data", args{a1.ID, a2.ID, 0.1, model.BatchModeNormal, ""}, createWithdraw(a1.ID, a2.ID, 0.1, model.BatchModeNormal, "{}"), false},
+		{"valid", args{a1.ID, a2.ID, 0.1, model.BatchModeNormal, "{}"}, createWithdraw(a1.ID, a2.ID, 0.1, model.BatchModeNormal, "{}"), false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
@@ -74,7 +80,11 @@ func TestGetWithdraw(t *testing.T) {
 	db := setup(databaseName, WithdrawModel())
 	defer teardown(db, databaseName)
 
-	ref, _ := AddWithdraw(db, 42, 1337, 0.1, model.BatchModeNormal, "{}")
+	data := createTestAccountStateData(db)
+	a1 := data.Accounts[0]
+	a2 := data.Accounts[2]
+
+	ref, _ := AddWithdraw(db, a1.ID, a2.ID, 0.1, model.BatchModeNormal, "{}")
 
 	type args struct {
 		ID model.WithdrawID

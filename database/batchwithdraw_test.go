@@ -19,11 +19,14 @@ func TestAddWithdrawToBatch(t *testing.T) {
 	defer teardown(db, databaseName)
 
 	batch, _ := AddBatch(db, "{}")
+	data := createTestAccountStateData(db)
+	a1 := data.Accounts[0]
+	a2 := data.Accounts[2]
 
-	w1, _ := AddWithdraw(db, 42, 1337, 0.1, model.BatchModeNormal, "{}")
-	w2, _ := AddWithdraw(db, 42, 1337, 0.1, model.BatchModeNormal, "{}")
-	w3, _ := AddWithdraw(db, 42, 1337, 0.1, model.BatchModeNormal, "{}")
-	w4, _ := AddWithdraw(db, 42, 1337, 0.1, model.BatchModeNormal, "{}")
+	w1, _ := AddWithdraw(db, a1.ID, a2.ID, 0.1, model.BatchModeNormal, "{}")
+	w2, _ := AddWithdraw(db, a1.ID, a2.ID, 0.1, model.BatchModeNormal, "{}")
+	w3, _ := AddWithdraw(db, a1.ID, a2.ID, 0.1, model.BatchModeNormal, "{}")
+	w4, _ := AddWithdraw(db, a1.ID, a2.ID, 0.1, model.BatchModeNormal, "{}")
 
 	type args struct {
 		batchID   model.BatchID
@@ -56,10 +59,14 @@ func TestGetBatchWithdraws(t *testing.T) {
 
 	batch, _ := AddBatch(db, "{}")
 
-	w1, _ := AddWithdraw(db, 42, 1337, 0.1, model.BatchModeNormal, "{}")
-	w2, _ := AddWithdraw(db, 42, 1337, 0.1, model.BatchModeNormal, "{}")
-	w3, _ := AddWithdraw(db, 42, 1337, 0.1, model.BatchModeNormal, "{}")
-	w4, _ := AddWithdraw(db, 42, 1337, 0.1, model.BatchModeNormal, "{}")
+	data := createTestAccountStateData(db)
+	a1 := data.Accounts[0]
+	a2 := data.Accounts[2]
+
+	w1, _ := AddWithdraw(db, a1.ID, a2.ID, 0.1, model.BatchModeNormal, "{}")
+	w2, _ := AddWithdraw(db, a1.ID, a2.ID, 0.1, model.BatchModeNormal, "{}")
+	w3, _ := AddWithdraw(db, a1.ID, a2.ID, 0.1, model.BatchModeNormal, "{}")
+	w4, _ := AddWithdraw(db, a1.ID, a2.ID, 0.1, model.BatchModeNormal, "{}")
 
 	withdraws := createWithdrawIDList(w1.ID, w2.ID, w3.ID, w4.ID)
 

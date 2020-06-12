@@ -70,12 +70,12 @@ func SwapModel() []model.Model {
 }
 
 func WithdrawModel() []model.Model {
-	return []model.Model{
+	return append(AccountOperationModel(), []model.Model{
 		model.Model(new(model.Withdraw)),
 		model.Model(new(model.WithdrawInfo)),
 		model.Model(new(model.Fee)),
 		model.Model(new(model.Batch)),
 		model.Model(new(model.BatchInfo)),
 		model.Model(new(model.BatchWithdraw)),
-	}
+	}...)
 }
