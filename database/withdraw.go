@@ -92,3 +92,41 @@ func GetWithdraw(db bank.Database, ID model.WithdrawID) (model.Withdraw, error) 
 
 	return result, nil
 }
+
+func FindWithdrawByCurrencyNameAndStatus(db bank.Database, currency model.CurrencyName, status model.WithdrawStatus) ([]model.Withdraw, error) {
+	gdb := db.DB().(*gorm.DB)
+
+	subQueryAccount := gdb.Model(&model.Account{}).
+		Select("id").
+		Where("currency_name = ?", currency).
+		SubQuery()
+
+	subQueryInfo := gdb.Model(&model.WithdrawInfo{}).
+		Select("withdraw_id").
+		Where("status = ?", status).
+		SubQuery()
+
+	var list []*model.Withdraw
+	err := gdb.Model(&model.Withdraw{}).
+		Joins("JOIN (?) AS a ON withdraw.from = a.id", subQueryAccount).
+		Joins("JOIN (?) AS i ON withdraw.id = i.withdraw_id", subQueryInfo).
+		Order("id ASC").
+		Find(&list).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return convertWithdraws(list), nil
+}
+
+func convertWithdraws(list []*model.Withdraw) []model.Withdraw {
+	var result []model.Withdraw
+	for _, curr := range list {
+		if curr != nil {
+			result = append(result, *curr)
+		}
+	}
+
+	return result[:]
+}

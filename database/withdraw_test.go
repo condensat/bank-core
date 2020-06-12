@@ -120,6 +120,51 @@ func TestGetWithdraw(t *testing.T) {
 	}
 }
 
+func TestFindWithdrawByCurrencyNameAndStatus(t *testing.T) {
+	const databaseName = "TestFindWithdrawByCurrencyNameAndStatus"
+	t.Parallel()
+
+	db := setup(databaseName, WithdrawModel())
+	defer teardown(db, databaseName)
+	data := createTestAccountStateData(db)
+	c1 := data.Currencies[0]
+	a1 := data.Accounts[0]
+	a2 := data.Accounts[2]
+
+	withdraw, _ := AddWithdraw(db, a1.ID, a2.ID, 0.1, model.BatchModeNormal, "{}")
+	_, _ = AddWithdrawInfo(db, withdraw.ID, model.WithdrawStatusCreated, "{}")
+
+	type args struct {
+		currency model.CurrencyName
+		status   model.WithdrawStatus
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    int
+		wantErr bool
+	}{
+		{"default", args{}, 0, false},
+		{"other_currency", args{"other", model.WithdrawStatusCreated}, 0, false},
+		{"other_status", args{c1.Name, model.WithdrawStatusSettled}, 0, false},
+
+		{"found", args{c1.Name, model.WithdrawStatusCreated}, 1, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := FindWithdrawByCurrencyNameAndStatus(db, tt.args.currency, tt.args.status)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FindWithdrawByCurrencyNameAndStatus() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if len(got) != tt.want {
+				t.Errorf("FindWithdrawByCurrencyNameAndStatus() = %v, want %v", len(got), tt.want)
+			}
+		})
+	}
+}
+
 func createWithdraw(from model.AccountID, to model.AccountID, amount model.Float, batch model.BatchMode, data model.WithdrawData) model.Withdraw {
 	return model.Withdraw{
 		From:   from,
