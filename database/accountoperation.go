@@ -22,6 +22,12 @@ var (
 	ErrInvalidAccountOperation = errors.New("Invalid Account Operation")
 )
 
+type AccountOperationPrevNext struct {
+	model.AccountOperation
+	Previous model.AccountOperationID
+	Next     model.AccountOperationID
+}
+
 func AppendAccountOperation(db bank.Database, operation model.AccountOperation) (model.AccountOperation, error) {
 	result, err := AppendAccountOperationSlice(db, operation)
 	if err != nil {
@@ -184,6 +190,40 @@ func GeAccountHistory(db bank.Database, accountID model.AccountID) ([]model.Acco
 	return convertAccountOperationList(list), nil
 }
 
+func GeAccountHistoryWithPrevNext(db bank.Database, accountID model.AccountID) ([]AccountOperationPrevNext, error) {
+	gdb := getGormDB(db)
+	if gdb == nil {
+		return nil, ErrInvalidDatabase
+	}
+
+	if accountID == 0 {
+		return nil, ErrInvalidAccountID
+	}
+
+	var rows []*AccountOperationPrevNext
+	const query = `
+		SELECT *,
+			(SELECT id FROM account_operation AS sub
+					WHERE ops.account_id = sub.account_id AND sub.id < ops.id
+					ORDER BY sub.id DESC
+					LIMIT 1
+			) AS previous,
+			(SELECT id FROM account_operation AS sub
+					WHERE ops.account_id = sub.account_id AND sub.id > ops.id
+					ORDER BY sub.id ASC
+					LIMIT 1
+			) AS next
+		FROM account_operation as ops WHERE account_id = ? ORDER BY id asc;`
+	err := gdb.
+		Raw(query, accountID).
+		Find(&rows).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return convertAccountOperationPrevNextList(rows), nil
+}
+
 func GeAccountHistoryRange(db bank.Database, accountID model.AccountID, from, to time.Time) ([]model.AccountOperation, error) {
 	gdb := getGormDB(db)
 	if gdb == nil {
@@ -220,6 +260,17 @@ func GeAccountHistoryRange(db bank.Database, accountID model.AccountID, from, to
 
 func convertAccountOperationList(list []*model.AccountOperation) []model.AccountOperation {
 	var result []model.AccountOperation
+	for _, curr := range list {
+		if curr != nil {
+			result = append(result, *curr)
+		}
+	}
+
+	return result[:]
+}
+
+func convertAccountOperationPrevNextList(list []*AccountOperationPrevNext) []AccountOperationPrevNext {
+	var result []AccountOperationPrevNext
 	for _, curr := range list {
 		if curr != nil {
 			result = append(result, *curr)

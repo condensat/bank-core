@@ -268,6 +268,51 @@ func TestGeAccountHistory(t *testing.T) {
 	}
 }
 
+func TestGeAccountHistoryWithPrevNext(t *testing.T) {
+	const databaseName = "TestGeAccountHistoryWithPrevNext"
+	t.Parallel()
+
+	db := setup(databaseName, AccountOperationModel())
+	defer teardown(db, databaseName)
+
+	data := createTestAccountStateData(db)
+	var ops [][]model.AccountOperation
+	for i := 0; i < len(data.Accounts); i++ {
+		ops = append(ops, createLinkedOperations(db, data.Accounts[i].ID, i+1, 1.0))
+	}
+
+	type args struct {
+		accountID model.AccountID
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []AccountOperationPrevNext
+		wantErr bool
+	}{
+		{"Default", args{}, nil, true},
+		{"InvalidAccountID", args{0}, nil, true},
+
+		{"op1", args{lastLinkedOperation(ops[0]).AccountID}, createAccountOperationPrevNextList(ops[0]), false},
+		{"op2", args{lastLinkedOperation(ops[1]).AccountID}, createAccountOperationPrevNextList(ops[1]), false},
+		{"op3", args{lastLinkedOperation(ops[2]).AccountID}, createAccountOperationPrevNextList(ops[2]), false},
+		{"op4", args{lastLinkedOperation(ops[3]).AccountID}, createAccountOperationPrevNextList(ops[3]), false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GeAccountHistoryWithPrevNext(db, tt.args.accountID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GeAccountHistoryWithPrevNext() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GeAccountHistoryWithPrevNext() = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestGeAccountHistoryRange(t *testing.T) {
 	const databaseName = "TestGeAccountHistoryRange"
 	t.Parallel()
@@ -375,6 +420,31 @@ func lastLinkedOperation(list []model.AccountOperation) model.AccountOperation {
 	}
 
 	return list[len(list)-1]
+}
+
+func createAccountOperationPrevNext(op model.AccountOperation, previous, next model.AccountOperationID) AccountOperationPrevNext {
+	return AccountOperationPrevNext{
+		AccountOperation: op,
+		Previous:         previous,
+		Next:             next,
+	}
+}
+
+func createAccountOperationPrevNextList(ops []model.AccountOperation) []AccountOperationPrevNext {
+	var list []AccountOperationPrevNext
+	for i, op := range ops {
+		prev := model.AccountOperationID(0)
+		if i > 0 {
+			prev = ops[i-1].ID
+		}
+		next := model.AccountOperationID(0)
+		if i < len(ops)-1 {
+			next = ops[i+1].ID
+		}
+		list = append(list, createAccountOperationPrevNext(op, prev, next))
+
+	}
+	return list
 }
 
 func storeOperation(db bank.Database, operation model.AccountOperation) model.AccountOperation {
