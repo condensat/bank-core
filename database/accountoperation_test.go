@@ -77,6 +77,107 @@ func TestAppendAccountOperation(t *testing.T) {
 	}
 }
 
+func TestGetPreviousAccountOperation(t *testing.T) {
+	const databaseName = "TestGetPreviousAccountOperation"
+	t.Parallel()
+
+	db := setup(databaseName, AccountOperationModel())
+	defer teardown(db, databaseName)
+
+	data := createTestAccountStateData(db)
+	var ops []model.AccountOperation
+	var prev []model.AccountOperation
+	for i := 0; i < len(data.Accounts); i++ {
+		linked := createLinkedOperations(db, data.Accounts[i].ID, i+1, 1.0)
+
+		ops = append(ops, linked[len(linked)-1])
+		prev = append(prev, linked[len(linked)-2])
+	}
+	type args struct {
+		accountID   model.AccountID
+		operationID model.AccountOperationID
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    model.AccountOperation
+		wantErr bool
+	}{
+		{"Default", args{}, model.AccountOperation{}, true},
+		{"InvalidAccountID", args{0, ops[0].ID}, model.AccountOperation{}, true},
+		{"InvalidOperationID", args{ops[0].AccountID, 0}, model.AccountOperation{}, true},
+
+		{"op1", args{ops[0].AccountID, ops[0].ID}, prev[0], false},
+		{"op2", args{ops[1].AccountID, ops[1].ID}, prev[1], false},
+		{"op3", args{ops[2].AccountID, ops[2].ID}, prev[2], false},
+		{"op4", args{ops[3].AccountID, ops[3].ID}, prev[3], false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetPreviousAccountOperation(db, tt.args.accountID, tt.args.operationID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetPreviousAccountOperation() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetPreviousAccountOperation() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetNextAccountOperation(t *testing.T) {
+	const databaseName = "TestGetNextAccountOperation"
+	t.Parallel()
+
+	db := setup(databaseName, AccountOperationModel())
+	defer teardown(db, databaseName)
+
+	data := createTestAccountStateData(db)
+	var ops []model.AccountOperation
+	var next []model.AccountOperation
+	for i := 0; i < len(data.Accounts); i++ {
+		linked := createLinkedOperations(db, data.Accounts[i].ID, i+1, 1.0)
+
+		ops = append(ops, linked[len(linked)-2])
+		next = append(next, linked[len(linked)-1])
+	}
+
+	type args struct {
+		accountID   model.AccountID
+		operationID model.AccountOperationID
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    model.AccountOperation
+		wantErr bool
+	}{
+		{"Default", args{}, model.AccountOperation{}, true},
+		{"InvalidAccountID", args{0, ops[0].ID}, model.AccountOperation{}, true},
+		{"InvalidOperationID", args{ops[0].AccountID, 0}, model.AccountOperation{}, true},
+
+		{"op1", args{ops[0].AccountID, ops[0].ID}, next[0], false},
+		{"op2", args{ops[1].AccountID, ops[1].ID}, next[1], false},
+		{"op3", args{ops[2].AccountID, ops[2].ID}, next[2], false},
+		{"op4", args{ops[3].AccountID, ops[3].ID}, next[3], false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetNextAccountOperation(db, tt.args.accountID, tt.args.operationID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetNextAccountOperation() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetNextAccountOperation() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestGetLastAccountOperation(t *testing.T) {
 	const databaseName = "TestGetLastAccountOperation"
 	t.Parallel()
@@ -91,7 +192,6 @@ func TestGetLastAccountOperation(t *testing.T) {
 	}
 
 	type args struct {
-		db        bank.Database
 		accountID model.AccountID
 	}
 	tests := []struct {
@@ -101,18 +201,17 @@ func TestGetLastAccountOperation(t *testing.T) {
 		wantErr bool
 	}{
 		{"Default", args{}, 0, true},
-		{"NilDB", args{nil, ops[0].AccountID}, 0, true},
-		{"InvalidAccountID", args{db, 0}, 0, true},
+		{"InvalidAccountID", args{0}, 0, true},
 
-		{"op1", args{db, ops[0].AccountID}, ops[0].ID, false},
-		{"op2", args{db, ops[1].AccountID}, ops[1].ID, false},
-		{"op3", args{db, ops[2].AccountID}, ops[2].ID, false},
-		{"op4", args{db, ops[3].AccountID}, ops[3].ID, false},
+		{"op1", args{ops[0].AccountID}, ops[0].ID, false},
+		{"op2", args{ops[1].AccountID}, ops[1].ID, false},
+		{"op3", args{ops[2].AccountID}, ops[2].ID, false},
+		{"op4", args{ops[3].AccountID}, ops[3].ID, false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetLastAccountOperation(tt.args.db, tt.args.accountID)
+			got, err := GetLastAccountOperation(db, tt.args.accountID)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetLastAccountOperation() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -138,7 +237,6 @@ func TestGeAccountHistory(t *testing.T) {
 	}
 
 	type args struct {
-		db        bank.Database
 		accountID model.AccountID
 	}
 	tests := []struct {
@@ -148,18 +246,17 @@ func TestGeAccountHistory(t *testing.T) {
 		wantErr bool
 	}{
 		{"Default", args{}, nil, true},
-		{"NilDB", args{nil, lastLinkedOperation(ops[0]).AccountID}, nil, true},
-		{"InvalidAccountID", args{db, 0}, nil, true},
+		{"InvalidAccountID", args{0}, nil, true},
 
-		{"op1", args{db, lastLinkedOperation(ops[0]).AccountID}, ops[0], false},
-		{"op2", args{db, lastLinkedOperation(ops[1]).AccountID}, ops[1], false},
-		{"op3", args{db, lastLinkedOperation(ops[2]).AccountID}, ops[2], false},
-		{"op4", args{db, lastLinkedOperation(ops[3]).AccountID}, ops[3], false},
+		{"op1", args{lastLinkedOperation(ops[0]).AccountID}, ops[0], false},
+		{"op2", args{lastLinkedOperation(ops[1]).AccountID}, ops[1], false},
+		{"op3", args{lastLinkedOperation(ops[2]).AccountID}, ops[2], false},
+		{"op4", args{lastLinkedOperation(ops[3]).AccountID}, ops[3], false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GeAccountHistory(tt.args.db, tt.args.accountID)
+			got, err := GeAccountHistory(db, tt.args.accountID)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GeAccountHistory() error = %v, wantErr %v", err, tt.wantErr)
 				return

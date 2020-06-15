@@ -76,6 +76,64 @@ func AppendAccountOperationSlice(db bank.Database, operations ...model.AccountOp
 	return result, err
 }
 
+func GetPreviousAccountOperation(db bank.Database, accountID model.AccountID, operationID model.AccountOperationID) (model.AccountOperation, error) {
+	gdb := getGormDB(db)
+	if gdb == nil {
+		return model.AccountOperation{}, ErrInvalidDatabase
+	}
+
+	if accountID == 0 {
+		return model.AccountOperation{}, ErrInvalidAccountID
+	}
+	if operationID == 0 {
+		return model.AccountOperation{}, ErrInvalidAccountOperation
+	}
+
+	var result model.AccountOperation
+	err := gdb.
+		Where(model.AccountOperation{
+			AccountID: accountID,
+		}).
+		Where("id < ?", operationID).
+		Order("id DESC", true).
+		Take(&result).Error
+
+	if err != nil {
+		return model.AccountOperation{}, err
+	}
+
+	return result, err
+}
+
+func GetNextAccountOperation(db bank.Database, accountID model.AccountID, operationID model.AccountOperationID) (model.AccountOperation, error) {
+	gdb := getGormDB(db)
+	if gdb == nil {
+		return model.AccountOperation{}, ErrInvalidDatabase
+	}
+
+	if accountID == 0 {
+		return model.AccountOperation{}, ErrInvalidAccountID
+	}
+	if operationID == 0 {
+		return model.AccountOperation{}, ErrInvalidAccountOperation
+	}
+
+	var result model.AccountOperation
+	err := gdb.
+		Where(model.AccountOperation{
+			AccountID: accountID,
+		}).
+		Where("id > ?", operationID).
+		Order("id ASC", true).
+		First(&result).Error
+
+	if err != nil {
+		return model.AccountOperation{}, err
+	}
+
+	return result, err
+}
+
 func GetLastAccountOperation(db bank.Database, accountID model.AccountID) (model.AccountOperation, error) {
 	gdb := getGormDB(db)
 	if gdb == nil {
