@@ -111,10 +111,7 @@ func AccountTransfert(ctx context.Context, transfert common.AccountTransfert) (c
 
 	source := operations[0]
 	destination := operations[1]
-	log.WithFields(logrus.Fields{
-		"SrcPrevID": source.PrevID,
-		"DstPrevID": destination.PrevID,
-	}).Trace("Account transfert")
+	log.Trace("Account transfert")
 
 	return common.AccountTransfert{
 		Source:      convertOperationToEntry(source, "N/A"),
@@ -151,12 +148,10 @@ func OnAccountTransfert(ctx context.Context, subject string, message *bank.Messa
 
 func convertOperationToEntry(op model.AccountOperation, label string) common.AccountEntry {
 	return common.AccountEntry{
+		OperationID: uint64(op.ID),
+		AccountID:   uint64(op.AccountID),
+		ReferenceID: uint64(op.ReferenceID),
 
-		OperationID:     uint64(op.ID),
-		OperationPrevID: uint64(op.PrevID),
-
-		AccountID:        uint64(op.AccountID),
-		ReferenceID:      uint64(op.ReferenceID),
 		OperationType:    string(op.OperationType),
 		SynchroneousType: string(op.SynchroneousType),
 

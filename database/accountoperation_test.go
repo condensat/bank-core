@@ -21,10 +21,10 @@ func TestAppendAccountOperation(t *testing.T) {
 	defer teardown(db, databaseName)
 
 	data := createTestAccountOperationData(db)
-	refAccountOperation := createOperation(data.Accounts[0].ID, 0, 1.0, 1.0)
+	refAccountOperation := createOperation(data.Accounts[0].ID, 1.0, 1.0)
 
 	first := lastLinkedOperation(createLinkedOperations(db, data.Accounts[0].ID, 1, 1.0))
-	nextAccountOperation := createOperation(first.AccountID, first.ID, -0.5, 0.5)
+	nextAccountOperation := createOperation(first.AccountID, -0.5, 0.5)
 
 	refInvalidAccountID := cloneOperation(refAccountOperation)
 	refInvalidAccountID.AccountID = 0
@@ -35,8 +35,8 @@ func TestAppendAccountOperation(t *testing.T) {
 	refInvalidPreCheck := cloneOperation(refAccountOperation)
 	*refInvalidPreCheck.Balance = 0.0
 
-	refCurrencyDisabled := createOperation(data.Accounts[1].ID, 0, 1.0, 1.0)
-	refAccountDisabled := createOperation(data.Accounts[2].ID, 0, 1.0, 1.0)
+	refCurrencyDisabled := createOperation(data.Accounts[1].ID, 1.0, 1.0)
+	refAccountDisabled := createOperation(data.Accounts[2].ID, 1.0, 1.0)
 
 	type args struct {
 		db        bank.Database
@@ -70,7 +70,6 @@ func TestAppendAccountOperation(t *testing.T) {
 			}
 
 			tt.want.ID = got.ID
-			tt.want.PrevID = got.PrevID
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("AppendAccountOperation() = %v, want %v", got, tt.want)
 			}
@@ -96,19 +95,19 @@ func TestGetLastAccountOperation(t *testing.T) {
 		accountID model.AccountID
 	}
 	tests := []struct {
-		name       string
-		args       args
-		wantPrevID model.AccountOperationID
-		wantErr    bool
+		name    string
+		args    args
+		wantID  model.AccountOperationID
+		wantErr bool
 	}{
 		{"Default", args{}, 0, true},
 		{"NilDB", args{nil, ops[0].AccountID}, 0, true},
 		{"InvalidAccountID", args{db, 0}, 0, true},
 
-		{"op1", args{db, ops[0].AccountID}, ops[0].PrevID, false},
-		{"op2", args{db, ops[1].AccountID}, ops[1].PrevID, false},
-		{"op3", args{db, ops[2].AccountID}, ops[2].PrevID, false},
-		{"op4", args{db, ops[3].AccountID}, ops[3].PrevID, false},
+		{"op1", args{db, ops[0].AccountID}, ops[0].ID, false},
+		{"op2", args{db, ops[1].AccountID}, ops[1].ID, false},
+		{"op3", args{db, ops[2].AccountID}, ops[2].ID, false},
+		{"op4", args{db, ops[3].AccountID}, ops[3].ID, false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
@@ -118,8 +117,8 @@ func TestGetLastAccountOperation(t *testing.T) {
 				t.Errorf("GetLastAccountOperation() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got.PrevID != tt.wantPrevID {
-				t.Errorf("GetLastAccountOperation() PrevID = %v, wantPrevID %v", got.PrevID, tt.wantPrevID)
+			if got.ID != tt.wantID {
+				t.Errorf("GetLastAccountOperation() ID = %v, wantID %v", got.ID, tt.wantID)
 			}
 		})
 	}
@@ -250,12 +249,12 @@ func TestGeAccountHistoryRange(t *testing.T) {
 	}
 }
 
-func createOperation(account model.AccountID, prevID model.AccountOperationID, amount, balance model.Float) model.AccountOperation {
-	return model.NewAccountOperation(0, prevID, account, model.SynchroneousTypeSync, model.OperationTypeDeposit, 0, time.Now(), amount, balance, 0.0, 0.0)
+func createOperation(account model.AccountID, amount, balance model.Float) model.AccountOperation {
+	return model.NewAccountOperation(0, account, model.SynchroneousTypeSync, model.OperationTypeDeposit, 0, time.Now(), amount, balance, 0.0, 0.0)
 }
 
 func cloneOperation(operation model.AccountOperation) model.AccountOperation {
-	return createOperation(operation.AccountID, operation.PrevID, *operation.Amount, *operation.Balance)
+	return createOperation(operation.AccountID, *operation.Amount, *operation.Balance)
 }
 
 func createLinkedOperations(db bank.Database, account model.AccountID, count int, amount model.Float) []model.AccountOperation {
@@ -263,7 +262,7 @@ func createLinkedOperations(db bank.Database, account model.AccountID, count int
 	var balance model.Float
 	for i := 0; i < count; i++ {
 		balance += amount
-		last := storeOperation(db, createOperation(account, 0, amount, balance))
+		last := storeOperation(db, createOperation(account, amount, balance))
 		if !last.IsValid() {
 			panic("Invalid AccountOperation")
 		}

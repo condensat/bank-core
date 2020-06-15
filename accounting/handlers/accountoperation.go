@@ -77,12 +77,10 @@ func AccountOperation(ctx context.Context, entry common.AccountEntry) (common.Ac
 
 	log.
 		WithField("OperationID", op.ID).
-		WithField("OperationPrevID", op.PrevID).
 		Trace("Account operation")
 
 	return common.AccountEntry{
-		OperationID:     uint64(op.ID),
-		OperationPrevID: uint64(op.PrevID),
+		OperationID: uint64(op.ID),
 
 		AccountID:        uint64(op.AccountID),
 		ReferenceID:      uint64(op.ReferenceID),

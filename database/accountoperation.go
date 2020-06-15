@@ -238,7 +238,7 @@ func fetchAccountInfo(db bank.Database, accountID model.AccountID) (AccountInfo,
 		return AccountInfo{}, ErrAccountIsDisabled
 	}
 
-	// update PrevID with last operation ID
+	// fetch last operation
 	lastOperation, err := GetLastAccountOperation(db, accountID)
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return AccountInfo{}, err
@@ -260,9 +260,6 @@ type AccountInfo struct {
 }
 
 func prepareNextOperation(info *AccountInfo, operation *model.AccountOperation) {
-	// update PrevID with last operation ID
-	operation.PrevID = info.Last.ID
-
 	// compute Balance with last operation and new Amount
 	*operation.Balance = *operation.Amount
 	if info.Last.Balance != nil {
