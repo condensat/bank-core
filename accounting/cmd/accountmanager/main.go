@@ -198,17 +198,16 @@ func AccountTransferWithdraw(ctx context.Context) {
 
 	const accountID uint64 = 18
 	log.WithField("AccountID", accountID)
-	transfert, err := client.AccountTransferWithdraw(ctx, accountID, "TBTC", 0.00000003, "normal", "Test AccountTransferWithdraw")
+	withdrawID, err := client.AccountTransferWithdraw(ctx, accountID, "TBTC", 0.00000003, "normal", "Test AccountTransferWithdraw")
 	if err != nil {
 		log.WithError(err).
 			Error("AccountTransferWithdraw Failed")
 		return
 	}
 
-	log.WithFields(logrus.Fields{
-		"SrcOperationID": transfert.Source.OperationID,
-		"DstOperationID": transfert.Destination.OperationID,
-	}).Info("AccountTransferWithdraw")
+	log.
+		WithField("withdrawID", withdrawID).
+		Info("AccountTransferWithdraw")
 }
 
 func main() {

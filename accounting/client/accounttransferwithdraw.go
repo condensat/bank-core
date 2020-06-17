@@ -18,17 +18,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func AccountTransferWithdraw(ctx context.Context, accountID uint64, currency string, amount float64, batchMode, label string) (common.AccountTransfert, error) {
+func AccountTransferWithdraw(ctx context.Context, accountID uint64, currency string, amount float64, batchMode, label string) (uint64, error) {
 	if accountID == 0 {
-		return common.AccountTransfert{}, cache.ErrInternalError
+		return 0, cache.ErrInternalError
 	}
 
 	// Deposit amount must be positive
 	if amount <= 0.0 {
-		return common.AccountTransfert{}, cache.ErrInternalError
+		return 0, cache.ErrInternalError
 	}
 
-	return accountTransferWithdrawRequest(ctx, common.AccountTransferWithdraw{
+	transfer, err := accountTransferWithdrawRequest(ctx, common.AccountTransferWithdraw{
 		BatchMode: batchMode,
 		Source: common.AccountEntry{
 			AccountID: accountID,
@@ -43,6 +43,11 @@ func AccountTransferWithdraw(ctx context.Context, accountID uint64, currency str
 			Amount: amount,
 		},
 	})
+	if err != nil {
+		return 0, err
+	}
+
+	return uint64(transfer.Source.ReferenceID), nil
 }
 
 func accountTransferWithdrawRequest(ctx context.Context, withdraw common.AccountTransferWithdraw) (common.AccountTransfert, error) {
