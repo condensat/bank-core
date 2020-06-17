@@ -43,6 +43,46 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 
 	amount := withdraw.Source.Amount
 
+	if amount <= 0.0 {
+		return common.AccountTransfert{}, database.ErrInvalidWithdrawAmount
+	}
+
+	batchMode := model.BatchModeNormal
+	if len(withdraw.BatchMode) > 0 {
+		batchMode = model.BatchMode(withdraw.BatchMode)
+	}
+
+	var referenceID uint64
+	// Database Query
+	db := appcontext.Database(ctx)
+	err = db.Transaction(func(db bank.Database) error {
+		w, err := database.AddWithdraw(db,
+			model.AccountID(withdraw.Source.AccountID),
+			model.AccountID(bankAccountID),
+			model.Float(amount), batchMode,
+			"{}",
+		)
+		if err != nil {
+			log.WithError(err).
+				Error("AddWithdraw failed")
+			return err
+		}
+		_, err = database.AddWithdrawInfo(db, w.ID, model.WithdrawStatusCreated, "{}")
+		if err != nil {
+			log.WithError(err).
+				Error("AddWithdrawInfo failed")
+			return err
+		}
+
+		referenceID = uint64(w.ID)
+
+		return nil
+	})
+
+	if err != nil {
+		return common.AccountTransfert{}, err
+	}
+
 	result, err := AccountTransfert(ctx, common.AccountTransfert{
 		Source: withdraw.Source,
 		Destination: common.AccountEntry{
@@ -50,7 +90,7 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 
 			OperationType:    withdraw.Source.OperationType,
 			SynchroneousType: "async-start",
-			ReferenceID:      withdraw.Source.ReferenceID,
+			ReferenceID:      referenceID,
 
 			Timestamp: time.Now(),
 			Amount:    amount,

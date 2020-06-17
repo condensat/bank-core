@@ -18,7 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func AccountTransferWithdraw(ctx context.Context, accountID, referenceID uint64, currency string, amount float64, label string) (common.AccountTransfert, error) {
+func AccountTransferWithdraw(ctx context.Context, accountID uint64, currency string, amount float64, batchMode, label string) (common.AccountTransfert, error) {
 	if accountID == 0 {
 		return common.AccountTransfert{}, cache.ErrInternalError
 	}
@@ -29,11 +29,11 @@ func AccountTransferWithdraw(ctx context.Context, accountID, referenceID uint64,
 	}
 
 	return accountTransferWithdrawRequest(ctx, common.AccountTransferWithdraw{
+		BatchMode: batchMode,
 		Source: common.AccountEntry{
 			AccountID: accountID,
 			Currency:  currency,
 
-			ReferenceID:      referenceID,
 			OperationType:    "transfert",
 			SynchroneousType: "sync",
 			Timestamp:        time.Now(),
