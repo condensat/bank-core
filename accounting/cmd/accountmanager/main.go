@@ -135,7 +135,7 @@ func createAndListAccount(ctx context.Context, currencies []common.CurrencyInfo,
 	}
 }
 
-func AccountManager(ctx context.Context) {
+func CreateAccounts(ctx context.Context) {
 
 	// list all currencies
 	list, err := client.CurrencyList(ctx)
@@ -193,6 +193,25 @@ func AccountManager(ctx context.Context) {
 	fmt.Printf("%d calls in %s\n", count, time.Since(start).Truncate(time.Millisecond))
 }
 
+func AccountTransferWithdraw(ctx context.Context) {
+	log := logger.Logger(ctx).WithField("Method", "AccountTransferWithdraw")
+
+	const accountID uint64 = 18
+	const referenceID uint64 = 1337
+	log.WithField("AccountID", accountID)
+	transfert, err := client.AccountTransferWithdraw(ctx, accountID, referenceID, "TBTC", 0.00000003, "Test AccountTransferWithdraw")
+	if err != nil {
+		log.WithError(err).
+			Error("AccountTransferWithdraw Failed")
+		return
+	}
+
+	log.WithFields(logrus.Fields{
+		"SrcOperationID": transfert.Source.OperationID,
+		"DstOperationID": transfert.Destination.OperationID,
+	}).Info("AccountTransferWithdraw")
+}
+
 func main() {
 	args := parseArgs()
 
@@ -203,5 +222,6 @@ func main() {
 	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, args.Nats))
 	ctx = appcontext.WithProcessusGrabber(ctx, processus.NewGrabber(ctx, 15*time.Second))
 
-	AccountManager(ctx)
+	// CreateAccounts(ctx)
+	AccountTransferWithdraw(ctx)
 }
