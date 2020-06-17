@@ -84,12 +84,30 @@ func AccountTransfert(ctx context.Context, transfert common.AccountTransfert) (c
 	defer lockDestination.Unlock()
 
 	// Prepare data
-	transfert.Source.SynchroneousType = transfert.Destination.SynchroneousType
 	transfert.Source.OperationType = transfert.Destination.OperationType
 	transfert.Source.ReferenceID = transfert.Destination.ReferenceID
 	transfert.Source.Timestamp = transfert.Destination.Timestamp
-	transfert.Source.Amount = -transfert.Destination.Amount // do not create money
 	transfert.Source.Label = transfert.Destination.Label
+
+	switch transfert.Source.SynchroneousType {
+	case "sync":
+		transfert.Source.Amount = -transfert.Destination.Amount // do not create money
+		transfert.Source.LockAmount = 0.0
+	case "async-start":
+		transfert.Source.Amount = 0.0                              // funds are not gone yet
+		transfert.Source.LockAmount = transfert.Destination.Amount // lock funds
+	case "async-end":
+		transfert.Source.Amount = -transfert.Destination.Amount     // do not create money
+		transfert.Source.LockAmount = -transfert.Destination.Amount // unlock funds
+	}
+	switch transfert.Destination.SynchroneousType {
+	case "sync":
+		// NOOP
+	case "async-start":
+		transfert.Destination.LockAmount = transfert.Destination.Amount // lock funds
+	case "async-end":
+		transfert.Destination.LockAmount = -transfert.Destination.Amount // unlock funds
+	}
 
 	// Store operations
 	operations, err := database.AppendAccountOperationSlice(db,

@@ -19,4 +19,6 @@ const (
 	AccountSetStatusSubject = chanPrefix + "Account.SetStatus"
 	AccountOperationSubject = chanPrefix + "Account.Operation"
 	AccountTransfertSubject = chanPrefix + "Account.Transfert"
+
+	AccountTransferWithdrawSubject = chanPrefix + "Account.TransferWithdraw"
 )
