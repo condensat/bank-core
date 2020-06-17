@@ -26,14 +26,14 @@ const (
 	BankWitdrawAccountName = model.AccountName("withdraw")
 )
 
-func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransferWithdraw) (common.AccountTransfert, error) {
+func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransferWithdraw) (common.AccountTransfer, error) {
 	log := logger.Logger(ctx).WithField("Method", "accounting.AccountTransferWithdraw")
 
 	bankAccountID, err := getBankWithdrawAccount(ctx, withdraw.Source.Currency)
 	if err != nil {
 		log.WithError(err).
 			Error("Invalid BankAccount")
-		return common.AccountTransfert{}, database.ErrInvalidAccountID
+		return common.AccountTransfer{}, database.ErrInvalidAccountID
 	}
 
 	log = log.WithFields(logrus.Fields{
@@ -44,7 +44,7 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 	amount := withdraw.Source.Amount
 
 	if amount <= 0.0 {
-		return common.AccountTransfert{}, database.ErrInvalidWithdrawAmount
+		return common.AccountTransfer{}, database.ErrInvalidWithdrawAmount
 	}
 
 	batchMode := model.BatchModeNormal
@@ -80,10 +80,10 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 	})
 
 	if err != nil {
-		return common.AccountTransfert{}, err
+		return common.AccountTransfer{}, err
 	}
 
-	result, err := AccountTransfert(ctx, common.AccountTransfert{
+	result, err := AccountTransfer(ctx, common.AccountTransfer{
 		Source: withdraw.Source,
 		Destination: common.AccountEntry{
 			AccountID: uint64(bankAccountID),

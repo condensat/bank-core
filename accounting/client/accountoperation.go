@@ -140,24 +140,24 @@ func AccountWithdraw(ctx context.Context, accountID, referenceID uint64, amount 
 	return result, nil
 }
 
-func AccountTransfert(ctx context.Context, srcAccountID, dstAccountID, referenceID uint64, currency string, amount float64, label string) (common.AccountTransfert, error) {
-	log := logger.Logger(ctx).WithField("Method", "Client.AccountTransfert")
+func AccountTransfer(ctx context.Context, srcAccountID, dstAccountID, referenceID uint64, currency string, amount float64, label string) (common.AccountTransfer, error) {
+	log := logger.Logger(ctx).WithField("Method", "Client.AccountTransfer")
 
 	if srcAccountID == 0 || dstAccountID == 0 {
-		return common.AccountTransfert{}, cache.ErrInternalError
+		return common.AccountTransfer{}, cache.ErrInternalError
 	}
 	if srcAccountID == dstAccountID {
-		return common.AccountTransfert{}, cache.ErrInternalError
+		return common.AccountTransfer{}, cache.ErrInternalError
 	}
 
 	// currency must be valid
 	if len(currency) == 0 {
-		return common.AccountTransfert{}, cache.ErrInternalError
+		return common.AccountTransfer{}, cache.ErrInternalError
 	}
 
 	// deposit amount must be positive
 	if amount <= 0.0 {
-		return common.AccountTransfert{}, cache.ErrInternalError
+		return common.AccountTransfer{}, cache.ErrInternalError
 	}
 
 	log = log.WithFields(logrus.Fields{
@@ -168,7 +168,7 @@ func AccountTransfert(ctx context.Context, srcAccountID, dstAccountID, reference
 		"Currency": currency,
 	})
 
-	request := common.AccountTransfert{
+	request := common.AccountTransfer{
 		Source: common.AccountEntry{
 			AccountID: srcAccountID,
 			Currency:  currency,
@@ -176,7 +176,7 @@ func AccountTransfert(ctx context.Context, srcAccountID, dstAccountID, reference
 		Destination: common.AccountEntry{
 			AccountID: dstAccountID,
 
-			OperationType:    "transfert",
+			OperationType:    "transfer",
 			SynchroneousType: "sync",
 			ReferenceID:      referenceID,
 
@@ -185,17 +185,17 @@ func AccountTransfert(ctx context.Context, srcAccountID, dstAccountID, reference
 
 			Label: label,
 
-			LockAmount: 0.0, // no lock on sync account transfert
+			LockAmount: 0.0, // no lock on sync account transfer
 			Currency:   currency,
 		},
 	}
 
-	var result common.AccountTransfert
-	err := messaging.RequestMessage(ctx, common.AccountTransfertSubject, &request, &result)
+	var result common.AccountTransfer
+	err := messaging.RequestMessage(ctx, common.AccountTransferSubject, &request, &result)
 	if err != nil {
 		log.WithError(err).
 			Error("RequestMessage failed")
-		return common.AccountTransfert{}, messaging.ErrRequestFailed
+		return common.AccountTransfer{}, messaging.ErrRequestFailed
 	}
 
 	log.WithFields(logrus.Fields{

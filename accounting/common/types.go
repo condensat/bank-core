@@ -68,7 +68,7 @@ type AccountEntry struct {
 	TotalLocked float64
 }
 
-type AccountTransfert struct {
+type AccountTransfer struct {
 	Source      AccountEntry
 	Destination AccountEntry
 }
@@ -136,11 +136,11 @@ func (p *AccountEntry) Decode(data []byte) error {
 	return bank.DecodeObject(data, bank.BankObject(p))
 }
 
-func (p *AccountTransfert) Encode() ([]byte, error) {
+func (p *AccountTransfer) Encode() ([]byte, error) {
 	return bank.EncodeObject(p)
 }
 
-func (p *AccountTransfert) Decode(data []byte) error {
+func (p *AccountTransfer) Decode(data []byte) error {
 	return bank.DecodeObject(data, bank.BankObject(p))
 }
 

@@ -112,10 +112,10 @@ func createAndListAccount(ctx context.Context, currencies []common.CurrencyInfo,
 		}
 
 		if account.AccountID > 4 {
-			_, err = client.AccountTransfert(ctx, account.AccountID, 1+(account.AccountID-1)%4, 1337, account.Currency.Name, 0.01, "For weedcoder")
+			_, err = client.AccountTransfer(ctx, account.AccountID, 1+(account.AccountID-1)%4, 1337, account.Currency.Name, 0.01, "For weedcoder")
 			if err != nil {
 				log.WithError(err).
-					Error("AccountTransfert Failed")
+					Error("AccountTransfer Failed")
 			}
 		}
 
