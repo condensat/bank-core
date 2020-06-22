@@ -85,3 +85,43 @@ func GetWithdrawTargetByWithdrawID(db bank.Database, withdrawID model.WithdrawID
 
 	return result, nil
 }
+
+func GetWithdrawTargetByStatus(db bank.Database, status model.WithdrawStatus) ([]model.WithdrawTarget, error) {
+	gdb := db.DB().(*gorm.DB)
+	if db == nil {
+		return nil, errors.New("Invalid appcontext.Database")
+	}
+
+	if len(status) == 0 {
+		return nil, ErrInvalidWithdrawStatus
+	}
+
+	subQueryInfo := gdb.Model(&model.WithdrawInfo{}).
+		Select("withdraw_id").
+		Where("status = ?", status).
+		SubQuery()
+
+	var list []*model.WithdrawTarget
+	err := gdb.Model(&model.WithdrawTarget{}).
+		Joins("JOIN (?) AS i ON withdraw_target.withdraw_id = i.withdraw_id", subQueryInfo).
+		Order("id ASC").
+		Find(&list).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return converWithdrawTarget(list), nil
+}
+
+func converWithdrawTarget(list []*model.WithdrawTarget) []model.WithdrawTarget {
+	var result []model.WithdrawTarget
+	for _, curr := range list {
+		if curr != nil {
+			result = append(result, *curr)
+		}
+	}
+
+	return result[:]
+
+}

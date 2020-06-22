@@ -149,3 +149,53 @@ func createWithdrawTarget(withdrawID model.WithdrawID, dataType model.WithdrawTa
 		Data:       data,
 	}
 }
+
+func TestGetWithdrawTargetByStatus(t *testing.T) {
+	const databaseName = "TestGetWithdrawTargetByStatus"
+	t.Parallel()
+
+	db := setup(databaseName, WithdrawModel())
+	defer teardown(db, databaseName)
+
+	data := createTestAccountStateData(db)
+	a1 := data.Accounts[0]
+	a2 := data.Accounts[2]
+
+	withdraw, _ := AddWithdraw(db, a1.ID, a2.ID, 0.1, model.BatchModeNormal, "{}")
+	_, _ = AddWithdrawInfo(db, withdraw.ID, model.WithdrawStatusCreated, "{}")
+	wt := model.FromOnChainData(withdraw.ID, "bitcoin", model.WithdrawTargetOnChainData{
+		WithdrawTargetCryptoData: model.WithdrawTargetCryptoData{
+			PublicKey: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+		},
+	})
+	wt, _ = AddWithdrawTarget(db, withdraw.ID, wt.Type, wt.Data)
+
+	type args struct {
+		status model.WithdrawStatus
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []model.WithdrawTarget
+		wantErr bool
+	}{
+		{"default", args{}, nil, true},
+		{"invalid_status", args{""}, nil, true},
+
+		{"empty_status", args{model.WithdrawStatusSettled}, nil, false},
+		{"valid", args{model.WithdrawStatusCreated}, []model.WithdrawTarget{wt}, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetWithdrawTargetByStatus(db, tt.args.status)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetWithdrawTargetByStatus() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetWithdrawTargetByStatus() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
