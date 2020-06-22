@@ -18,13 +18,20 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func AccountTransferWithdraw(ctx context.Context, accountID uint64, currency string, amount float64, batchMode, label string) (uint64, error) {
+func AccountTransferWithdrawCrypto(ctx context.Context, accountID uint64, currency string, amount float64, batchMode, label string, chain, publicKey string) (uint64, error) {
 	if accountID == 0 {
 		return 0, cache.ErrInternalError
 	}
 
 	// Deposit amount must be positive
 	if amount <= 0.0 {
+		return 0, cache.ErrInternalError
+	}
+
+	if len(chain) == 0 {
+		return 0, cache.ErrInternalError
+	}
+	if len(publicKey) == 0 {
 		return 0, cache.ErrInternalError
 	}
 
@@ -41,6 +48,10 @@ func AccountTransferWithdraw(ctx context.Context, accountID uint64, currency str
 			Label: label,
 
 			Amount: amount,
+		},
+		Crypto: common.CryptoTransfert{
+			Chain:     chain,
+			PublicKey: publicKey,
 		},
 	})
 	if err != nil {

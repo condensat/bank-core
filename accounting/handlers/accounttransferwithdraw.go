@@ -74,6 +74,19 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 			return err
 		}
 
+		wt := model.FromOnChainData(w.ID, withdraw.Crypto.Chain, model.WithdrawTargetOnChainData{
+			WithdrawTargetCryptoData: model.WithdrawTargetCryptoData{
+				PublicKey: withdraw.Crypto.PublicKey,
+			},
+		})
+
+		_, err = database.AddWithdrawTarget(db, w.ID, wt.Type, wt.Data)
+		if err != nil {
+			log.WithError(err).
+				Error("AddWithdrawTarget failed")
+			return err
+		}
+
 		referenceID = uint64(w.ID)
 
 		return nil

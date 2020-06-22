@@ -83,9 +83,15 @@ type AccountHistory struct {
 	Entries []AccountEntry
 }
 
+type CryptoTransfert struct {
+	Chain     string
+	PublicKey string
+}
+
 type AccountTransferWithdraw struct {
 	BatchMode string
 	Source    AccountEntry
+	Crypto    CryptoTransfert
 }
 
 func (p *CurrencyList) Encode() ([]byte, error) {
