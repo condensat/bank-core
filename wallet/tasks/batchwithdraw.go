@@ -9,8 +9,12 @@ import (
 	"errors"
 	"time"
 
+	accounting "github.com/condensat/bank-core/accounting/client"
+
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -49,5 +53,36 @@ func processBatchWithdrawChain(ctx context.Context, chain string) error {
 	}
 	defer lock.Unlock()
 
+	list, err := accounting.BatchWithdrawList(ctx, chain)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to get BatchWithdrawList from accounting")
+		return ErrProcessingBatchWithdraw
+	}
+
+	log.WithField("Count", len(list.Batches)).
+		Debugf("BatchWithdraws to process")
+
+	for _, batch := range list.Batches {
+		if batch.Network != chain {
+			log.Warn("Invalid Batch Network")
+			continue
+		}
+		if len(batch.Withdraws) == 0 {
+			log.Warn("Empty Batch withdraws")
+			continue
+		}
+
+		log.
+			WithFields(logrus.Fields{
+				"BatchID": batch.BatchID,
+				"Network": batch.Network,
+				"Status":  batch.Status,
+				"Count":   len(batch.Withdraws),
+			}).Debug("Processing Batch")
+
+		// Todo: process batch withdraw
+
+	}
 	return nil
 }

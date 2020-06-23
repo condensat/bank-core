@@ -18,6 +18,7 @@ func BatchWithdrawList(ctx context.Context, network string) (common.BatchWithdra
 
 	request := common.BatchWithdraw{
 		Network: network,
+		Status:  "ready",
 	}
 
 	var result common.BatchWithdraws
