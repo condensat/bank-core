@@ -15,6 +15,7 @@ type BatchInfoData Data
 
 const (
 	BatchStatusCreated    BatchStatus = "created"
+	BatchStatusReady      BatchStatus = "ready"
 	BatchStatusProcessing BatchStatus = "processing"
 	BatchStatusSettled    BatchStatus = "settled"
 	BatchStatusCanceled   BatchStatus = "canceled"
