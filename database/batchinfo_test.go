@@ -19,7 +19,7 @@ func TestAddBatchInfo(t *testing.T) {
 	db := setup(databaseName, WithdrawModel())
 	defer teardown(db, databaseName)
 
-	ref, _ := AddBatch(db, "")
+	ref, _ := AddBatch(db, model.BatchNetworkBitcoin, "")
 
 	type args struct {
 		batchID  model.BatchID
@@ -72,7 +72,7 @@ func TestGetBatchInfo(t *testing.T) {
 	db := setup(databaseName, WithdrawModel())
 	defer teardown(db, databaseName)
 
-	batch, _ := AddBatch(db, "{}")
+	batch, _ := AddBatch(db, model.BatchNetworkBitcoin, "{}")
 
 	ref, _ := AddBatchInfo(db, batch.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "{}")
 
@@ -117,7 +117,7 @@ func TestGetBatchHistory(t *testing.T) {
 	db := setup(databaseName, WithdrawModel())
 	defer teardown(db, databaseName)
 
-	ref, _ := AddBatch(db, "{}")
+	ref, _ := AddBatch(db, model.BatchNetworkBitcoin, "{}")
 
 	ref1, _ := AddBatchInfo(db, ref.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "{}")
 	ref2, _ := AddBatchInfo(db, ref.ID, model.BatchStatusProcessing, model.BatchInfoCrypto, "{}")
@@ -158,7 +158,7 @@ func TestGetBatchInfoByStatusAndType(t *testing.T) {
 	db := setup(databaseName, WithdrawModel())
 	defer teardown(db, databaseName)
 
-	ref, _ := AddBatch(db, "{}")
+	ref, _ := AddBatch(db, model.BatchNetworkBitcoin, "{}")
 
 	ref1, _ := AddBatchInfo(db, ref.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "{}")
 	ref2, _ := AddBatchInfo(db, ref.ID, model.BatchStatusProcessing, model.BatchInfoCrypto, "{}")
@@ -202,26 +202,25 @@ func TestGetBatchInfoByStatusAndType(t *testing.T) {
 	}
 }
 
-func TestGetBatchInfoByStatusAndTypeAndChain(t *testing.T) {
-	const databaseName = "TestGetBatchInfoByStatusAndTypeAndChain"
+func TestGetBatchInfoByStatusAndNetwork(t *testing.T) {
+	const databaseName = "TestGetBatchInfoByStatusAndNetwork"
 	t.Parallel()
 
 	db := setup(databaseName, WithdrawModel())
 	defer teardown(db, databaseName)
 
-	ref, _ := AddBatch(db, "{}")
+	ref, _ := AddBatch(db, model.BatchNetworkBitcoin, "{}")
 
 	data, _ := model.EncodeData(&model.BatchInfoCryptoData{
-		Chain: "bitcoin",
-		TxID:  "",
+		TxID: "",
 	})
 
 	ref1, _ := AddBatchInfo(db, ref.ID, model.BatchStatusCreated, model.BatchInfoCrypto, model.BatchInfoData(data))
 
 	type args struct {
 		status   model.BatchStatus
+		network  model.BatchNetwork
 		dataType model.DataType
-		chain    model.String
 	}
 	tests := []struct {
 		name    string
@@ -231,19 +230,19 @@ func TestGetBatchInfoByStatusAndTypeAndChain(t *testing.T) {
 	}{
 		{"default", args{}, nil, true},
 
-		{"absent", args{model.BatchStatusCreated, model.BatchInfoCrypto, "bitcoin-testnet"}, createBatchInfoList(), false},
-		{"created", args{model.BatchStatusCreated, model.BatchInfoCrypto, "bitcoin"}, createBatchInfoList(ref1), false},
+		{"absent", args{model.BatchStatusCreated, model.BatchNetworkSepa, "absent"}, nil, false},
+		{"created", args{model.BatchStatusCreated, model.BatchNetworkBitcoin, model.BatchInfoCrypto}, createBatchInfoList(ref1), false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetBatchInfoByStatusAndTypeAndChain(db, tt.args.status, tt.args.dataType, tt.args.chain)
+			got, err := GetBatchInfoByStatusAndNetwork(db, tt.args.status, tt.args.network)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("GetBatchInfoByStatusAndTypeAndChain() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("GetBatchInfoByStatusAndNetwork() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetBatchInfoByStatusAndTypeAndChain() = %v, want %v", got, tt.want)
+				t.Errorf("GetBatchInfoByStatusAndNetwork() = %v, want %v", got, tt.want)
 			}
 		})
 	}

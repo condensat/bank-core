@@ -234,7 +234,8 @@ func processWithdrawOnChain(ctx context.Context, datas []withdrawOnChainData) er
 }
 
 func findOrCreateBatchInfo(db bank.Database, chain string) (model.BatchInfo, error) {
-	batchCreated, err := database.GetBatchInfoByStatusAndTypeAndChain(db, model.BatchStatusCreated, model.BatchInfoCrypto, model.String(chain))
+	network := model.BatchNetwork(chain)
+	batchCreated, err := database.GetBatchInfoByStatusAndNetwork(db, model.BatchStatusCreated, network)
 	if err != nil {
 		return model.BatchInfo{}, err
 	}
@@ -244,18 +245,15 @@ func findOrCreateBatchInfo(db bank.Database, chain string) (model.BatchInfo, err
 	}
 
 	// create BatchInfo if not exists
-	batch, err := database.AddBatch(db, model.BatchData(""))
+	batch, err := database.AddBatch(db, network, model.BatchData(""))
 	if err != nil {
 		return model.BatchInfo{}, err
 	}
 
-	data, err := model.EncodeData(&model.BatchInfoCryptoData{
-		Chain: model.String(chain),
-	})
 	if err != nil {
 		return model.BatchInfo{}, err
 	}
-	batchInfo, err := database.AddBatchInfo(db, batch.ID, model.BatchStatusCreated, model.BatchInfoCrypto, model.BatchInfoData(data))
+	batchInfo, err := database.AddBatchInfo(db, batch.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "{}")
 	if err != nil {
 		return model.BatchInfo{}, err
 	}

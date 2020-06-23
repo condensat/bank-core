@@ -127,25 +127,38 @@ func GetBatchInfoByStatusAndType(db bank.Database, status model.BatchStatus, dat
 	return convertBatchInfoList(list), nil
 }
 
-func GetBatchInfoByStatusAndTypeAndChain(db bank.Database, status model.BatchStatus, dataType model.DataType, chain model.String) ([]model.BatchInfo, error) {
-	result, err := GetBatchInfoByStatusAndType(db, status, dataType)
-	if err != nil {
+func GetBatchInfoByStatusAndNetwork(db bank.Database, status model.BatchStatus, network model.BatchNetwork) ([]model.BatchInfo, error) {
+	gdb := db.DB().(*gorm.DB)
+	if db == nil {
+		return nil, errors.New("Invalid appcontext.Database")
+	}
+
+	if len(status) == 0 {
+		return nil, ErrInvalidWithdrawStatus
+	}
+	if len(network) == 0 {
+		return nil, ErrInvalidNetwork
+	}
+
+	subQueryNetwork := gdb.Model(&model.Batch{}).
+		Select("id").
+		Where("network = ?", network).
+		SubQuery()
+
+	var list []*model.BatchInfo
+	err := gdb.Model(&model.BatchInfo{}).
+		Joins("JOIN (?) AS b ON batch_info.batch_id = b.id", subQueryNetwork).
+		Where(model.BatchInfo{
+			Status: status,
+		}).
+		Order("id ASC").
+		Find(&list).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
 
-	n := 0
-	for _, batch := range result {
-		data, err := batch.CryptoData()
-		if err != nil {
-			return nil, err
-		}
-		if data.Chain == chain {
-			result[n] = batch
-			n++
-		}
-	}
-
-	return result[:n], nil
+	return convertBatchInfoList(list), nil
 }
 
 func convertBatchInfoList(list []*model.BatchInfo) []model.BatchInfo {

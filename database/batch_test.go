@@ -20,7 +20,8 @@ func TestAddBatch(t *testing.T) {
 	defer teardown(db, databaseName)
 
 	type args struct {
-		data model.BatchData
+		network model.BatchNetwork
+		data    model.BatchData
 	}
 	tests := []struct {
 		name    string
@@ -28,15 +29,15 @@ func TestAddBatch(t *testing.T) {
 		want    model.Batch
 		wantErr bool
 	}{
-		{"default", args{}, createBatch("{}"), false},
+		{"default", args{}, createBatch("", ""), true},
 
-		{"default_data", args{""}, createBatch("{}"), false},
-		{"valid", args{`{"foo": "bar"}`}, createBatch(`{"foo": "bar"}`), false},
+		{"default_data", args{model.BatchNetworkBitcoin, ""}, createBatch(model.BatchNetworkBitcoin, "{}"), false},
+		{"valid", args{model.BatchNetworkBitcoin, `{"foo": "bar"}`}, createBatch(model.BatchNetworkBitcoin, `{"foo": "bar"}`), false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := AddBatch(db, tt.args.data)
+			got, err := AddBatch(db, tt.args.network, tt.args.data)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("AddBatch() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -64,7 +65,7 @@ func TestGetBatch(t *testing.T) {
 	db := setup(databaseName, WithdrawModel())
 	defer teardown(db, databaseName)
 
-	ref, _ := AddBatch(db, "")
+	ref, _ := AddBatch(db, "bitcoin", "")
 
 	type args struct {
 		ID model.BatchID
@@ -100,8 +101,9 @@ func TestGetBatch(t *testing.T) {
 	}
 }
 
-func createBatch(data model.BatchData) model.Batch {
+func createBatch(network model.BatchNetwork, data model.BatchData) model.Batch {
 	return model.Batch{
-		Data: data,
+		Network: network,
+		Data:    data,
 	}
 }

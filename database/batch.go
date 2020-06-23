@@ -17,17 +17,23 @@ import (
 var (
 	ErrInvalidBatchID        = errors.New("Invalid BatchID")
 	ErrInvalidBatchWithdraws = errors.New("Invalid Withdraws")
+	ErrInvalidNetwork        = errors.New("Invalid Network")
 )
 
-func AddBatch(db bank.Database, data model.BatchData, withdraws ...model.WithdrawID) (model.Batch, error) {
+func AddBatch(db bank.Database, network model.BatchNetwork, data model.BatchData, withdraws ...model.WithdrawID) (model.Batch, error) {
 	gdb := db.DB().(*gorm.DB)
 	if db == nil {
 		return model.Batch{}, errors.New("Invalid appcontext.Database")
 	}
 
+	if len(network) == 0 {
+		return model.Batch{}, ErrInvalidNetwork
+	}
+
 	timestamp := time.Now().UTC().Truncate(time.Second)
 	result := model.Batch{
 		Timestamp: timestamp,
+		Network:   network,
 		Data:      data,
 	}
 	err := gdb.Create(&result).Error
