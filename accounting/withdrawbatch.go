@@ -27,7 +27,7 @@ var (
 func FetchCreatedWithdraws(ctx context.Context) ([]model.WithdrawTarget, error) {
 	db := appcontext.Database(ctx)
 
-	return database.GetWithdrawTargetByStatus(db, model.WithdrawStatusCreated)
+	return database.GetLastWithdrawTargetByStatus(db, model.WithdrawStatusCreated)
 }
 
 func ProcessWithdraws(ctx context.Context, withdraws []model.WithdrawTarget) error {
