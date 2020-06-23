@@ -27,7 +27,9 @@ import (
 const (
 	DefaultChainInterval      time.Duration = 30 * time.Second
 	DefaultOperationsInterval time.Duration = 5 * time.Second
-	DefaultAssetInfoInterval  time.Duration = 1 * time.Hour
+	DefaultAssetInfoInterval  time.Duration = 30 * time.Second
+
+	DefaultBatchInterval time.Duration = 10 * time.Minute
 
 	ConfirmedBlockCount   = 3 // number of confirmation to consider transaction complete
 	UnconfirmedBlockCount = 6 // number of confirmation to continue fetching addressInfos
@@ -94,6 +96,7 @@ func mainScheduler(ctx context.Context, chains []string) {
 	taskChainUpdate := utils.Scheduler(ctx, DefaultChainInterval, 0)
 	taskOperationsUpdate := utils.Scheduler(ctx, DefaultOperationsInterval, 0)
 	taskAssetInfoUpdate := utils.Scheduler(ctx, DefaultAssetInfoInterval, 0)
+	taskBatchWithdraw := utils.Scheduler(ctx, DefaultBatchInterval, 0)
 
 	// update once at startup
 	tasks.UpdateAssetInfo(ctx, time.Now().UTC())
@@ -112,6 +115,10 @@ func mainScheduler(ctx context.Context, chains []string) {
 		// update assets
 		case epoch := <-taskAssetInfoUpdate:
 			tasks.UpdateAssetInfo(ctx, epoch)
+
+			// batch withdraw
+		case epoch := <-taskBatchWithdraw:
+			tasks.BatchWithdraw(ctx, epoch, chains)
 
 		case <-ctx.Done():
 			log.Info("Daemon exited")
