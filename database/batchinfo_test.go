@@ -22,9 +22,10 @@ func TestAddBatchInfo(t *testing.T) {
 	ref, _ := AddBatch(db, "")
 
 	type args struct {
-		batchID model.BatchID
-		status  model.BatchStatus
-		data    model.BatchInfoData
+		batchID  model.BatchID
+		status   model.BatchStatus
+		dataType model.DataType
+		data     model.BatchInfoData
 	}
 	tests := []struct {
 		name    string
@@ -33,15 +34,16 @@ func TestAddBatchInfo(t *testing.T) {
 		wantErr bool
 	}{
 		{"default", args{}, model.BatchInfo{}, true},
-		{"invalid_status", args{ref.ID, "", "{}"}, model.BatchInfo{}, true},
+		{"invalid_status", args{ref.ID, "", model.BatchInfoCrypto, "{}"}, model.BatchInfo{}, true},
+		{"invalid_datatype", args{ref.ID, model.BatchStatusCreated, "", "{}"}, model.BatchInfo{}, true},
 
-		{"valid_data", args{ref.ID, model.BatchStatusCreated, ""}, createBatchInfo(ref.ID, model.BatchStatusCreated, "{}"), false},
-		{"valid", args{ref.ID, model.BatchStatusCreated, "{}"}, createBatchInfo(ref.ID, model.BatchStatusCreated, "{}"), false},
+		{"valid_data", args{ref.ID, model.BatchStatusCreated, model.BatchInfoCrypto, ""}, createBatchInfo(ref.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "{}"), false},
+		{"valid", args{ref.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "{}"}, createBatchInfo(ref.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "{}"), false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := AddBatchInfo(db, tt.args.batchID, tt.args.status, tt.args.data)
+			got, err := AddBatchInfo(db, tt.args.batchID, tt.args.status, tt.args.dataType, tt.args.data)
 
 			if !tt.wantErr {
 				if got.Timestamp.IsZero() || got.Timestamp.After(time.Now()) {
@@ -72,7 +74,7 @@ func TestGetBatchInfo(t *testing.T) {
 
 	batch, _ := AddBatch(db, "{}")
 
-	ref, _ := AddBatchInfo(db, batch.ID, model.BatchStatusCreated, "{}")
+	ref, _ := AddBatchInfo(db, batch.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "{}")
 
 	type args struct {
 		ID model.BatchInfoID
@@ -117,10 +119,10 @@ func TestGetBatchHistory(t *testing.T) {
 
 	ref, _ := AddBatch(db, "{}")
 
-	ref1, _ := AddBatchInfo(db, ref.ID, model.BatchStatusCreated, "{}")
-	ref2, _ := AddBatchInfo(db, ref.ID, model.BatchStatusProcessing, "{}")
-	ref3, _ := AddBatchInfo(db, ref.ID, model.BatchStatusCanceled, "{}")
-	ref4, _ := AddBatchInfo(db, ref.ID, model.BatchStatusSettled, "{}")
+	ref1, _ := AddBatchInfo(db, ref.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "{}")
+	ref2, _ := AddBatchInfo(db, ref.ID, model.BatchStatusProcessing, model.BatchInfoCrypto, "{}")
+	ref3, _ := AddBatchInfo(db, ref.ID, model.BatchStatusCanceled, model.BatchInfoCrypto, "{}")
+	ref4, _ := AddBatchInfo(db, ref.ID, model.BatchStatusSettled, model.BatchInfoCrypto, "{}")
 
 	type args struct {
 		batchID model.BatchID
@@ -149,14 +151,113 @@ func TestGetBatchHistory(t *testing.T) {
 	}
 }
 
-func createBatchInfo(batchID model.BatchID, status model.BatchStatus, data model.BatchInfoData) model.BatchInfo {
-	return model.BatchInfo{
-		BatchID: batchID,
-		Status:  status,
-		Data:    data,
+func TestGetBatchInfoByStatusAndType(t *testing.T) {
+	const databaseName = "TestGetBatchInfoByStatusAndType"
+	t.Parallel()
+
+	db := setup(databaseName, WithdrawModel())
+	defer teardown(db, databaseName)
+
+	ref, _ := AddBatch(db, "{}")
+
+	ref1, _ := AddBatchInfo(db, ref.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "{}")
+	ref2, _ := AddBatchInfo(db, ref.ID, model.BatchStatusProcessing, model.BatchInfoCrypto, "{}")
+	ref3, _ := AddBatchInfo(db, ref.ID, model.BatchStatusCanceled, model.BatchInfoCrypto, "{}")
+	ref4, _ := AddBatchInfo(db, ref.ID, model.BatchStatusSettled, model.BatchInfoCrypto, "{}")
+
+	type args struct {
+		status   model.BatchStatus
+		dataType model.DataType
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []model.BatchInfo
+		wantErr bool
+	}{
+		{"default", args{}, nil, true},
+
+		{"invalid_status", args{"", model.BatchInfoCrypto}, nil, true},
+		{"invalid_datatype", args{model.BatchStatusCreated, ""}, nil, true},
+
+		{"created", args{"other", model.BatchInfoCrypto}, nil, false},
+
+		{"created", args{model.BatchStatusCreated, model.BatchInfoCrypto}, createBatchInfoList(ref1), false},
+		{"processing", args{model.BatchStatusProcessing, model.BatchInfoCrypto}, createBatchInfoList(ref2), false},
+		{"canceled", args{model.BatchStatusCanceled, model.BatchInfoCrypto}, createBatchInfoList(ref3), false},
+		{"settled", args{model.BatchStatusSettled, model.BatchInfoCrypto}, createBatchInfoList(ref4), false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetBatchInfoByStatusAndType(db, tt.args.status, tt.args.dataType)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetBatchInfoByStatusAndType() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetBatchInfoByStatusAndType() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetBatchInfoByStatusAndTypeAndChain(t *testing.T) {
+	const databaseName = "TestGetBatchInfoByStatusAndTypeAndChain"
+	t.Parallel()
+
+	db := setup(databaseName, WithdrawModel())
+	defer teardown(db, databaseName)
+
+	ref, _ := AddBatch(db, "{}")
+
+	data, _ := model.EncodeData(&model.BatchInfoCryptoData{
+		Chain: "bitcoin",
+		TxID:  "",
+	})
+
+	ref1, _ := AddBatchInfo(db, ref.ID, model.BatchStatusCreated, model.BatchInfoCrypto, model.BatchInfoData(data))
+
+	type args struct {
+		status   model.BatchStatus
+		dataType model.DataType
+		chain    model.String
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []model.BatchInfo
+		wantErr bool
+	}{
+		{"default", args{}, nil, true},
+
+		{"absent", args{model.BatchStatusCreated, model.BatchInfoCrypto, "bitcoin-testnet"}, createBatchInfoList(), false},
+		{"created", args{model.BatchStatusCreated, model.BatchInfoCrypto, "bitcoin"}, createBatchInfoList(ref1), false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetBatchInfoByStatusAndTypeAndChain(db, tt.args.status, tt.args.dataType, tt.args.chain)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetBatchInfoByStatusAndTypeAndChain() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetBatchInfoByStatusAndTypeAndChain() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
 func createBatchInfoList(list ...model.BatchInfo) []model.BatchInfo {
 	return append([]model.BatchInfo{}, list...)
+}
+
+func createBatchInfo(batchID model.BatchID, status model.BatchStatus, dataType model.DataType, data model.BatchInfoData) model.BatchInfo {
+	return model.BatchInfo{
+		BatchID: batchID,
+		Status:  status,
+		Type:    dataType,
+		Data:    data,
+	}
 }

@@ -14,12 +14,12 @@ import (
 )
 
 var (
-	ErrInvalidBatchInfoID   = errors.New("Invalid BatchInfoID")
-	ErrInvalidBatchStatus   = errors.New("Invalid BatchInfo Status")
-	ErrInvalidBatchInfoData = errors.New("Invalid BatchInfo Data")
+	ErrInvalidBatchInfoID       = errors.New("Invalid BatchInfoID")
+	ErrInvalidBatchStatus       = errors.New("Invalid BatchInfo Status")
+	ErrInvalidBatchInfoDataType = errors.New("Invalid BatchInfo DataType")
 )
 
-func AddBatchInfo(db bank.Database, batchID model.BatchID, status model.BatchStatus, data model.BatchInfoData) (model.BatchInfo, error) {
+func AddBatchInfo(db bank.Database, batchID model.BatchID, status model.BatchStatus, dataType model.DataType, data model.BatchInfoData) (model.BatchInfo, error) {
 	gdb := db.DB().(*gorm.DB)
 	if db == nil {
 		return model.BatchInfo{}, errors.New("Invalid appcontext.Database")
@@ -31,12 +31,16 @@ func AddBatchInfo(db bank.Database, batchID model.BatchID, status model.BatchSta
 	if len(status) == 0 {
 		return model.BatchInfo{}, ErrInvalidBatchStatus
 	}
+	if len(dataType) == 0 {
+		return model.BatchInfo{}, ErrInvalidBatchInfoDataType
+	}
 
 	timestamp := time.Now().UTC().Truncate(time.Second)
 	result := model.BatchInfo{
 		Timestamp: timestamp,
 		BatchID:   batchID,
 		Status:    status,
+		Type:      dataType,
 		Data:      data,
 	}
 	err := gdb.Create(&result).Error
@@ -92,6 +96,56 @@ func GetBatchHistory(db bank.Database, batchID model.BatchID) ([]model.BatchInfo
 	}
 
 	return convertBatchInfoList(list), nil
+}
+
+func GetBatchInfoByStatusAndType(db bank.Database, status model.BatchStatus, dataType model.DataType) ([]model.BatchInfo, error) {
+	gdb := db.DB().(*gorm.DB)
+	if db == nil {
+		return nil, errors.New("Invalid appcontext.Database")
+	}
+
+	if len(status) == 0 {
+		return nil, ErrInvalidWithdrawStatus
+	}
+	if len(dataType) == 0 {
+		return nil, ErrInvalidBatchInfoDataType
+	}
+
+	var list []*model.BatchInfo
+	err := gdb.
+		Where(model.BatchInfo{
+			Status: status,
+			Type:   dataType,
+		}).
+		Order("id ASC").
+		Find(&list).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return convertBatchInfoList(list), nil
+}
+
+func GetBatchInfoByStatusAndTypeAndChain(db bank.Database, status model.BatchStatus, dataType model.DataType, chain model.String) ([]model.BatchInfo, error) {
+	result, err := GetBatchInfoByStatusAndType(db, status, dataType)
+	if err != nil {
+		return nil, err
+	}
+
+	n := 0
+	for _, batch := range result {
+		data, err := batch.CryptoData()
+		if err != nil {
+			return nil, err
+		}
+		if data.Chain == chain {
+			result[n] = batch
+			n++
+		}
+	}
+
+	return result[:n], nil
 }
 
 func convertBatchInfoList(list []*model.BatchInfo) []model.BatchInfo {
