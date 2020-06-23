@@ -69,3 +69,45 @@ func GetBatch(db bank.Database, ID model.BatchID) (model.Batch, error) {
 
 	return result, nil
 }
+
+func ListBatchNetworksByStatus(db bank.Database, status model.BatchStatus) ([]model.BatchNetwork, error) {
+	gdb := db.DB().(*gorm.DB)
+	if db == nil {
+		return nil, errors.New("Invalid appcontext.Database")
+	}
+
+	if len(status) == 0 {
+		return nil, ErrInvalidWithdrawStatus
+	}
+
+	subQueryInfo := gdb.Model(&model.BatchInfo{}).
+		Where(model.BatchInfo{
+			Status: status,
+		}).
+		SubQuery()
+
+	var list []*model.Batch
+	err := gdb.Model(&model.Batch{}).
+		Select("network").
+		Joins("JOIN (?) AS i ON batch.id = i.batch_id", subQueryInfo).
+		Group("network").
+		Order("batch.id ASC").
+		Find(&list).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return convertBatchNetworkList(list), nil
+}
+
+func convertBatchNetworkList(list []*model.Batch) []model.BatchNetwork {
+	var result []model.BatchNetwork
+	for _, curr := range list {
+		if curr != nil {
+			result = append(result, curr.Network)
+		}
+	}
+
+	return result[:]
+}

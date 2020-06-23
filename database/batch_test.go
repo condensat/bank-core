@@ -101,6 +101,52 @@ func TestGetBatch(t *testing.T) {
 	}
 }
 
+func TestListBatchNetworksByStatus(t *testing.T) {
+	const databaseName = "TestListBatchNetworksByStatus"
+	t.Parallel()
+
+	db := setup(databaseName, WithdrawModel())
+	defer teardown(db, databaseName)
+
+	ref1, _ := AddBatch(db, model.BatchNetworkBitcoin, "")
+	ref2, _ := AddBatch(db, model.BatchNetworkBitcoinTestnet, "")
+	ref3, _ := AddBatch(db, model.BatchNetworkBitcoinLiquid, "")
+	ref4, _ := AddBatch(db, model.BatchNetworkBitcoinLightning, "")
+
+	_, _ = AddBatchInfo(db, ref1.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "")
+	_, _ = AddBatchInfo(db, ref2.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "")
+	_, _ = AddBatchInfo(db, ref3.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "")
+	_, _ = AddBatchInfo(db, ref4.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "")
+
+	type args struct {
+		status model.BatchStatus
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []model.BatchNetwork
+		wantErr bool
+	}{
+		{"default", args{}, nil, true},
+
+		{"empty", args{model.BatchStatusSettled}, nil, false},
+		{"valid", args{model.BatchStatusCreated}, []model.BatchNetwork{ref1.Network, ref2.Network, ref3.Network, ref4.Network}, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ListBatchNetworksByStatus(db, tt.args.status)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ListBatchNetworksByStatus() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ListBatchNetworksByStatus() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func createBatch(network model.BatchNetwork, data model.BatchData) model.Batch {
 	return model.Batch{
 		Network: network,
