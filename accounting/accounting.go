@@ -30,8 +30,9 @@ const (
 func (p *Accounting) Run(ctx context.Context, bankUser model.User) {
 	log := logger.Logger(ctx).WithField("Method", "Accounting.Run")
 	ctx = common.BankUserContext(ctx, bankUser)
+	ctx = cache.RedisMutexContext(ctx)
 
-	p.registerHandlers(cache.RedisMutexContext(ctx))
+	p.registerHandlers(ctx)
 
 	log.WithFields(logrus.Fields{
 		"Hostname": utils.Hostname(),

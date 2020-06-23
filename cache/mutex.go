@@ -110,6 +110,10 @@ func lockKeyChain(chain string) string {
 	return lockKeyString("lock.Chain", chain)
 }
 
+func lockKeyBatchNetwork(batchNetwork string) string {
+	return lockKeyString("lock.BatchNetwork", batchNetwork)
+}
+
 func LockUser(ctx context.Context, userID uint64) (Lock, error) {
 	mutex := RedisMutexFromContext(ctx)
 	if mutex == nil {
@@ -132,4 +136,12 @@ func LockChain(ctx context.Context, chain string) (Lock, error) {
 		return nil, ErrRedisMutexNotFound
 	}
 	return mutex.Lock(ctx, lockKeyChain(chain), DefaultLockTTL)
+}
+
+func LockBatchNetwork(ctx context.Context, batchNetwork string) (Lock, error) {
+	mutex := RedisMutexFromContext(ctx)
+	if mutex == nil {
+		return nil, ErrRedisMutexNotFound
+	}
+	return mutex.Lock(ctx, lockKeyBatchNetwork(batchNetwork), DefaultLockTTL)
 }

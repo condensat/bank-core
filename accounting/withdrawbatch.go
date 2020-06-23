@@ -10,14 +10,17 @@ import (
 
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
-	"github.com/sirupsen/logrus"
 
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
+	ErrProcessingWithdraw     = errors.New("Error Processing Withdraw")
 	ErrProcessingWithdrawType = errors.New("Error Processing Withdraw Type")
 )
 
@@ -50,7 +53,7 @@ func ProcessWithdraws(ctx context.Context, withdraws []model.WithdrawTarget) err
 }
 
 func processWithdraws(ctx context.Context, withdraws []model.WithdrawTarget) error {
-	log := logger.Logger(ctx).WithField("Method", "Accounting.processWithdrawOnChain")
+	log := logger.Logger(ctx).WithField("Method", "Accounting.processWithdraws")
 	db := appcontext.Database(ctx)
 
 	if len(withdraws) == 0 {
@@ -86,7 +89,7 @@ func processWithdraws(ctx context.Context, withdraws []model.WithdrawTarget) err
 			if err != nil {
 				log.WithError(err).
 					Error("Failed to GetWithdrawHistory")
-				return ErrProcessingWithdrawType
+				return ErrProcessingWithdraw
 			}
 			// skip processed withdraw
 			if len(history) != 1 || history[0].Status != model.WithdrawStatusCreated {
@@ -99,7 +102,7 @@ func processWithdraws(ctx context.Context, withdraws []model.WithdrawTarget) err
 			if err != nil {
 				log.WithError(err).
 					Error("Failed to get OnChainData")
-				return ErrProcessingWithdrawType
+				return ErrProcessingWithdraw
 			}
 
 			datas = append(datas, withdrawOnChainData{
@@ -124,14 +127,11 @@ type withdrawOnChainData struct {
 
 func processWithdrawOnChain(ctx context.Context, datas []withdrawOnChainData) error {
 	log := logger.Logger(ctx).WithField("Method", "Accounting.processWithdrawOnChain")
-	db := appcontext.Database(ctx)
 
 	if len(datas) == 0 {
-		log.Error("Emtpy Withdraw data")
+		log.Debug("Emtpy Withdraw data")
 		return nil
 	}
-
-	var canceled []model.WithdrawID
 
 	// by chain withdraws map
 	byChain := make(map[string][]withdrawOnChainData)
@@ -146,88 +146,111 @@ func processWithdrawOnChain(ctx context.Context, datas []withdrawOnChainData) er
 
 	// process withdraw for same chain
 	for chain, datas := range byChain {
-		if len(chain) == 0 {
-			log.Error("Invalid chain")
-			return ErrProcessingWithdrawType
-		}
-		if len(datas) == 0 {
-			log.Error("Emtpy Withdraw data")
-			return ErrProcessingWithdrawType
-		}
-
-		// within a db transaction
-		err := db.Transaction(func(db bank.Database) error {
-
-			batchInfo, err := findOrCreateBatchInfo(db, chain)
-			if err != nil {
-				log.WithError(err).
-					Error("Failed to findOrCreateBatchInfo")
-				return ErrProcessingWithdrawType
-			}
-
-			var IDs []model.WithdrawID
-
-			// create wallet args request
-			var outputs []ChainOutput
-			for _, data := range datas {
-				// check if public key is valid
-				if len(data.Data.PublicKey) == 0 {
-					log.Error("Invalid Withdraw PublicKey")
-					canceled = append(canceled, data.Withdraw.ID)
-					continue
-				}
-				// check if withdraw amount is valid
-				if data.Withdraw.Amount == nil || *data.Withdraw.Amount <= 0.0 {
-					log.Error("Invalid Withdraw Amount")
-					canceled = append(canceled, data.Withdraw.ID)
-					continue
-				}
-
-				// add to batch request
-				outputs = append(outputs, ChainOutput{
-					PublicKey: data.Data.PublicKey,
-					Amount:    float64(*data.Withdraw.Amount),
-				})
-
-				// change to status processing
-				_, err := database.AddWithdrawInfo(db, data.Withdraw.ID, model.WithdrawStatusProcessing, "{}")
-				if err != nil {
-					log.WithError(err).
-						Error("Failed to AddWithdrawInfo")
-
-					canceled = append(canceled, IDs...)
-					continue
-				}
-
-				IDs = append(IDs, data.Withdraw.ID)
-			}
-
-			err = database.AddWithdrawToBatch(db, batchInfo.BatchID, IDs...)
-			if err != nil {
-				canceled = append(canceled, IDs...)
-				return ErrProcessingWithdrawType
-			}
-
-			// rollback all operation if request failed
-			// Todo: move to another scheduler
-			return SentWalletBatchRequest(ctx, chain, outputs)
-		})
-
-		// update all canceled withdraws
-		for _, ID := range canceled {
-			_, err := database.AddWithdrawInfo(db, ID, model.WithdrawStatusCanceled, "{}")
-			if err != nil {
-				log.WithError(err).Error("failed to cancelWithdraw")
-				continue
-			}
-		}
-
+		err := processWithdrawOnChainByNetwork(ctx, chain, datas)
 		if err != nil {
 			log.WithError(err).
 				WithField("Chain", chain).
-				Error("Failed to process chain withdraw")
+				Error("Failed to processWithdrawOnChainNetwork")
 			continue
 		}
+	}
+
+	return nil
+}
+
+func processWithdrawOnChainByNetwork(ctx context.Context, chain string, datas []withdrawOnChainData) error {
+	log := logger.Logger(ctx).WithField("Method", "Accounting.processWithdrawOnChainByNetwork")
+	db := appcontext.Database(ctx)
+
+	if len(chain) == 0 {
+		log.Error("Invalid chain")
+		return ErrProcessingWithdraw
+	}
+	if len(datas) == 0 {
+		log.Debug("Emtpy Withdraw data")
+		return nil
+	}
+
+	// Acquire Lock
+	lock, err := cache.LockBatchNetwork(ctx, chain)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to lock batchNetwork")
+		return ErrProcessingWithdraw
+	}
+	defer lock.Unlock()
+
+	var canceled []model.WithdrawID
+
+	// within a db transaction
+	err = db.Transaction(func(db bank.Database) error {
+
+		batchInfo, err := findOrCreateBatchInfo(db, chain)
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to findOrCreateBatchInfo")
+			return ErrProcessingWithdraw
+		}
+
+		var IDs []model.WithdrawID
+
+		// create wallet args request
+		var outputs []ChainOutput
+		for _, data := range datas {
+			// check if public key is valid
+			if len(data.Data.PublicKey) == 0 {
+				log.Error("Invalid Withdraw PublicKey")
+				canceled = append(canceled, data.Withdraw.ID)
+				continue
+			}
+			// check if withdraw amount is valid
+			if data.Withdraw.Amount == nil || *data.Withdraw.Amount <= 0.0 {
+				log.Error("Invalid Withdraw Amount")
+				canceled = append(canceled, data.Withdraw.ID)
+				continue
+			}
+
+			// add to batch request
+			outputs = append(outputs, ChainOutput{
+				PublicKey: data.Data.PublicKey,
+				Amount:    float64(*data.Withdraw.Amount),
+			})
+
+			// change to status processing
+			_, err := database.AddWithdrawInfo(db, data.Withdraw.ID, model.WithdrawStatusProcessing, "{}")
+			if err != nil {
+				log.WithError(err).
+					Error("Failed to AddWithdrawInfo")
+
+				canceled = append(canceled, IDs...)
+				continue
+			}
+
+			IDs = append(IDs, data.Withdraw.ID)
+		}
+
+		err = database.AddWithdrawToBatch(db, batchInfo.BatchID, IDs...)
+		if err != nil {
+			canceled = append(canceled, IDs...)
+			return ErrProcessingWithdraw
+		}
+
+		// rollback all operation if request failed
+		// Todo: move to another scheduler
+		return SentWalletBatchRequest(ctx, chain, outputs)
+	})
+
+	// update all canceled withdraws
+	for _, ID := range canceled {
+		_, err := database.AddWithdrawInfo(db, ID, model.WithdrawStatusCanceled, "{}")
+		if err != nil {
+			log.WithError(err).Error("failed to cancelWithdraw")
+			continue
+		}
+	}
+
+	if err != nil {
+		return ErrProcessingWithdraw
 	}
 
 	return nil
