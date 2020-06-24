@@ -202,20 +202,23 @@ func TestGetBatchInfoByStatusAndType(t *testing.T) {
 	}
 }
 
-func TestGetBatchInfoByStatusAndNetwork(t *testing.T) {
-	const databaseName = "TestGetBatchInfoByStatusAndNetwork"
+func TestGetLastBatchInfoByStatusAndNetwork(t *testing.T) {
+	const databaseName = "TestGetLastBatchInfoByStatusAndNetwork"
 	t.Parallel()
 
 	db := setup(databaseName, WithdrawModel())
 	defer teardown(db, databaseName)
 
-	ref, _ := AddBatch(db, model.BatchNetworkBitcoin, "{}")
+	b1, _ := AddBatch(db, model.BatchNetworkBitcoin, "{}")
+	b2, _ := AddBatch(db, model.BatchNetworkBitcoin, "{}")
 
 	data, _ := model.EncodeData(&model.BatchInfoCryptoData{
 		TxID: "",
 	})
 
-	ref1, _ := AddBatchInfo(db, ref.ID, model.BatchStatusCreated, model.BatchInfoCrypto, model.BatchInfoData(data))
+	ref1, _ := AddBatchInfo(db, b1.ID, model.BatchStatusCreated, model.BatchInfoCrypto, model.BatchInfoData(data))
+	_, _ = AddBatchInfo(db, b2.ID, model.BatchStatusCreated, model.BatchInfoCrypto, model.BatchInfoData(data))
+	ref2, _ := AddBatchInfo(db, b2.ID, model.BatchStatusProcessing, model.BatchInfoCrypto, model.BatchInfoData(data))
 
 	type args struct {
 		status   model.BatchStatus
@@ -232,17 +235,18 @@ func TestGetBatchInfoByStatusAndNetwork(t *testing.T) {
 
 		{"absent", args{model.BatchStatusCreated, model.BatchNetworkSepa, "absent"}, nil, false},
 		{"created", args{model.BatchStatusCreated, model.BatchNetworkBitcoin, model.BatchInfoCrypto}, createBatchInfoList(ref1), false},
+		{"processing", args{model.BatchStatusProcessing, model.BatchNetworkBitcoin, model.BatchInfoCrypto}, createBatchInfoList(ref2), false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetBatchInfoByStatusAndNetwork(db, tt.args.status, tt.args.network)
+			got, err := GetLastBatchInfoByStatusAndNetwork(db, tt.args.status, tt.args.network)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("GetBatchInfoByStatusAndNetwork() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("GetLastBatchInfoByStatusAndNetwork() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetBatchInfoByStatusAndNetwork() = %v, want %v", got, tt.want)
+				t.Errorf("GetLastBatchInfoByStatusAndNetwork() = %v, want %v", got, tt.want)
 			}
 		})
 	}

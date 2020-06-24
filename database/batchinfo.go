@@ -127,7 +127,7 @@ func GetBatchInfoByStatusAndType(db bank.Database, status model.BatchStatus, dat
 	return convertBatchInfoList(list), nil
 }
 
-func GetBatchInfoByStatusAndNetwork(db bank.Database, status model.BatchStatus, network model.BatchNetwork) ([]model.BatchInfo, error) {
+func GetLastBatchInfoByStatusAndNetwork(db bank.Database, status model.BatchStatus, network model.BatchNetwork) ([]model.BatchInfo, error) {
 	gdb := db.DB().(*gorm.DB)
 	if db == nil {
 		return nil, errors.New("Invalid appcontext.Database")
@@ -140,14 +140,22 @@ func GetBatchInfoByStatusAndNetwork(db bank.Database, status model.BatchStatus, 
 		return nil, ErrInvalidNetwork
 	}
 
+	subQueryLast := gdb.Model(&model.BatchInfo{}).
+		Select("MAX(id)").
+		Group("batch_id").
+		SubQuery()
+
 	subQueryNetwork := gdb.Model(&model.Batch{}).
 		Select("id").
-		Where("network = ?", network).
+		Where(model.Batch{
+			Network: network,
+		}).
 		SubQuery()
 
 	var list []*model.BatchInfo
 	err := gdb.Model(&model.BatchInfo{}).
 		Joins("JOIN (?) AS b ON batch_info.batch_id = b.id", subQueryNetwork).
+		Where("batch_info.id IN (?)", subQueryLast).
 		Where(model.BatchInfo{
 			Status: status,
 		}).

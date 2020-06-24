@@ -258,7 +258,7 @@ func processWithdrawOnChainByNetwork(ctx context.Context, chain string, datas []
 
 func findOrCreateBatchInfo(db bank.Database, chain string) (model.BatchInfo, error) {
 	network := model.BatchNetwork(chain)
-	batchCreated, err := database.GetBatchInfoByStatusAndNetwork(db, model.BatchStatusCreated, network)
+	batchCreated, err := database.GetLastBatchInfoByStatusAndNetwork(db, model.BatchStatusCreated, network)
 	if err != nil {
 		return model.BatchInfo{}, err
 	}
