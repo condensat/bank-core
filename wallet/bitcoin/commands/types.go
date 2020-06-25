@@ -126,3 +126,8 @@ type FundedTransaction struct {
 	Fee       float64 `json:"fee"`
 	Hex       string  `json:"hex"`
 }
+
+type SignedTransaction struct {
+	Complete bool   `json:"complete"`
+	Hex      string `json:"hex"`
+}
