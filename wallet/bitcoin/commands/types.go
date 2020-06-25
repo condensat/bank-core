@@ -92,13 +92,21 @@ type SpendInfo struct {
 }
 
 type RawTransaction struct {
-	Hash     string        `json:"hash"`
-	Locktime int           `json:"locktime"`
-	Size     int           `json:"size"`
-	Txid     string        `json:"txid"`
-	Version  int           `json:"version"`
-	Vin      []interface{} `json:"vin"`
-	Vout     []struct {
+	Hash     string `json:"hash"`
+	Locktime int    `json:"locktime"`
+	Size     int    `json:"size"`
+	Txid     string `json:"txid"`
+	Version  int    `json:"version"`
+	Vin      []struct {
+		ScriptSig struct {
+			Asm string `json:"asm"`
+			Hex string `json:"hex"`
+		} `json:"scriptSig"`
+		Sequence int64  `json:"sequence"`
+		Txid     string `json:"txid"`
+		Vout     int    `json:"vout"`
+	} `json:"vin"`
+	Vout []struct {
 		N            int `json:"n"`
 		ScriptPubKey struct {
 			Addresses []string `json:"addresses"`
@@ -111,4 +119,10 @@ type RawTransaction struct {
 	} `json:"vout"`
 	Vsize  int `json:"vsize"`
 	Weight int `json:"weight"`
+}
+
+type FundedTransaction struct {
+	Changepos int     `json:"changepos"`
+	Fee       float64 `json:"fee"`
+	Hex       string  `json:"hex"`
 }

@@ -18,4 +18,5 @@ const (
 
 	CmdCreateRawTransaction = Command("createrawtransaction")
 	CmdDecodeRawTransaction = Command("decoderawtransaction")
+	CmdFundRawTransaction   = Command("fundrawtransaction")
 )
