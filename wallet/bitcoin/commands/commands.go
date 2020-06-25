@@ -17,4 +17,5 @@ const (
 	CmdSendMany        = Command("sendmany")
 
 	CmdCreateRawTransaction = Command("createrawtransaction")
+	CmdDecodeRawTransaction = Command("decoderawtransaction")
 )
