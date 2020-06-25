@@ -15,4 +15,12 @@ const (
 	CmdGetTransaction  = Command("gettransaction")
 	CmdGetAddressInfo  = Command("getaddressinfo")
 	CmdSendMany        = Command("sendmany")
+
+	CmdDumpPrivkey                  = Command("dumpprivkey")
+	CmdCreateRawTransaction         = Command("createrawtransaction")
+	CmdDecodeRawTransaction         = Command("decoderawtransaction")
+	CmdFundRawTransaction           = Command("fundrawtransaction")
+	CmdSignRawTransactionWithKey    = Command("signrawtransactionwithkey")
+	CmdSignRawTransactionWithWallet = Command("signrawtransactionwithwallet")
+	CmdSendRawTransaction           = Command("sendrawtransaction")
 )
