@@ -16,6 +16,7 @@ const (
 	CmdGetAddressInfo  = Command("getaddressinfo")
 	CmdSendMany        = Command("sendmany")
 
+	CmdDumpPrivkey          = Command("dumpprivkey")
 	CmdCreateRawTransaction = Command("createrawtransaction")
 	CmdDecodeRawTransaction = Command("decoderawtransaction")
 	CmdFundRawTransaction   = Command("fundrawtransaction")
