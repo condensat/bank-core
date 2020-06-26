@@ -202,6 +202,54 @@ func TestGetBatchInfoByStatusAndType(t *testing.T) {
 	}
 }
 
+func TestGetLastBatchInfo(t *testing.T) {
+	const databaseName = "TestGetLastBatchInfo"
+	t.Parallel()
+
+	db := setup(databaseName, WithdrawModel())
+	defer teardown(db, databaseName)
+
+	b1, _ := AddBatch(db, model.BatchNetworkBitcoin, "{}")
+	b2, _ := AddBatch(db, model.BatchNetworkBitcoin, "{}")
+
+	data, _ := model.EncodeData(&model.BatchInfoCryptoData{
+		TxID: "",
+	})
+
+	ref1, _ := AddBatchInfo(db, b1.ID, model.BatchStatusCreated, model.BatchInfoCrypto, model.BatchInfoData(data))
+	_, _ = AddBatchInfo(db, b2.ID, model.BatchStatusCreated, model.BatchInfoCrypto, model.BatchInfoData(data))
+	ref2, _ := AddBatchInfo(db, b2.ID, model.BatchStatusProcessing, model.BatchInfoCrypto, model.BatchInfoData(data))
+
+	type args struct {
+		batchID model.BatchID
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    model.BatchInfo
+		wantErr bool
+	}{
+		{"default", args{}, model.BatchInfo{}, true},
+		{"absent", args{42}, model.BatchInfo{}, true},
+
+		{"created", args{ref1.BatchID}, ref1, false},
+		{"processing", args{ref2.BatchID}, ref2, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetLastBatchInfo(db, tt.args.batchID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetLastBatchInfo() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetLastBatchInfo() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestGetLastBatchInfoByStatusAndNetwork(t *testing.T) {
 	const databaseName = "TestGetLastBatchInfoByStatusAndNetwork"
 	t.Parallel()

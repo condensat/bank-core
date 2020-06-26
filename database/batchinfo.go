@@ -127,6 +127,35 @@ func GetBatchInfoByStatusAndType(db bank.Database, status model.BatchStatus, dat
 	return convertBatchInfoList(list), nil
 }
 
+func GetLastBatchInfo(db bank.Database, batchID model.BatchID) (model.BatchInfo, error) {
+	gdb := db.DB().(*gorm.DB)
+	if db == nil {
+		return model.BatchInfo{}, errors.New("Invalid appcontext.Database")
+	}
+
+	if batchID == 0 {
+		return model.BatchInfo{}, ErrInvalidBatchID
+	}
+
+	subQueryLast := gdb.Model(&model.BatchInfo{}).
+		Select("MAX(id)").
+		Group("batch_id").
+		SubQuery()
+
+	var result model.BatchInfo
+	err := gdb.Model(&model.BatchInfo{}).
+		Where("batch_info.id IN (?)", subQueryLast).
+		Where(model.BatchInfo{
+			BatchID: batchID,
+		}).First(&result).Error
+
+	if err != nil {
+		return model.BatchInfo{}, err
+	}
+
+	return result, nil
+}
+
 func GetLastBatchInfoByStatusAndNetwork(db bank.Database, status model.BatchStatus, network model.BatchNetwork) ([]model.BatchInfo, error) {
 	gdb := db.DB().(*gorm.DB)
 	if db == nil {
