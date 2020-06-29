@@ -55,10 +55,10 @@ func processBatchWithdrawChain(ctx context.Context, network string) error {
 	}
 	defer lock.Unlock()
 
-	list, err := accounting.BatchWithdrawList(ctx, network)
+	list, err := accounting.ListBatchWithdrawReady(ctx, network)
 	if err != nil {
 		log.WithError(err).
-			Error("Failed to get BatchWithdrawList from accounting")
+			Error("Failed to get ListBatchWithdrawReady from accounting")
 		return ErrProcessingBatchWithdraw
 	}
 

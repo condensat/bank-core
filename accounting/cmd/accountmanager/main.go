@@ -199,8 +199,8 @@ func AccountTransferWithdraw(ctx context.Context) {
 	const accountID uint64 = 18
 	log.WithField("AccountID", accountID)
 	withdrawID, err := client.AccountTransferWithdrawCrypto(ctx,
-		accountID, "TBTC", 0.00000003, "normal", "Test AccountTransferWithdraw",
-		"bitcoin-testnet", "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+		accountID, "TBTC", 0.00000300, "normal", "Test AccountTransferWithdraw",
+		"bitcoin-testnet", "tb1qqjv0dec9vagycgwpchdkxsnapl9uy92dek4nau",
 	)
 	if err != nil {
 		log.WithError(err).

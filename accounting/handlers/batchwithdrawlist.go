@@ -41,6 +41,13 @@ func BatchWithdrawList(ctx context.Context, status, network string) (common.Batc
 			continue
 		}
 
+		cryptoData, err := batch.CryptoData()
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to get CryptoData")
+			continue
+		}
+
 		withdraws, err := database.GetBatchWithdraws(db, batch.BatchID)
 		if err != nil {
 			log.WithError(err).
@@ -52,6 +59,7 @@ func BatchWithdrawList(ctx context.Context, status, network string) (common.Batc
 			BatchID: uint64(batch.BatchID),
 			Network: network,
 			Status:  string(batch.Status),
+			TxID:    string(cryptoData.TxID),
 		}
 
 		for _, wID := range withdraws {
