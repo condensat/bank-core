@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/accounting/common"
 	"github.com/condensat/bank-core/accounting/handlers"
 	"github.com/condensat/bank-core/appcontext"
@@ -113,6 +114,13 @@ func (p *Accounting) scheduledWithdrawBatch(ctx context.Context, interval time.D
 				Error("Failed to processPendingBatches")
 			// continue to next task
 		}
+
+		err = processConfirmedBatches(ctx)
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to processConfirmedBatches")
+			// continue to next task
+		}
 	}
 }
 
@@ -175,6 +183,73 @@ func processPendingBatches(ctx context.Context) error {
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to AddBatchInfo")
+			continue
+		}
+	}
+
+	return nil
+}
+
+func processConfirmedBatches(ctx context.Context) error {
+	log := logger.Logger(ctx).WithField("Method", "Accounting.processConfirmedBatches")
+	db := appcontext.Database(ctx)
+
+	log.Info("Process batches")
+
+	batches, err := database.FetchBatchByLastStatus(db, model.BatchStatusConfirmed)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to FetchBatchByLastStatus")
+		return err
+	}
+
+	for _, batch := range batches {
+		info, err := database.GetLastBatchInfo(db, batch.ID)
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to GetLastBatchInfo")
+			continue
+		}
+		if info.Status != model.BatchStatusConfirmed {
+			log.
+				Warning("Batch status is not BatchStatusConfirmed")
+			continue
+		}
+
+		// within a db transaction
+		err = db.Transaction(func(db bank.Database) error {
+			// Mark WithdrawInfo as settled
+			withdraws, err := database.GetBatchWithdraws(db, batch.ID)
+			if err != nil {
+				log.WithError(err).
+					Error("Failed to GetBatchWithdraws")
+				return err
+			}
+			for _, wID := range withdraws {
+				_, err = database.AddWithdrawInfo(db, wID, model.WithdrawStatusSettled, "{}")
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to AddWithdrawInfo")
+					return err
+				}
+			}
+
+			// Mark BatchInfo as settled
+			_, err = database.AddBatchInfo(db, batch.ID, model.BatchStatusSettled, info.Type, info.Data)
+			if err != nil {
+				log.WithError(err).
+					Error("Failed to AddBatchInfo")
+				return err
+			}
+
+			// Todo: Settled account operation
+
+			return nil
+		})
+
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to settle confirmed batch")
 			continue
 		}
 	}
