@@ -194,8 +194,6 @@ func processWithdrawOnChainByNetwork(ctx context.Context, chain string, datas []
 
 		var IDs []model.WithdrawID
 
-		// create wallet args request
-		var outputs []ChainOutput
 		for _, data := range datas {
 			// check if public key is valid
 			if len(data.Data.PublicKey) == 0 {
@@ -209,12 +207,6 @@ func processWithdrawOnChainByNetwork(ctx context.Context, chain string, datas []
 				canceled = append(canceled, data.Withdraw.ID)
 				continue
 			}
-
-			// add to batch request
-			outputs = append(outputs, ChainOutput{
-				PublicKey: data.Data.PublicKey,
-				Amount:    float64(*data.Withdraw.Amount),
-			})
 
 			// change to status processing
 			_, err := database.AddWithdrawInfo(db, data.Withdraw.ID, model.WithdrawStatusProcessing, "{}")
@@ -235,9 +227,7 @@ func processWithdrawOnChainByNetwork(ctx context.Context, chain string, datas []
 			return ErrProcessingWithdraw
 		}
 
-		// rollback all operation if request failed
-		// Todo: move to another scheduler
-		return SentWalletBatchRequest(ctx, chain, outputs)
+		return nil
 	})
 
 	// update all canceled withdraws
