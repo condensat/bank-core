@@ -391,6 +391,68 @@ func TestGeAccountHistoryRange(t *testing.T) {
 	}
 }
 
+func TestFindAccountOperationByReference(t *testing.T) {
+	const databaseName = "TestFindAccountOperationByReference"
+	t.Parallel()
+
+	db := setup(databaseName, AccountOperationModel())
+	defer teardown(db, databaseName)
+
+	data := createTestAccountOperationData(db)
+	ref1, _ := AppendAccountOperation(db, model.NewAccountOperation(0,
+		data.Accounts[0].ID,
+		model.SynchroneousTypeSync,
+		model.OperationTypeDeposit,
+		1337,
+		time.Now(),
+		0.1337, 42.0,
+		0.0, 0.0,
+	))
+	ref2, _ := AppendAccountOperation(db, model.NewAccountOperation(0,
+		data.Accounts[0].ID,
+		model.SynchroneousTypeAsyncStart,
+		model.OperationTypeTransfer,
+		1338,
+		time.Now(),
+		0.1337, 42.0,
+		0.0, 0.0,
+	))
+
+	type args struct {
+		synchroneousType model.SynchroneousType
+		operationType    model.OperationType
+		referenceID      model.RefID
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    model.AccountOperation
+		wantErr bool
+	}{
+		{"default", args{}, model.AccountOperation{}, true},
+
+		{"invalid_sync", args{model.SynchroneousTypeInvalid, model.OperationTypeInit, 42}, model.AccountOperation{}, true},
+		{"invalid_type", args{model.SynchroneousTypeSync, model.OperationTypeInvalid, 42}, model.AccountOperation{}, true},
+		{"invalid_ref", args{model.SynchroneousTypeSync, model.OperationTypeInit, 0}, model.AccountOperation{}, true},
+
+		{"valid1", args{ref1.SynchroneousType, ref1.OperationType, ref1.ReferenceID}, ref1, false},
+		{"valid2", args{ref2.SynchroneousType, ref2.OperationType, ref2.ReferenceID}, ref2, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := FindAccountOperationByReference(db, tt.args.synchroneousType, tt.args.operationType, tt.args.referenceID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FindAccountOperationByReference() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("FindAccountOperationByReference() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func createOperation(account model.AccountID, amount, balance model.Float) model.AccountOperation {
 	return model.NewAccountOperation(0, account, model.SynchroneousTypeSync, model.OperationTypeDeposit, 0, time.Now(), amount, balance, 0.0, 0.0)
 }
