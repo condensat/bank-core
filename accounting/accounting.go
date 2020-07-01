@@ -242,7 +242,16 @@ func processConfirmedBatches(ctx context.Context) error {
 				return err
 			}
 
-			// Todo: Settled account operation
+			// Settle account operation
+			for _, wID := range withdraws {
+				// withdrawID is use as reference in transfert account operation
+				err = settleAccountOperation(ctx, db, model.RefID(wID))
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to settleAccountOperation")
+					return err
+				}
+			}
 
 			return nil
 		})
@@ -255,4 +264,31 @@ func processConfirmedBatches(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func settleAccountOperation(ctx context.Context, db bank.Database, refID model.RefID) error {
+	// Find transfer account operation
+	op, err := database.FindAccountOperationByReference(db, model.SynchroneousTypeAsyncStart, model.OperationTypeTransfer, refID)
+	if err != nil {
+		return err
+	}
+
+	// Acquire Lock
+	lock, err := cache.LockAccount(ctx, uint64(op.AccountID))
+	if err != nil {
+		return nil
+	}
+	defer lock.Unlock()
+
+	// create new AccountOperation, removing and unlock amount
+	_, err = database.TxAppendAccountOperation(db, model.NewAccountOperation(0,
+		op.AccountID,
+		model.SynchroneousTypeAsyncEnd,
+		model.OperationTypeWithdraw,
+		op.ReferenceID,
+		time.Now(),
+		-(*op.Amount), 0.0,
+		-(*op.LockAmount), 0.0,
+	))
+	return err
 }

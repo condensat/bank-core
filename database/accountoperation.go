@@ -39,6 +39,12 @@ func AppendAccountOperation(db bank.Database, operation model.AccountOperation) 
 	return result[0], nil
 }
 
+func TxAppendAccountOperation(db bank.Database, operation model.AccountOperation) (model.AccountOperation, error) {
+	operation.Timestamp = operation.Timestamp.UTC().Truncate(time.Second)
+
+	return txApppendAccountOperation(db, operation)
+}
+
 func AppendAccountOperationSlice(db bank.Database, operations ...model.AccountOperation) ([]model.AccountOperation, error) {
 	if db == nil {
 		return nil, ErrInvalidDatabase
