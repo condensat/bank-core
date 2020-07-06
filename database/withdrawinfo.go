@@ -69,6 +69,28 @@ func GetWithdrawInfo(db bank.Database, ID model.WithdrawInfoID) (model.WithdrawI
 	return result, nil
 }
 
+func GetLastWithdrawInfo(db bank.Database, withdrawID model.WithdrawID) (model.WithdrawInfo, error) {
+	gdb := db.DB().(*gorm.DB)
+	if db == nil {
+		return model.WithdrawInfo{}, errors.New("Invalid appcontext.Database")
+	}
+
+	if withdrawID == 0 {
+		return model.WithdrawInfo{}, ErrInvalidWithdrawInfoID
+	}
+
+	var result model.WithdrawInfo
+	err := gdb.
+		Where(&model.WithdrawInfo{WithdrawID: withdrawID}).
+		Last(&result).Error
+	if err != nil {
+		return model.WithdrawInfo{}, err
+	}
+
+	return result, nil
+
+}
+
 func GetWithdrawHistory(db bank.Database, withdrawID model.WithdrawID) ([]model.WithdrawInfo, error) {
 	gdb := db.DB().(*gorm.DB)
 	if db == nil {

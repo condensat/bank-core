@@ -117,6 +117,51 @@ func TestGetWithdrawInfo(t *testing.T) {
 	}
 }
 
+func TestGetLastWithdrawInfo(t *testing.T) {
+	const databaseName = "TestGetWithdrawHistory"
+	t.Parallel()
+
+	db := setup(databaseName, WithdrawModel())
+	defer teardown(db, databaseName)
+
+	data := createTestAccountStateData(db)
+	a1 := data.Accounts[0]
+	a2 := data.Accounts[2]
+
+	ref, _ := AddWithdraw(db, a1.ID, a2.ID, 0.1, model.BatchModeNormal, "{}")
+
+	_, _ = AddWithdrawInfo(db, ref.ID, model.WithdrawStatusCreated, "{}")
+	_, _ = AddWithdrawInfo(db, ref.ID, model.WithdrawStatusProcessing, "{}")
+	_, _ = AddWithdrawInfo(db, ref.ID, model.WithdrawStatusCanceled, "{}")
+	ref4, _ := AddWithdrawInfo(db, ref.ID, model.WithdrawStatusSettled, "{}")
+
+	type args struct {
+		withdrawID model.WithdrawID
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    model.WithdrawInfo
+		wantErr bool
+	}{
+		{"default", args{}, model.WithdrawInfo{}, true},
+		{"settled", args{ref.ID}, ref4, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetLastWithdrawInfo(db, tt.args.withdrawID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetLastWithdrawInfo() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetLastWithdrawInfo() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestGetWithdrawHistory(t *testing.T) {
 	const databaseName = "TestGetWithdrawHistory"
 	t.Parallel()
