@@ -112,10 +112,10 @@ func createAndListAccount(ctx context.Context, currencies []common.CurrencyInfo,
 		}
 
 		if account.AccountID > 4 {
-			_, err = client.AccountTransfert(ctx, account.AccountID, 1+(account.AccountID-1)%4, 1337, account.Currency.Name, 0.01, "For weedcoder")
+			_, err = client.AccountTransfer(ctx, account.AccountID, 1+(account.AccountID-1)%4, 1337, account.Currency.Name, 0.01, "For weedcoder")
 			if err != nil {
 				log.WithError(err).
-					Error("AccountTransfert Failed")
+					Error("AccountTransfer Failed")
 			}
 		}
 
@@ -135,7 +135,7 @@ func createAndListAccount(ctx context.Context, currencies []common.CurrencyInfo,
 	}
 }
 
-func AccountManager(ctx context.Context) {
+func CreateAccounts(ctx context.Context) {
 
 	// list all currencies
 	list, err := client.CurrencyList(ctx)
@@ -193,6 +193,26 @@ func AccountManager(ctx context.Context) {
 	fmt.Printf("%d calls in %s\n", count, time.Since(start).Truncate(time.Millisecond))
 }
 
+func AccountTransferWithdraw(ctx context.Context) {
+	log := logger.Logger(ctx).WithField("Method", "AccountTransferWithdraw")
+
+	const accountID uint64 = 18
+	log.WithField("AccountID", accountID)
+	withdrawID, err := client.AccountTransferWithdrawCrypto(ctx,
+		accountID, "TBTC", 0.00000003, "normal", "Test AccountTransferWithdraw",
+		"bitcoin-testnet", "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+	)
+	if err != nil {
+		log.WithError(err).
+			Error("AccountTransferWithdraw Failed")
+		return
+	}
+
+	log.
+		WithField("withdrawID", withdrawID).
+		Info("AccountTransferWithdraw")
+}
+
 func main() {
 	args := parseArgs()
 
@@ -203,5 +223,6 @@ func main() {
 	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, args.Nats))
 	ctx = appcontext.WithProcessusGrabber(ctx, processus.NewGrabber(ctx, 15*time.Second))
 
-	AccountManager(ctx)
+	// CreateAccounts(ctx)
+	AccountTransferWithdraw(ctx)
 }

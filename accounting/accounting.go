@@ -11,6 +11,7 @@ import (
 	"github.com/condensat/bank-core/accounting/handlers"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
+	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/utils"
 
@@ -19,8 +20,9 @@ import (
 
 type Accounting int
 
-func (p *Accounting) Run(ctx context.Context) {
+func (p *Accounting) Run(ctx context.Context, bankUser model.User) {
 	log := logger.Logger(ctx).WithField("Method", "Accounting.Run")
+	ctx = common.BankUserContext(ctx, bankUser)
 
 	p.registerHandlers(cache.RedisMutexContext(ctx))
 
@@ -49,7 +51,9 @@ func (p *Accounting) registerHandlers(ctx context.Context) {
 	nats.SubscribeWorkers(ctx, common.AccountHistorySubject, 2*concurencyLevel, handlers.OnAccountHistory)
 	nats.SubscribeWorkers(ctx, common.AccountSetStatusSubject, 2*concurencyLevel, handlers.OnAccountSetStatus)
 	nats.SubscribeWorkers(ctx, common.AccountOperationSubject, 8*concurencyLevel, handlers.OnAccountOperation)
-	nats.SubscribeWorkers(ctx, common.AccountTransfertSubject, 8*concurencyLevel, handlers.OnAccountTransfert)
+	nats.SubscribeWorkers(ctx, common.AccountTransferSubject, 8*concurencyLevel, handlers.OnAccountTransfer)
+
+	nats.SubscribeWorkers(ctx, common.AccountTransferWithdrawSubject, 2*concurencyLevel, handlers.OnAccountTransferWithdraw)
 
 	log.Debug("Bank Accounting registered")
 }
