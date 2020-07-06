@@ -9,7 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/database/model"
+	"github.com/jinzhu/gorm"
 )
 
 func TestAddBatch(t *testing.T) {
@@ -20,7 +22,8 @@ func TestAddBatch(t *testing.T) {
 	defer teardown(db, databaseName)
 
 	type args struct {
-		data model.BatchData
+		network model.BatchNetwork
+		data    model.BatchData
 	}
 	tests := []struct {
 		name    string
@@ -28,15 +31,15 @@ func TestAddBatch(t *testing.T) {
 		want    model.Batch
 		wantErr bool
 	}{
-		{"default", args{}, createBatch("{}"), false},
+		{"default", args{}, createBatch("", ""), true},
 
-		{"default_data", args{""}, createBatch("{}"), false},
-		{"valid", args{`{"foo": "bar"}`}, createBatch(`{"foo": "bar"}`), false},
+		{"default_data", args{model.BatchNetworkBitcoin, ""}, createBatch(model.BatchNetworkBitcoin, "{}"), false},
+		{"valid", args{model.BatchNetworkBitcoin, `{"foo": "bar"}`}, createBatch(model.BatchNetworkBitcoin, `{"foo": "bar"}`), false},
 	}
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := AddBatch(db, tt.args.data)
+			got, err := AddBatch(db, tt.args.network, tt.args.data)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("AddBatch() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -50,6 +53,8 @@ func TestAddBatch(t *testing.T) {
 
 			tt.want.ID = got.ID
 			tt.want.Timestamp = got.Timestamp
+			tt.want.ExecuteAfter = got.ExecuteAfter
+			tt.want.Capacity = got.Capacity
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("AddBatch() = %v, want %v", got, tt.want)
 			}
@@ -64,7 +69,7 @@ func TestGetBatch(t *testing.T) {
 	db := setup(databaseName, WithdrawModel())
 	defer teardown(db, databaseName)
 
-	ref, _ := AddBatch(db, "")
+	ref, _ := AddBatch(db, "bitcoin", "")
 
 	type args struct {
 		ID model.BatchID
@@ -87,12 +92,20 @@ func TestGetBatch(t *testing.T) {
 				if got.Timestamp.IsZero() || got.Timestamp.After(time.Now()) {
 					t.Errorf("GetBatch() wrong Timestamp %v", got.Timestamp)
 				}
+
+				if got.Capacity != DefaultBatchCapacity {
+					t.Errorf("GetBatch() wrong default capacity = %v, want %v", got.Capacity, DefaultBatchCapacity)
+				}
+				if !got.ExecuteAfter.After(got.Timestamp.Add(DefaultBatchExecutionDelay).Add(-30 * time.Second)) {
+					t.Errorf("GetBatch() wrong default execute after = %v", got.ExecuteAfter)
+				}
 			}
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetBatch() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GetBatch() = %v, want %v", got, tt.want)
 			}
@@ -100,8 +113,112 @@ func TestGetBatch(t *testing.T) {
 	}
 }
 
-func createBatch(data model.BatchData) model.Batch {
-	return model.Batch{
-		Data: data,
+func TestFetchBatchReady(t *testing.T) {
+	const databaseName = "TestFetchBatchReady"
+	t.Parallel()
+
+	db := setup(databaseName, WithdrawModel())
+	defer teardown(db, databaseName)
+
+	// add not ready
+	ref, _ := AddBatch(db, "bitcoin", "")
+	_, _ = AddBatchInfo(db, ref.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "")
+
+	// add ready
+	ready, _ := AddBatch(db, "bitcoin", "")
+	ready = updateExecuteAfter(db, ready, ready.Timestamp.Add(-time.Minute), ready.Timestamp.Add(-10*time.Second))
+	_, _ = AddBatchInfo(db, ready.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "")
+
+	tests := []struct {
+		name    string
+		want    []model.Batch
+		wantErr bool
+	}{
+		{"ready", []model.Batch{ready}, false},
 	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := FetchBatchReady(db)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FetchBatchReady() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("FetchBatchReady() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestListBatchNetworksByStatus(t *testing.T) {
+	const databaseName = "TestListBatchNetworksByStatus"
+	t.Parallel()
+
+	db := setup(databaseName, WithdrawModel())
+	defer teardown(db, databaseName)
+
+	ref1, _ := AddBatch(db, model.BatchNetworkBitcoin, "")
+	ref2, _ := AddBatch(db, model.BatchNetworkBitcoinTestnet, "")
+	ref3, _ := AddBatch(db, model.BatchNetworkBitcoinLiquid, "")
+	ref4, _ := AddBatch(db, model.BatchNetworkBitcoinLightning, "")
+
+	_, _ = AddBatchInfo(db, ref1.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "")
+	_, _ = AddBatchInfo(db, ref2.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "")
+	_, _ = AddBatchInfo(db, ref3.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "")
+	_, _ = AddBatchInfo(db, ref4.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "")
+
+	type args struct {
+		status model.BatchStatus
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []model.BatchNetwork
+		wantErr bool
+	}{
+		{"default", args{}, nil, true},
+
+		{"empty", args{model.BatchStatusSettled}, nil, false},
+		{"valid", args{model.BatchStatusCreated}, []model.BatchNetwork{ref1.Network, ref2.Network, ref3.Network, ref4.Network}, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ListBatchNetworksByStatus(db, tt.args.status)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ListBatchNetworksByStatus() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ListBatchNetworksByStatus() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func createBatch(network model.BatchNetwork, data model.BatchData) model.Batch {
+	return model.Batch{
+		Network: network,
+		Data:    data,
+	}
+}
+
+func updateExecuteAfter(db bank.Database, ready model.Batch, newTimestamp, newExecuteAfter time.Time) model.Batch {
+	gdb := db.DB().(*gorm.DB)
+
+	ready.Timestamp = newTimestamp
+	ready.ExecuteAfter = newExecuteAfter
+
+	// update
+	_ = gdb.Model(&model.Batch{}).
+		Where(model.Batch{ID: ready.ID}).
+		Update(&ready).Error
+
+	// get from db
+	_ = gdb.Model(&model.Batch{}).
+		Where(model.Batch{ID: ready.ID}).
+		First(&ready).Error
+
+	return ready
 }

@@ -6,11 +6,14 @@ package accounting
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/condensat/bank-core/accounting/common"
 	"github.com/condensat/bank-core/accounting/handlers"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
+	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/utils"
@@ -20,15 +23,23 @@ import (
 
 type Accounting int
 
+const (
+	DefaultInterval time.Duration = 30 * time.Second
+	DefaultDelay    time.Duration = 0 * time.Second
+)
+
 func (p *Accounting) Run(ctx context.Context, bankUser model.User) {
 	log := logger.Logger(ctx).WithField("Method", "Accounting.Run")
 	ctx = common.BankUserContext(ctx, bankUser)
+	ctx = cache.RedisMutexContext(ctx)
 
-	p.registerHandlers(cache.RedisMutexContext(ctx))
+	p.registerHandlers(ctx)
 
 	log.WithFields(logrus.Fields{
 		"Hostname": utils.Hostname(),
 	}).Info("Accounting Service started")
+
+	go p.scheduledWithdrawBatch(ctx, DefaultInterval, DefaultDelay)
 
 	<-ctx.Done()
 }
@@ -55,5 +66,118 @@ func (p *Accounting) registerHandlers(ctx context.Context) {
 
 	nats.SubscribeWorkers(ctx, common.AccountTransferWithdrawSubject, 2*concurencyLevel, handlers.OnAccountTransferWithdraw)
 
+	nats.SubscribeWorkers(ctx, common.BatchWithdrawListSubject, 2*concurencyLevel, handlers.OnBatchWithdrawList)
+	nats.SubscribeWorkers(ctx, common.BatchWithdrawUpdateSubject, 2*concurencyLevel, handlers.OnBatchWithdrawUpdate)
+
 	log.Debug("Bank Accounting registered")
+}
+
+func checkParams(interval time.Duration, delay time.Duration) (time.Duration, time.Duration) {
+	if interval < time.Second {
+		interval = DefaultInterval
+	}
+	if delay < 0 {
+		delay = DefaultDelay
+	}
+
+	return interval, delay
+}
+
+func (p *Accounting) scheduledWithdrawBatch(ctx context.Context, interval time.Duration, delay time.Duration) {
+	log := logger.Logger(ctx).WithField("Method", "Accounting.scheduledWithdrawBatch")
+
+	interval, delay = checkParams(interval, delay)
+
+	log = log.WithFields(logrus.Fields{
+		"Interval": fmt.Sprintf("%v", interval),
+		"Delay":    fmt.Sprintf("%v", delay),
+	})
+
+	log.Info("Start batch Scheduler")
+
+	for epoch := range utils.Scheduler(ctx, interval, delay) {
+		log := log.WithFields(logrus.Fields{
+			"Epoch": epoch.Truncate(time.Millisecond),
+		})
+
+		err := processPendingWithdraws(ctx)
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to processPendingWithdraws")
+			// continue to next task
+		}
+
+		err = processPendingBatches(ctx)
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to processPendingBatches")
+			// continue to next task
+		}
+	}
+}
+
+func processPendingWithdraws(ctx context.Context) error {
+	log := logger.Logger(ctx).WithField("Method", "Accounting.processPendingWithdraws")
+
+	withdraws, err := FetchCreatedWithdraws(ctx)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to FetchCreatedWithdraws")
+		return err
+	}
+
+	if len(withdraws) == 0 {
+		log.
+			Debug("FetchCreatedWithdraws returns empty withdraw target")
+		return err
+	}
+
+	err = ProcessWithdraws(ctx, withdraws)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to ProcessWithdraws")
+		return err
+	}
+
+	return nil
+}
+
+func processPendingBatches(ctx context.Context) error {
+	log := logger.Logger(ctx).WithField("Method", "Accounting.processPendingBatches")
+	db := appcontext.Database(ctx)
+
+	log.Info("Process batches")
+
+	batches, err := database.FetchBatchReady(db)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to ProcessWithdraws")
+		return err
+	}
+
+	for _, batch := range batches {
+		if !batch.IsComplete() {
+			continue
+		}
+		info, err := database.GetLastBatchInfo(db, batch.ID)
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to GetLastBatchInfo")
+			continue
+		}
+		if info.Status != model.BatchStatusCreated {
+			log.
+				Warning("Batch status is not BatchStatusCreated")
+			continue
+		}
+
+		_, err = database.AddBatchInfo(db, batch.ID, model.BatchStatusReady, info.Type, info.Data)
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to AddBatchInfo")
+			continue
+		}
+	}
+
+	return nil
 }

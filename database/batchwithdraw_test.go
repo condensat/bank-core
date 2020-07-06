@@ -18,7 +18,7 @@ func TestAddWithdrawToBatch(t *testing.T) {
 	db := setup(databaseName, WithdrawModel())
 	defer teardown(db, databaseName)
 
-	batch, _ := AddBatch(db, "{}")
+	batch, _ := AddBatch(db, model.BatchNetworkBitcoin, "{}")
 	data := createTestAccountStateData(db)
 	a1 := data.Accounts[0]
 	a2 := data.Accounts[2]
@@ -57,7 +57,7 @@ func TestGetBatchWithdraws(t *testing.T) {
 	db := setup(databaseName, WithdrawModel())
 	defer teardown(db, databaseName)
 
-	batch, _ := AddBatch(db, "{}")
+	batch, _ := AddBatch(db, model.BatchNetworkBitcoin, "{}")
 
 	data := createTestAccountStateData(db)
 	a1 := data.Accounts[0]

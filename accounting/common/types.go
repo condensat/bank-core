@@ -94,6 +94,33 @@ type AccountTransferWithdraw struct {
 	Crypto    CryptoTransfert
 }
 
+type WithdrawInfo struct {
+	Amount    float64
+	PublicKey string
+}
+
+type BatchWithdraw struct {
+	BatchID   uint64
+	Network   string
+	Status    string
+	Withdraws []WithdrawInfo
+}
+
+type BatchWithdraws struct {
+	Network string
+	Batches []BatchWithdraw
+}
+
+type BatchStatus struct {
+	BatchID uint64
+	Status  string
+}
+
+type BatchUpdate struct {
+	BatchStatus
+	TxID string
+}
+
 func (p *CurrencyList) Encode() ([]byte, error) {
 	return bank.EncodeObject(p)
 }
@@ -163,5 +190,37 @@ func (p *AccountTransferWithdraw) Encode() ([]byte, error) {
 }
 
 func (p *AccountTransferWithdraw) Decode(data []byte) error {
+	return bank.DecodeObject(data, bank.BankObject(p))
+}
+
+func (p *BatchWithdraw) Encode() ([]byte, error) {
+	return bank.EncodeObject(p)
+}
+
+func (p *BatchWithdraw) Decode(data []byte) error {
+	return bank.DecodeObject(data, bank.BankObject(p))
+}
+
+func (p *BatchWithdraws) Encode() ([]byte, error) {
+	return bank.EncodeObject(p)
+}
+
+func (p *BatchWithdraws) Decode(data []byte) error {
+	return bank.DecodeObject(data, bank.BankObject(p))
+}
+
+func (p *BatchStatus) Encode() ([]byte, error) {
+	return bank.EncodeObject(p)
+}
+
+func (p *BatchStatus) Decode(data []byte) error {
+	return bank.DecodeObject(data, bank.BankObject(p))
+}
+
+func (p *BatchUpdate) Encode() ([]byte, error) {
+	return bank.EncodeObject(p)
+}
+
+func (p *BatchUpdate) Decode(data []byte) error {
 	return bank.DecodeObject(data, bank.BankObject(p))
 }

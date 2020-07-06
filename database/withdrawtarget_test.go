@@ -149,3 +149,68 @@ func createWithdrawTarget(withdrawID model.WithdrawID, dataType model.WithdrawTa
 		Data:       data,
 	}
 }
+
+func TestGetLastWithdrawTargetByStatus(t *testing.T) {
+	const databaseName = "TestGetLastWithdrawTargetByStatus"
+	t.Parallel()
+
+	db := setup(databaseName, WithdrawModel())
+	defer teardown(db, databaseName)
+
+	data := createTestAccountStateData(db)
+	a1 := data.Accounts[0]
+	a2 := data.Accounts[2]
+
+	w1, _ := AddWithdraw(db, a1.ID, a2.ID, 0.1, model.BatchModeNormal, "{}")
+	wt1 := model.FromOnChainData(w1.ID, "bitcoin", model.WithdrawTargetOnChainData{
+		WithdrawTargetCryptoData: model.WithdrawTargetCryptoData{
+			PublicKey: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+		},
+	})
+	{
+		wt1, _ = AddWithdrawTarget(db, w1.ID, wt1.Type, wt1.Data)
+		_, _ = AddWithdrawInfo(db, w1.ID, model.WithdrawStatusCreated, "{}")
+	}
+
+	// add
+	w2, _ := AddWithdraw(db, a1.ID, a2.ID, 0.1, model.BatchModeNormal, "{}")
+	wt2 := model.FromOnChainData(w2.ID, "bitcoin", model.WithdrawTargetOnChainData{
+		WithdrawTargetCryptoData: model.WithdrawTargetCryptoData{
+			PublicKey: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+		},
+	})
+	{
+		wt2, _ = AddWithdrawTarget(db, w2.ID, wt2.Type, wt2.Data)
+		_, _ = AddWithdrawInfo(db, w2.ID, model.WithdrawStatusCreated, "{}")
+		_, _ = AddWithdrawInfo(db, w2.ID, model.WithdrawStatusProcessing, "{}")
+	}
+	type args struct {
+		status model.WithdrawStatus
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []model.WithdrawTarget
+		wantErr bool
+	}{
+		{"default", args{}, nil, true},
+		{"invalid_status", args{""}, nil, true},
+
+		{"empty_status", args{model.WithdrawStatusSettled}, nil, false},
+		{"created", args{model.WithdrawStatusCreated}, []model.WithdrawTarget{wt1}, false},       // do not return wt2
+		{"processing", args{model.WithdrawStatusProcessing}, []model.WithdrawTarget{wt2}, false}, // do not return wt1
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetLastWithdrawTargetByStatus(db, tt.args.status)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetLastWithdrawTargetByStatus() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetLastWithdrawTargetByStatus() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
