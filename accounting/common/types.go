@@ -95,8 +95,18 @@ type AccountTransferWithdraw struct {
 }
 
 type WithdrawInfo struct {
-	Amount    float64
-	PublicKey string
+	WithdrawID uint64
+	Timestamp  time.Time
+	AccountID  uint64
+	Amount     float64
+	Chain      string
+	PublicKey  string
+	Status     string
+}
+
+type UserWithdraws struct {
+	UserID    uint64
+	Withdraws []WithdrawInfo
 }
 
 type BatchWithdraw struct {
@@ -192,6 +202,14 @@ func (p *AccountTransferWithdraw) Encode() ([]byte, error) {
 }
 
 func (p *AccountTransferWithdraw) Decode(data []byte) error {
+	return bank.DecodeObject(data, bank.BankObject(p))
+}
+
+func (p *UserWithdraws) Encode() ([]byte, error) {
+	return bank.EncodeObject(p)
+}
+
+func (p *UserWithdraws) Decode(data []byte) error {
 	return bank.DecodeObject(data, bank.BankObject(p))
 }
 
