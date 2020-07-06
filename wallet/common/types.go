@@ -34,6 +34,20 @@ type AddressInfo struct {
 	Unconfidential string
 }
 
+type UTXOInfo struct {
+	TxID string
+	Vout int
+}
+
+type SpendInfo struct {
+	PublicAddress string
+	Amount        float64
+}
+
+type SpendTx struct {
+	TxID string
+}
+
 func (p *CryptoAddress) Encode() ([]byte, error) {
 	return bank.EncodeObject(p)
 }

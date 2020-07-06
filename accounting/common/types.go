@@ -103,6 +103,7 @@ type BatchWithdraw struct {
 	BatchID   uint64
 	Network   string
 	Status    string
+	TxID      string
 	Withdraws []WithdrawInfo
 }
 
@@ -118,7 +119,8 @@ type BatchStatus struct {
 
 type BatchUpdate struct {
 	BatchStatus
-	TxID string
+	TxID   string
+	Height int
 }
 
 func (p *CurrencyList) Encode() ([]byte, error) {

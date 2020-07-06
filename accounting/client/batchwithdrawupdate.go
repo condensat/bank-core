@@ -14,15 +14,24 @@ import (
 )
 
 func BatchWithdrawUpdate(ctx context.Context, batchID uint64, status, txID string) (common.BatchStatus, error) {
-	log := logger.Logger(ctx).WithField("Method", "Client.BatchWithdrawUpdate")
+	return BatchWithdrawUpdateWithHeight(ctx, batchID, status, txID, 0)
+}
+
+func BatchWithdrawUpdateWithHeight(ctx context.Context, batchID uint64, status, txID string, height int) (common.BatchStatus, error) {
+	log := logger.Logger(ctx).WithField("Method", "Client.BatchWithdrawUpdateWithHeight")
 	log = log.WithField("BatchID", batchID)
+
+	if height < 0 {
+		height = 0
+	}
 
 	request := common.BatchUpdate{
 		BatchStatus: common.BatchStatus{
 			BatchID: batchID,
 			Status:  status,
 		},
-		TxID: txID,
+		TxID:   txID,
+		Height: height,
 	}
 
 	var result common.BatchStatus
@@ -34,8 +43,10 @@ func BatchWithdrawUpdate(ctx context.Context, batchID uint64, status, txID strin
 	}
 
 	log.WithFields(logrus.Fields{
-		"Status": request.Status,
-		"TxID":   request.TxID,
+		"BatchID": request.BatchID,
+		"Status":  request.Status,
+		"TxID":    request.TxID,
+		"Height":  request.Height,
 	}).Debug("Batch updated")
 
 	return result, nil

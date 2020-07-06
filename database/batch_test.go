@@ -151,6 +151,53 @@ func TestFetchBatchReady(t *testing.T) {
 	}
 }
 
+func TestFetchBatchByLastStatus(t *testing.T) {
+	const databaseName = "TestFetchBatchByLastStatus"
+	t.Parallel()
+
+	db := setup(databaseName, WithdrawModel())
+	defer teardown(db, databaseName)
+
+	// add created
+	created, _ := AddBatch(db, "bitcoin", "")
+	_, _ = AddBatchInfo(db, created.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "")
+	// add ready
+	ready, _ := AddBatch(db, "bitcoin", "")
+	_, _ = AddBatchInfo(db, ready.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "")
+	_, _ = AddBatchInfo(db, ready.ID, model.BatchStatusReady, model.BatchInfoCrypto, "")
+	// add processing
+	processing, _ := AddBatch(db, "bitcoin", "")
+	_, _ = AddBatchInfo(db, processing.ID, model.BatchStatusCreated, model.BatchInfoCrypto, "")
+	_, _ = AddBatchInfo(db, processing.ID, model.BatchStatusReady, model.BatchInfoCrypto, "")
+	_, _ = AddBatchInfo(db, processing.ID, model.BatchStatusProcessing, model.BatchInfoCrypto, "")
+
+	type args struct {
+		status model.BatchStatus
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []model.Batch
+		wantErr bool
+	}{
+		{"created", args{model.BatchStatusCreated}, []model.Batch{created}, false},
+		{"ready", args{model.BatchStatusReady}, []model.Batch{ready}, false},
+		{"processing", args{model.BatchStatusProcessing}, []model.Batch{processing}, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := FetchBatchByLastStatus(db, tt.args.status)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FetchBatchByLastStatus() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("FetchBatchByLastStatus() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 func TestListBatchNetworksByStatus(t *testing.T) {
 	const databaseName = "TestListBatchNetworksByStatus"
 	t.Parallel()

@@ -12,12 +12,21 @@ import (
 	"github.com/condensat/bank-core/messaging"
 )
 
-func BatchWithdrawList(ctx context.Context, network string) (common.BatchWithdraws, error) {
-	log := logger.Logger(ctx).WithField("Method", "Client.BatchWithdrawList")
+func ListBatchWithdrawReady(ctx context.Context, network string) (common.BatchWithdraws, error) {
+	return ListBatchWithdrawWithStatus(ctx, network, "ready")
+}
+
+func ListBatchWithdrawProcessing(ctx context.Context, network string) (common.BatchWithdraws, error) {
+	return ListBatchWithdrawWithStatus(ctx, network, "processing")
+}
+
+func ListBatchWithdrawWithStatus(ctx context.Context, network, status string) (common.BatchWithdraws, error) {
+	log := logger.Logger(ctx).WithField("Method", "Client.ListBatchWithdrawWithStatus")
 	log = log.WithField("Network", network)
 
 	request := common.BatchWithdraw{
 		Network: network,
+		Status:  status,
 	}
 
 	var result common.BatchWithdraws

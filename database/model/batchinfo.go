@@ -17,6 +17,7 @@ const (
 	BatchStatusCreated    BatchStatus = "created"
 	BatchStatusReady      BatchStatus = "ready"
 	BatchStatusProcessing BatchStatus = "processing"
+	BatchStatusConfirmed  BatchStatus = "confirmed"
 	BatchStatusSettled    BatchStatus = "settled"
 	BatchStatusCanceled   BatchStatus = "canceled"
 
@@ -38,7 +39,8 @@ type BatchInfo struct {
 
 // BatchInfoCryptoData data type for BatchInfo crypto
 type BatchInfoCryptoData struct {
-	TxID String `json:"txid,omitempty"`
+	TxID   String `json:"txid,omitempty"`
+	Height Int    `json:"height,omitempty"`
 }
 
 func (p *BatchInfo) CryptoData() (BatchInfoCryptoData, error) {

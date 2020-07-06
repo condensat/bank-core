@@ -185,17 +185,8 @@ func processWithdrawOnChainByNetwork(ctx context.Context, chain string, datas []
 	// within a db transaction
 	err = db.Transaction(func(db bank.Database) error {
 
-		batchInfo, err := findOrCreateBatchInfo(db, chain)
-		if err != nil {
-			log.WithError(err).
-				Error("Failed to findOrCreateBatchInfo")
-			return ErrProcessingWithdraw
-		}
-
 		var IDs []model.WithdrawID
 
-		// create wallet args request
-		var outputs []ChainOutput
 		for _, data := range datas {
 			// check if public key is valid
 			if len(data.Data.PublicKey) == 0 {
@@ -210,12 +201,6 @@ func processWithdrawOnChainByNetwork(ctx context.Context, chain string, datas []
 				continue
 			}
 
-			// add to batch request
-			outputs = append(outputs, ChainOutput{
-				PublicKey: data.Data.PublicKey,
-				Amount:    float64(*data.Withdraw.Amount),
-			})
-
 			// change to status processing
 			_, err := database.AddWithdrawInfo(db, data.Withdraw.ID, model.WithdrawStatusProcessing, "{}")
 			if err != nil {
@@ -229,15 +214,58 @@ func processWithdrawOnChainByNetwork(ctx context.Context, chain string, datas []
 			IDs = append(IDs, data.Withdraw.ID)
 		}
 
-		err = database.AddWithdrawToBatch(db, batchInfo.BatchID, IDs...)
-		if err != nil {
-			canceled = append(canceled, IDs...)
-			return ErrProcessingWithdraw
+		var batchOffset int
+		for len(IDs) > 0 {
+			// create new batch regarding batchOffset
+			batchInfo, err := findOrCreateBatchInfo(db, chain, batchOffset)
+			if err != nil {
+				log.WithError(err).
+					Error("Failed to findOrCreateBatchInfo")
+				return ErrProcessingWithdraw
+			}
+
+			// get capacity of current batch
+			count, capacity, err := batchWithdrawCount(db, batchInfo.BatchID)
+			if err != nil {
+				log.WithError(err).
+					Error("Failed to batchWithdrawCount")
+				return ErrProcessingWithdraw
+			}
+
+			if count == capacity {
+				// seek to next batch
+				batchOffset++
+				continue
+			}
+
+			// get all batch IDs
+			batchIDs := IDs[:]
+			{
+				remaining := capacity - count
+				if len(IDs) <= remaining {
+					// all remaining fits in current batch
+					IDs = nil // stop loop
+				} else {
+					// truncate IDs with remaining batch capacity
+					batchIDs, IDs = IDs[:remaining], IDs[remaining:] // update batchIDs & IDs
+				}
+			}
+
+			// append batchIds to current batch
+			err = database.AddWithdrawToBatch(db, batchInfo.BatchID, batchIDs...)
+			if err != nil {
+				canceled = append(canceled, batchIDs...)
+				log.WithError(err).
+					Error("Failed to AddWithdrawToBatch")
+				return ErrProcessingWithdraw
+			}
+
+			if len(IDs) > 0 {
+				batchOffset++ // increment to get new batch in next step
+			}
 		}
 
-		// rollback all operation if request failed
-		// Todo: move to another scheduler
-		return SentWalletBatchRequest(ctx, chain, outputs)
+		return nil
 	})
 
 	// update all canceled withdraws
@@ -256,15 +284,15 @@ func processWithdrawOnChainByNetwork(ctx context.Context, chain string, datas []
 	return nil
 }
 
-func findOrCreateBatchInfo(db bank.Database, chain string) (model.BatchInfo, error) {
+func findOrCreateBatchInfo(db bank.Database, chain string, batchOffset int) (model.BatchInfo, error) {
 	network := model.BatchNetwork(chain)
 	batchCreated, err := database.GetLastBatchInfoByStatusAndNetwork(db, model.BatchStatusCreated, network)
 	if err != nil {
 		return model.BatchInfo{}, err
 	}
 
-	if len(batchCreated) > 0 {
-		return batchCreated[0], nil
+	if len(batchCreated) > batchOffset {
+		return batchCreated[batchOffset], nil
 	}
 
 	// create BatchInfo if not exists
@@ -282,4 +310,17 @@ func findOrCreateBatchInfo(db bank.Database, chain string) (model.BatchInfo, err
 	}
 
 	return batchInfo, nil
+}
+
+func batchWithdrawCount(db bank.Database, batchID model.BatchID) (int, int, error) {
+	batch, err := database.GetBatch(db, batchID)
+	if err != nil {
+		return 0, 0, err
+	}
+	withdraws, err := database.GetBatchWithdraws(db, batch.ID)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return len(withdraws), int(batch.Capacity), nil
 }
