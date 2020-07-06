@@ -101,24 +101,55 @@ func mainScheduler(ctx context.Context, chains []string) {
 	// update once at startup
 	tasks.UpdateAssetInfo(ctx, time.Now().UTC())
 
+	// Initialize SingleCalls nonce
+	const singleCallPrefix = "bank.wallet."
+	singleCalls := []string{
+		singleCallPrefix + "UpdateChains",
+		singleCallPrefix + "UpdateOperations",
+		singleCallPrefix + "UpdateAssetInfo",
+		singleCallPrefix + "BatchWithdraw",
+	}
+	for _, name := range singleCalls {
+		err := cache.InitSingleCall(ctx, name)
+		if err != nil {
+			log.WithError(err).
+				Panic("Failed to InitSingleCall")
+		}
+	}
+
 	for {
 		select {
-
 		// update chains
 		case epoch := <-taskChainUpdate:
-			tasks.UpdateChains(ctx, epoch, chains)
+			_ = cache.ExecuteSingleCall(ctx, singleCallPrefix+"UpdateChains",
+				func(ctx context.Context) error {
+					tasks.UpdateChains(ctx, epoch, chains)
+					return nil
+				})
 
 		// update operation
 		case epoch := <-taskOperationsUpdate:
-			tasks.UpdateOperations(ctx, epoch, chains)
+			_ = cache.ExecuteSingleCall(ctx, singleCallPrefix+"UpdateOperations",
+				func(ctx context.Context) error {
+					tasks.UpdateOperations(ctx, epoch, chains)
+					return nil
+				})
 
 		// update assets
 		case epoch := <-taskAssetInfoUpdate:
-			tasks.UpdateAssetInfo(ctx, epoch)
+			_ = cache.ExecuteSingleCall(ctx, singleCallPrefix+"UpdateAssetInfo",
+				func(ctx context.Context) error {
+					tasks.UpdateAssetInfo(ctx, epoch)
+					return nil
+				})
 
-			// batch withdraw
+		// batch withdraw
 		case epoch := <-taskBatchWithdraw:
-			tasks.BatchWithdraw(ctx, epoch, chains)
+			_ = cache.ExecuteSingleCall(ctx, singleCallPrefix+"BatchWithdraw",
+				func(ctx context.Context) error {
+					tasks.BatchWithdraw(ctx, epoch, chains)
+					return nil
+				})
 
 		case <-ctx.Done():
 			log.Info("Daemon exited")

@@ -94,33 +94,49 @@ func (p *Accounting) scheduledWithdrawBatch(ctx context.Context, interval time.D
 		"Delay":    fmt.Sprintf("%v", delay),
 	})
 
+	// Initialize SingleCall nonce
+	const singleCallName = "accounting.scheduledWithdrawBatch"
+	err := cache.InitSingleCall(ctx, singleCallName)
+	if err != nil {
+		log.WithError(err).
+			Panic("Failed to InitSingleCall")
+	}
+
 	log.Info("Start batch Scheduler")
 
 	for epoch := range utils.Scheduler(ctx, interval, delay) {
-		log := log.WithFields(logrus.Fields{
-			"Epoch": epoch.Truncate(time.Millisecond),
-		})
+		_ = cache.ExecuteSingleCall(ctx, singleCallName,
 
-		err := processPendingWithdraws(ctx)
-		if err != nil {
-			log.WithError(err).
-				Error("Failed to processPendingWithdraws")
-			// continue to next task
-		}
+			// Single execution among all services
+			func(ctx context.Context) error {
 
-		err = processPendingBatches(ctx)
-		if err != nil {
-			log.WithError(err).
-				Error("Failed to processPendingBatches")
-			// continue to next task
-		}
+				log := log.WithFields(logrus.Fields{
+					"Epoch": epoch.Truncate(time.Millisecond),
+				})
 
-		err = processConfirmedBatches(ctx)
-		if err != nil {
-			log.WithError(err).
-				Error("Failed to processConfirmedBatches")
-			// continue to next task
-		}
+				err := processPendingWithdraws(ctx)
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to processPendingWithdraws")
+					// continue to next task
+				}
+
+				err = processPendingBatches(ctx)
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to processPendingBatches")
+					// continue to next task
+				}
+
+				err = processConfirmedBatches(ctx)
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to processConfirmedBatches")
+					// continue to next task
+				}
+
+				return nil
+			})
 	}
 }
 
@@ -242,7 +258,16 @@ func processConfirmedBatches(ctx context.Context) error {
 				return err
 			}
 
-			// Todo: Settled account operation
+			// Settle account operation
+			for _, wID := range withdraws {
+				// withdrawID is use as reference in transfert account operation
+				err = settleAccountOperation(ctx, db, model.RefID(wID))
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to settleAccountOperation")
+					return err
+				}
+			}
 
 			return nil
 		})
@@ -255,4 +280,31 @@ func processConfirmedBatches(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func settleAccountOperation(ctx context.Context, db bank.Database, refID model.RefID) error {
+	// Find transfer account operation
+	op, err := database.FindAccountOperationByReference(db, model.SynchroneousTypeAsyncStart, model.OperationTypeTransfer, refID)
+	if err != nil {
+		return err
+	}
+
+	// Acquire Lock
+	lock, err := cache.LockAccount(ctx, uint64(op.AccountID))
+	if err != nil {
+		return nil
+	}
+	defer lock.Unlock()
+
+	// create new AccountOperation, removing and unlock amount
+	_, err = database.TxAppendAccountOperation(db, model.NewAccountOperation(0,
+		op.AccountID,
+		model.SynchroneousTypeAsyncEnd,
+		model.OperationTypeWithdraw,
+		op.ReferenceID,
+		time.Now(),
+		-(*op.Amount), 0.0,
+		-(*op.LockAmount), 0.0,
+	))
+	return err
 }

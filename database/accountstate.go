@@ -16,6 +16,7 @@ import (
 var (
 	ErrAccountStateNotFound = errors.New("Account State Not Found")
 	ErrInvalidAccountID     = errors.New("Invalid AccountID")
+	ErrInvalidReferenceID   = errors.New("Invalid ReferenceID")
 	ErrInvalidAccountState  = errors.New("Invalid Account State")
 	ErrAccountIsDisabled    = errors.New("Account Is Disabled")
 )

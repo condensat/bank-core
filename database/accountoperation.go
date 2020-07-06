@@ -39,6 +39,12 @@ func AppendAccountOperation(db bank.Database, operation model.AccountOperation) 
 	return result[0], nil
 }
 
+func TxAppendAccountOperation(db bank.Database, operation model.AccountOperation) (model.AccountOperation, error) {
+	operation.Timestamp = operation.Timestamp.UTC().Truncate(time.Second)
+
+	return txApppendAccountOperation(db, operation)
+}
+
 func AppendAccountOperationSlice(db bank.Database, operations ...model.AccountOperation) ([]model.AccountOperation, error) {
 	if db == nil {
 		return nil, ErrInvalidDatabase
@@ -256,6 +262,38 @@ func GeAccountHistoryRange(db bank.Database, accountID model.AccountID, from, to
 	}
 
 	return convertAccountOperationList(list), nil
+}
+
+func FindAccountOperationByReference(db bank.Database, synchroneousType model.SynchroneousType, operationType model.OperationType, referenceID model.RefID) (model.AccountOperation, error) {
+	gdb := getGormDB(db)
+	if gdb == nil {
+		return model.AccountOperation{}, ErrInvalidDatabase
+	}
+
+	if len(synchroneousType) == 0 {
+		return model.AccountOperation{}, model.ErrSynchroneousTypeInvalid
+	}
+	if len(operationType) == 0 {
+		return model.AccountOperation{}, model.ErrOperationTypeInvalid
+	}
+	if referenceID == 0 {
+		return model.AccountOperation{}, ErrInvalidReferenceID
+	}
+
+	var result model.AccountOperation
+	err := gdb.
+		Where(model.AccountOperation{
+			SynchroneousType: synchroneousType,
+			OperationType:    operationType,
+			ReferenceID:      referenceID,
+		}).
+		Last(&result).Error
+
+	if err != nil {
+		return model.AccountOperation{}, err
+	}
+
+	return result, err
 }
 
 func convertAccountOperationList(list []*model.AccountOperation) []model.AccountOperation {
