@@ -94,33 +94,49 @@ func (p *Accounting) scheduledWithdrawBatch(ctx context.Context, interval time.D
 		"Delay":    fmt.Sprintf("%v", delay),
 	})
 
+	// Initialize SingleCall nonce
+	const singleCallName = "accounting.scheduledWithdrawBatch"
+	err := cache.InitSingleCall(ctx, singleCallName)
+	if err != nil {
+		log.WithError(err).
+			Panic("Failed to InitSingleCall")
+	}
+
 	log.Info("Start batch Scheduler")
 
 	for epoch := range utils.Scheduler(ctx, interval, delay) {
-		log := log.WithFields(logrus.Fields{
-			"Epoch": epoch.Truncate(time.Millisecond),
-		})
+		_ = cache.ExecuteSingleCall(ctx, singleCallName,
 
-		err := processPendingWithdraws(ctx)
-		if err != nil {
-			log.WithError(err).
-				Error("Failed to processPendingWithdraws")
-			// continue to next task
-		}
+			// Single execution among all services
+			func(ctx context.Context) error {
 
-		err = processPendingBatches(ctx)
-		if err != nil {
-			log.WithError(err).
-				Error("Failed to processPendingBatches")
-			// continue to next task
-		}
+				log := log.WithFields(logrus.Fields{
+					"Epoch": epoch.Truncate(time.Millisecond),
+				})
 
-		err = processConfirmedBatches(ctx)
-		if err != nil {
-			log.WithError(err).
-				Error("Failed to processConfirmedBatches")
-			// continue to next task
-		}
+				err := processPendingWithdraws(ctx)
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to processPendingWithdraws")
+					// continue to next task
+				}
+
+				err = processPendingBatches(ctx)
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to processPendingBatches")
+					// continue to next task
+				}
+
+				err = processConfirmedBatches(ctx)
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to processConfirmedBatches")
+					// continue to next task
+				}
+
+				return nil
+			})
 	}
 }
 
