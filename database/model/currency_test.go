@@ -88,6 +88,8 @@ func TestCurrency_IsAvailable(t *testing.T) {
 }
 
 func TestCurrency_IsCrypto(t *testing.T) {
+	t.Parallel()
+
 	type fields struct {
 		Name      CurrencyName
 		Available ZeroInt
@@ -108,6 +110,7 @@ func TestCurrency_IsCrypto(t *testing.T) {
 		{"ValidNotCrypto", fields{"BTC", newInt(0), newInt(0), newInt(0)}, false},
 	}
 	for _, tt := range tests {
+		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
 			p := &Currency{
 				Name:      tt.fields.Name,
@@ -117,6 +120,33 @@ func TestCurrency_IsCrypto(t *testing.T) {
 			}
 			if got := p.IsCrypto(); got != tt.want {
 				t.Errorf("Currency.IsCrypto() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCurrency_GetType(t *testing.T) {
+	t.Parallel()
+
+	type fields struct {
+		Type ZeroInt
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   Int
+	}{
+		{"default", fields{}, 0},
+		{"type", fields{newInt(42)}, 42},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Currency{
+				Type: tt.fields.Type,
+			}
+			if got := p.GetType(); got != tt.want {
+				t.Errorf("Currency.GetType() = %v, want %v", got, tt.want)
 			}
 		})
 	}
