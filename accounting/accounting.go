@@ -71,6 +71,7 @@ func (p *Accounting) registerHandlers(ctx context.Context) {
 	nats.SubscribeWorkers(ctx, common.BatchWithdrawUpdateSubject, 2*concurencyLevel, handlers.OnBatchWithdrawUpdate)
 
 	nats.SubscribeWorkers(ctx, common.UserWithdrawListSubject, 2*concurencyLevel, handlers.OnUserWithdrawList)
+	nats.SubscribeWorkers(ctx, common.CancelWithdrawSubject, 2*concurencyLevel, handlers.OnCancelWithdraw)
 
 	log.Debug("Bank Accounting registered")
 }

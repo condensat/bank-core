@@ -26,4 +26,6 @@ const (
 	BatchWithdrawUpdateSubject = chanPrefix + "BatchWithdraw.Update"
 
 	UserWithdrawListSubject = chanPrefix + "User.Withdraw.List"
+
+	CancelWithdrawSubject = chanPrefix + "Withdraw.Cancel"
 )

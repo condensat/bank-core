@@ -205,6 +205,14 @@ func (p *AccountTransferWithdraw) Decode(data []byte) error {
 	return bank.DecodeObject(data, bank.BankObject(p))
 }
 
+func (p *WithdrawInfo) Encode() ([]byte, error) {
+	return bank.EncodeObject(p)
+}
+
+func (p *WithdrawInfo) Decode(data []byte) error {
+	return bank.DecodeObject(data, bank.BankObject(p))
+}
+
 func (p *UserWithdraws) Encode() ([]byte, error) {
 	return bank.EncodeObject(p)
 }
