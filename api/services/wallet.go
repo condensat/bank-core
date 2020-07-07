@@ -262,6 +262,69 @@ func (p *WalletService) SendFunds(r *http.Request, request *WalletSendFundsReque
 	return nil
 }
 
+// WalletCancelWithdrawRequest holds args for wallet requests
+type WalletCancelWithdrawRequest struct {
+	SessionArgs
+	WithdrawID string `json:"withdrawId"`
+}
+
+// WalletCancelWithdrawResponse holds args for wallet requests
+type WalletCancelWithdrawResponse struct {
+	WithdrawID string `json:"withdrawId"`
+	Status     string `json:"status"`
+}
+
+func (p *WalletService) CancelWithdraw(r *http.Request, request *WalletCancelWithdrawRequest, reply *WalletCancelWithdrawResponse) error {
+	ctx := r.Context()
+	log := logger.Logger(ctx).WithField("Method", "WalletService.CancelWithdraw")
+	log = GetServiceRequestLog(log, r, "Wallet", "CancelWithdraw")
+
+	// Retrieve context values
+	_, session, err := ContextValues(ctx)
+	if err != nil {
+		log.WithError(err).
+			Error("ContextValues Failed")
+		return ErrServiceInternalError
+	}
+
+	// Get userID from session
+	request.SessionID = getSessionCookie(r)
+	sessionID := sessions.SessionID(request.SessionID)
+	userID := session.UserSession(ctx, sessionID)
+	if !sessions.IsUserValid(userID) {
+		log.Error("Invalid userSession")
+		return sessions.ErrInvalidSessionID
+	}
+	log = log.WithFields(logrus.Fields{
+		"SessionID": sessionID,
+		"UserID":    userID,
+	})
+
+	sID := appcontext.SecureID(ctx)
+	withdrawID, err := sID.FromSecureID("withdraw", sID.Parse(request.WithdrawID))
+	if err != nil {
+		log.WithError(err).
+			WithField("WithdrawID", request.WithdrawID).
+			Error("Wrong WithdrawID")
+		return sessions.ErrInternalError
+	}
+
+	log = log.WithField("WithdrawID", withdrawID)
+
+	wi, err := accounting.CancelWithdraw(ctx, uint64(withdrawID))
+	if err != nil {
+		log.WithError(err).Error("CancelWithdraw failed")
+		return err
+	}
+
+	*reply = WalletCancelWithdrawResponse{
+		WithdrawID: request.WithdrawID,
+		Status:     wi.Status,
+	}
+
+	return nil
+}
+
 // WalletSendHistoryRequest holds args for wallet requests
 type WalletSendHistoryRequest struct {
 	SessionArgs
