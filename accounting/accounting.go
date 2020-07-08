@@ -244,13 +244,33 @@ func processConfirmedBatches(ctx context.Context) error {
 					Error("Failed to GetBatchWithdraws")
 				return err
 			}
+
+			wInfos := make(map[model.WithdrawID]model.WithdrawInfo)
 			for _, wID := range withdraws {
-				_, err = database.AddWithdrawInfo(db, wID, model.WithdrawStatusSettled, "{}")
+				// get last withdraw stats
+				wi, err := database.GetLastWithdrawInfo(db, wID)
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to GetLastWithdrawInfo")
+					continue
+				}
+				// skip if last status is not processing
+				if wi.Status != model.WithdrawStatusProcessing {
+					log.WithField("Status", wi.Status).
+						Warning("Withdraw Status is not Processing")
+					continue
+				}
+
+				// mark withdraw as Settled
+				wi, err = database.AddWithdrawInfo(db, wID, model.WithdrawStatusSettled, "{}")
 				if err != nil {
 					log.WithError(err).
 						Error("Failed to AddWithdrawInfo")
 					return err
 				}
+
+				// store withdraw for settlement
+				wInfos[wID] = wi
 			}
 
 			// Mark BatchInfo as settled
@@ -263,6 +283,11 @@ func processConfirmedBatches(ctx context.Context) error {
 
 			// Settle account operation
 			for _, wID := range withdraws {
+				// skip withdraws not not marked for settlement
+				if _, ok := wInfos[wID]; !ok {
+					continue
+				}
+
 				// withdrawID is use as reference in transfert account operation
 				err = settleAccountOperation(ctx, db, model.RefID(wID))
 				if err != nil {
