@@ -45,15 +45,15 @@ func CancelWithdraw(ctx context.Context, withdrawID uint64) (common.WithdrawInfo
 			return cache.ErrInternalError
 		}
 
-		wi, err = database.AddWithdrawInfo(db, model.WithdrawID(withdrawID), model.WithdrawStatusCanceled, "{}")
+		wi, err = database.AddWithdrawInfo(db, model.WithdrawID(withdrawID), model.WithdrawStatusCanceling, "{}")
 		if err != nil {
 			log.WithError(err).
 				Error("AddWithdrawInfo failed")
 			return err
 		}
-		if wi.Status != model.WithdrawStatusCanceled {
+		if wi.Status != model.WithdrawStatusCanceling {
 			log.WithField("Status", wi.Status).
-				Error("Withraw status is not canceled")
+				Error("Withraw status is not canceling")
 			return cache.ErrInternalError
 		}
 
