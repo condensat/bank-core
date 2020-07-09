@@ -124,6 +124,13 @@ func (p *Accounting) scheduledWithdrawBatch(ctx context.Context, interval time.D
 					// continue to next task
 				}
 
+				err = processCancelingWithdraws(ctx)
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to processCancelingWithdraws")
+					// continue to next task
+				}
+
 				err = processPendingBatches(ctx)
 				if err != nil {
 					log.WithError(err).
@@ -164,6 +171,102 @@ func processPendingWithdraws(ctx context.Context) error {
 		log.WithError(err).
 			Error("Failed to ProcessWithdraws")
 		return err
+	}
+
+	return nil
+}
+
+func processCancelingWithdraws(ctx context.Context) error {
+	log := logger.Logger(ctx).WithField("Method", "Accounting.processCancelingWithdraws")
+	db := appcontext.Database(ctx)
+
+	accountOperations, err := FetchCancelingOperations(ctx)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to FetchCancelingOperations")
+		return err
+	}
+
+	if len(accountOperations) == 0 {
+		log.
+			Debug("FetchCancelingOperations returns empty list")
+		return err
+	}
+
+	var ops []model.AccountOperation
+	for len(accountOperations) >= 2 {
+		ops, accountOperations = accountOperations[:2], accountOperations[2:]
+		from := ops[0]
+		to := ops[1]
+		if !from.IsValid() {
+			log.Error("Invalid from")
+			continue
+		}
+		if !to.IsValid() {
+			log.Error("Invalid to")
+			continue
+		}
+		if *from.Amount > 0.0 {
+			from, to = to, from
+		}
+
+		if from.ReferenceID != to.ReferenceID {
+			log.Error("Invalid ReferenceID")
+			continue
+		}
+		if from.OperationType != model.OperationTypeTransfer {
+			log.Error("Invalid OperationType")
+			continue
+		}
+		if to.OperationType != model.OperationTypeTransfer {
+			log.Error("Invalid OperationType")
+			continue
+		}
+
+		wID := model.WithdrawID(from.ReferenceID)
+		log = log.WithField("WithdrawID", wID)
+
+		err = db.Transaction(func(db bank.Database) error {
+			// mark withdraw as Canceled
+			_, err = database.AddWithdrawInfo(db, model.WithdrawID(wID), model.WithdrawStatusCanceled, "{}")
+			if err != nil {
+				log.WithError(err).
+					Error("Failed to AddWithdrawInfo")
+				return err
+			}
+
+			_, err := accountRefund(ctx, db, common.AccountTransfer{
+				Source: common.AccountEntry{
+					AccountID:   uint64(from.AccountID),
+					ReferenceID: uint64(from.ReferenceID),
+				},
+				Destination: common.AccountEntry{
+					AccountID:   uint64(to.AccountID),
+					ReferenceID: uint64(to.ReferenceID),
+
+					OperationType:    "refund",
+					SynchroneousType: "sync",
+
+					Timestamp: time.Now(),
+					Amount:    float64(*to.Amount),
+					Label:     "Withdraw Cancel",
+				},
+			})
+			if err != nil {
+				log.WithError(err).
+					Error("Failed to AccountRefund")
+				return err
+			}
+
+			return nil
+		})
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to Cancel operations")
+			continue
+		}
+
+		log.Debug("Withdraw canceled and refunded")
 	}
 
 	return nil
