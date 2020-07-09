@@ -207,6 +207,34 @@ func TestGetWithdrawHistory(t *testing.T) {
 	}
 }
 
+func TestListCancelingWithdrawsAccountOperations(t *testing.T) {
+	const databaseName = "TestListCancelingWithdrawsAccountOperations"
+	t.Parallel()
+
+	db := setup(databaseName, WithdrawModel())
+	defer teardown(db, databaseName)
+
+	tests := []struct {
+		name    string
+		want    []model.AccountOperation
+		wantErr bool
+	}{
+		{"default", nil, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ListCancelingWithdrawsAccountOperations(db)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ListCancelingWithdrawsAccountOperations() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ListCancelingWithdrawsAccountOperations() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func createWithdrawInfo(withdrawID model.WithdrawID, status model.WithdrawStatus, data model.WithdrawInfoData) model.WithdrawInfo {
 	return model.WithdrawInfo{
 		WithdrawID: withdrawID,

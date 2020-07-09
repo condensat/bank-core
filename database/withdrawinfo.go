@@ -116,6 +116,33 @@ func GetWithdrawHistory(db bank.Database, withdrawID model.WithdrawID) ([]model.
 	return convertWithdrawInfoList(list), nil
 }
 
+func ListCancelingWithdrawsAccountOperations(db bank.Database) ([]model.AccountOperation, error) {
+	gdb := getGormDB(db)
+	if gdb == nil {
+		return nil, ErrInvalidDatabase
+	}
+
+	subQueryLastWitdrawInfo := gdb.Model(&model.WithdrawInfo{}).
+		Select("MAX(id)").
+		Group("withdraw_id").
+		SubQuery()
+
+	var list []*model.AccountOperation
+	err := gdb.
+		Joins("JOIN (withdraw_info) ON account_operation.reference_id = withdraw_info.withdraw_id").
+		Where("withdraw_info.id IN (?)", subQueryLastWitdrawInfo).
+		Where(model.AccountOperation{OperationType: model.OperationTypeTransfer}).
+		Where(model.WithdrawInfo{Status: model.WithdrawStatusCanceling}).
+		Order("id ASC").
+		Find(&list).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return convertAccountOperationList(list), nil
+}
+
 func convertWithdrawInfoList(list []*model.WithdrawInfo) []model.WithdrawInfo {
 	var result []model.WithdrawInfo
 	for _, curr := range list {
