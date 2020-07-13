@@ -31,6 +31,12 @@ func AccountTransfer(ctx context.Context, transfer common.AccountTransfer) (comm
 		"Amount":       transfer.Source.Amount,
 	})
 
+	// check operation type
+	if model.OperationType(transfer.Destination.OperationType) != model.OperationTypeTransfer {
+		log.
+			Error("OperationType is not transfer")
+		return common.AccountTransfer{}, database.ErrInvalidAccountOperation
+	}
 	// check for accounts
 	if transfer.Source.AccountID == transfer.Destination.AccountID {
 		log.
