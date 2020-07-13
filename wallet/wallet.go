@@ -29,7 +29,7 @@ const (
 	DefaultOperationsInterval time.Duration = 5 * time.Second
 	DefaultAssetInfoInterval  time.Duration = 30 * time.Second
 
-	DefaultBatchInterval time.Duration = 10 * time.Minute
+	DefaultBatchInterval time.Duration = 1 * time.Minute
 
 	ConfirmedBlockCount   = 3 // number of confirmation to consider transaction complete
 	UnconfirmedBlockCount = 6 // number of confirmation to continue fetching addressInfos
