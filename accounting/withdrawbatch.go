@@ -407,7 +407,8 @@ func accountRefund(ctx context.Context, db bank.Database, transfer common.Accoun
 
 	transfer.Source.SynchroneousType = transfer.Destination.SynchroneousType
 	transfer.Source.Amount = -transfer.Destination.Amount // do not create money
-	transfer.Source.LockAmount = 0.0
+	transfer.Source.LockAmount = transfer.Source.Amount   // unlock funds
+	transfer.Destination.LockAmount = 0.0
 
 	// Store operations
 	var operations []model.AccountOperation

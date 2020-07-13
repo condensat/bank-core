@@ -206,6 +206,8 @@ func processCancelingWithdraws(ctx context.Context) error {
 			log.Error("Invalid to")
 			continue
 		}
+		// from represent the original source account for transfert (user)
+		// to represent the original destination account for transfert (bank)
 		if *from.Amount > 0.0 {
 			from, to = to, from
 		}
@@ -237,18 +239,18 @@ func processCancelingWithdraws(ctx context.Context) error {
 
 			_, err := accountRefund(ctx, db, common.AccountTransfer{
 				Source: common.AccountEntry{
-					AccountID:   uint64(from.AccountID),
-					ReferenceID: uint64(from.ReferenceID),
-				},
-				Destination: common.AccountEntry{
 					AccountID:   uint64(to.AccountID),
 					ReferenceID: uint64(to.ReferenceID),
+				},
+				Destination: common.AccountEntry{
+					AccountID:   uint64(from.AccountID),
+					ReferenceID: uint64(from.ReferenceID),
 
 					OperationType:    "refund",
 					SynchroneousType: "sync",
 
 					Timestamp: time.Now(),
-					Amount:    float64(*to.Amount),
+					Amount:    -float64(*from.Amount), // restore original amount
 					Label:     "Withdraw Cancel",
 				},
 			})
