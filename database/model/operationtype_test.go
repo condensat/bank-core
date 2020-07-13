@@ -60,6 +60,7 @@ func TestParseOperationType(t *testing.T) {
 		{"Deposit", args{"deposit"}, OperationTypeDeposit},
 		{"Withdraw", args{"withdraw"}, OperationTypeWithdraw},
 		{"Transfer", args{"transfer"}, OperationTypeTransfer},
+		{"Refund", args{"refund"}, OperationTypeRefund},
 		{"Adjustment", args{"adjustment"}, OperationTypeAdjustment},
 
 		{"None", args{"none"}, OperationTypeNone},
@@ -93,6 +94,7 @@ func TestOperationType_String(t *testing.T) {
 		{"Deposit", OperationType("deposit"), "deposit"},
 		{"Withdraw", OperationType("withdraw"), "withdraw"},
 		{"Transfer", OperationType("transfer"), "transfer"},
+		{"refund", OperationType("refund"), "refund"},
 		{"Adjustment", OperationType("adjustment"), "adjustment"},
 
 		{"None", OperationType("none"), "none"},
@@ -122,6 +124,7 @@ func Test_knownOperationType(t *testing.T) {
 		"deposit",    // OperationTypeDeposit
 		"withdraw",   //OperationTypeWithdraw
 		"transfer",   // OperationTypeTransfer
+		"refund",     // OperationTypeRefund
 		"adjustment", // OperationTypeAdjustment
 
 		"none",  // OperationTypeNone
