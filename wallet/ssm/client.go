@@ -63,3 +63,25 @@ func (p *SsmClient) NewAddress(ctx context.Context, chain, fingerprint, path str
 
 	return result.Address, nil
 }
+
+func (p *SsmClient) SignTx(ctx context.Context, chain, inputransaction string, inputs []commands.SignTxInputs) (string, error) {
+	log := logger.Logger(ctx).WithField("Method", "ssm.SignTx")
+
+	client := p.client
+	if p.client == nil {
+		return "", ErrInternalError
+	}
+
+	result, err := commands.SignTx(ctx, client.Client, chain, inputransaction, inputs)
+	if err != nil {
+		log.WithError(err).Error("SignTx failed")
+		return "", ErrRPCError
+	}
+
+	log.
+		WithField("Chain", result.Chain).
+		WithField("SignedTx", result.SignedTx).
+		Debug("SSM RPC")
+
+	return result.SignedTx, nil
+}
