@@ -7,14 +7,15 @@ package commands
 type Command string
 
 const (
-	CmdGetBlockCount   = Command("getblockcount")
-	CmdGetNewAddress   = Command("getnewaddress")
-	CmdListUnspent     = Command("listunspent")
-	CmdLockUnspent     = Command("lockunspent")
-	CmdListLockUnspent = Command("listlockunspent")
-	CmdGetTransaction  = Command("gettransaction")
-	CmdGetAddressInfo  = Command("getaddressinfo")
-	CmdSendMany        = Command("sendmany")
+	CmdGetBlockCount     = Command("getblockcount")
+	CmdGetNewAddress     = Command("getnewaddress")
+	CmdListUnspent       = Command("listunspent")
+	CmdLockUnspent       = Command("lockunspent")
+	CmdListLockUnspent   = Command("listlockunspent")
+	CmdGetTransaction    = Command("gettransaction")
+	CmdGetRawTransaction = Command("getrawtransaction")
+	CmdGetAddressInfo    = Command("getaddressinfo")
+	CmdSendMany          = Command("sendmany")
 
 	CmdDumpPrivkey                  = Command("dumpprivkey")
 	CmdCreateRawTransaction         = Command("createrawtransaction")
