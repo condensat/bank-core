@@ -27,6 +27,7 @@ const chain = "bitcoin-test"
 const entropy = "9e8ff5dd31e53502cfcd06e568cbdc881d63e598f8d28e90d403b4c986cf1e60"
 const fingerprint = "548041a6"
 const hdPathPrefix = "84h/0h"
+const label = "condensat"
 
 type NewMasterresponse struct {
 	Chain       string `json:"chain"`
@@ -70,7 +71,7 @@ func main() {
 	ssmClient := cryptoSsmClient()
 
 	if len(os.Args) > 1 {
-		GenerateAddresses(ctx, ssmClient)
+		GenerateAddresses(ctx, ssmClient, btcClient)
 		return
 	}
 
@@ -150,7 +151,7 @@ func main() {
 	fmt.Printf("Transaction sent: %s\n", txID)
 }
 
-func GenerateAddresses(ctx context.Context, ssmClient jsonrpc.RPCClient) {
+func GenerateAddresses(ctx context.Context, ssmClient, btcClient jsonrpc.RPCClient) {
 	var hdMaster NewMasterresponse
 	err := ssmClient.CallFor(&hdMaster, "new_master",
 		chain,
@@ -200,8 +201,17 @@ func GenerateAddresses(ctx context.Context, ssmClient jsonrpc.RPCClient) {
 				if err != nil {
 					panic(err)
 				}
+				err = ImportAddress(ctx, btcClient, address, label)
+				if err != nil {
+					panic(err)
+				}
+
 				fmt.Printf("deposit address (%s): %+v\n", path, address)
 				address, path, err = newAddress(ctx, ssmClient, hdMaster.Chain, hdMaster.Fingerprint, hdPathPrefix, id, true, 10)
+				if err != nil {
+					panic(err)
+				}
+				err = ImportAddress(ctx, btcClient, address, label)
 				if err != nil {
 					panic(err)
 				}
@@ -210,6 +220,19 @@ func GenerateAddresses(ctx context.Context, ssmClient jsonrpc.RPCClient) {
 		}
 		wg.Wait()
 	}
+}
+
+func ImportAddress(ctx context.Context, btcClient jsonrpc.RPCClient, address ssmCommands.NewAddressResponse, label string) error {
+	err := btcCommands.ImportAddress(ctx, btcClient, btcCommands.Address(address.Address), label, false)
+	if err != nil {
+		return err
+	}
+	err = btcCommands.ImportPubKey(ctx, btcClient, btcCommands.PubKey(address.PubKey), label, false)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func newAddress(ctx context.Context, ssmClient jsonrpc.RPCClient, chain, fingerprint, prefix string, id int, change bool, retry int) (ssmCommands.NewAddressResponse, string, error) {
