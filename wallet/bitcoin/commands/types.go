@@ -123,6 +123,12 @@ type RawTransaction struct {
 	Weight int `json:"weight"`
 }
 
+type FundRawTransactionOptions struct {
+	ChangeAddress          string `json:"changeAddress"`
+	ChangePosition         int    `json:"changePosition"`
+	SubtractFeeFromOutputs []int  `json:"subtractFeeFromOutputs"`
+}
+
 type FundedTransaction struct {
 	Changepos int     `json:"changepos"`
 	Fee       float64 `json:"fee"`
