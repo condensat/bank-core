@@ -9,10 +9,13 @@ import (
 	"flag"
 	"io/ioutil"
 	"os"
+
+	"github.com/condensat/bank-core/wallet/common"
 )
 
 type WalletOptions struct {
 	FileName string
+	Mode     common.CryptoMode
 }
 
 func loadChainsOptionsFromFile(fileName string) ChainsOptions {
@@ -63,4 +66,19 @@ func OptionArgs(args *WalletOptions) {
 	}
 
 	flag.StringVar(&args.FileName, "chains", "chains.json", "Json file for (default chain.json)")
+	cryptoMode := string(common.CryptoModeBitcoinCore)
+	flag.StringVar(&cryptoMode, "cryptoMode", cryptoMode, "Crypto mode for new address & signature (default bitcoin-core)")
+
+	args.Mode = parseCryptoMode(cryptoMode)
+}
+
+func parseCryptoMode(cryptoMode string) common.CryptoMode {
+	result := common.CryptoMode(cryptoMode)
+	switch common.CryptoMode(cryptoMode) {
+	case common.CryptoModeCryptoSsm:
+		return result
+
+	default:
+		return common.CryptoModeBitcoinCore
+	}
 }
