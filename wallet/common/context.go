@@ -11,6 +11,7 @@ import (
 
 const (
 	ChainClientKey = "Key.ChainClientKey"
+	CryptoModeKey  = "Key.CryptoModeKey"
 )
 
 type ChainClient interface {
@@ -23,6 +24,17 @@ type ChainClient interface {
 	GetTransaction(ctx context.Context, txID string) (TransactionInfo, error)
 
 	SpendFunds(ctx context.Context, inputs []UTXOInfo, outputs []SpendInfo) (SpendTx, error)
+}
+
+func CryptoModeContext(ctx context.Context, mode CryptoMode) context.Context {
+	return context.WithValue(ctx, CryptoModeKey, mode)
+}
+
+func CryptoModeFromContext(ctx context.Context) CryptoMode {
+	if mode, ok := ctx.Value(CryptoModeKey).(CryptoMode); ok {
+		return mode
+	}
+	return CryptoModeBitcoinCore
 }
 
 func ChainClientContext(ctx context.Context, chain string, client ChainClient) context.Context {
