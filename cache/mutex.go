@@ -98,6 +98,10 @@ func lockKeyString(prefix string, value interface{}) string {
 	return fmt.Sprintf("%s.%v", prefix, value)
 }
 
+func lockKeyGeneric(name string) string {
+	return lockKeyString("lock.Name", name)
+}
+
 func lockKeyUserID(userID uint64) string {
 	return lockKeyString("lock.User", userID)
 }
@@ -108,6 +112,18 @@ func lockKeyAccountID(accountID uint64) string {
 
 func lockKeyChain(chain string) string {
 	return lockKeyString("lock.Chain", chain)
+}
+
+func lockKeyBatchNetwork(batchNetwork string) string {
+	return lockKeyString("lock.BatchNetwork", batchNetwork)
+}
+
+func LockGeneric(ctx context.Context, name string) (Lock, error) {
+	mutex := RedisMutexFromContext(ctx)
+	if mutex == nil {
+		return nil, ErrRedisMutexNotFound
+	}
+	return mutex.Lock(ctx, lockKeyGeneric(name), DefaultLockTTL)
 }
 
 func LockUser(ctx context.Context, userID uint64) (Lock, error) {
@@ -132,4 +148,12 @@ func LockChain(ctx context.Context, chain string) (Lock, error) {
 		return nil, ErrRedisMutexNotFound
 	}
 	return mutex.Lock(ctx, lockKeyChain(chain), DefaultLockTTL)
+}
+
+func LockBatchNetwork(ctx context.Context, batchNetwork string) (Lock, error) {
+	mutex := RedisMutexFromContext(ctx)
+	if mutex == nil {
+		return nil, ErrRedisMutexNotFound
+	}
+	return mutex.Lock(ctx, lockKeyBatchNetwork(batchNetwork), DefaultLockTTL)
 }

@@ -63,8 +63,7 @@ func AccountHistory(ctx context.Context, accountID uint64, from, to time.Time) (
 		}
 
 		result = append(result, common.AccountEntry{
-			OperationID:     uint64(op.ID),
-			OperationPrevID: uint64(op.PrevID),
+			OperationID: uint64(op.ID),
 
 			AccountID: uint64(op.AccountID),
 			Currency:  string(account.CurrencyName),

@@ -10,5 +10,5 @@ import (
 )
 
 func Models() []model.Model {
-	return database.AccountOperationModel()
+	return database.WithdrawModel()
 }

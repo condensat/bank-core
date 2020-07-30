@@ -347,3 +347,24 @@ func FetchChainAddressesInfo(ctx context.Context, state ChainState, minConf, max
 
 	return result, nil
 }
+
+func SpendFunds(ctx context.Context, chain string, spendInfos []common.SpendInfo) (common.SpendTx, error) {
+	log := logger.Logger(ctx).WithField("Method", "wallet.SpendFunds")
+
+	log = log.WithField("Chain", chain)
+
+	client := common.ChainClientFromContext(ctx, chain)
+	if client == nil {
+		return common.SpendTx{}, ErrChainClientNotFound
+	}
+
+	// Create, Fund, Sign & Broadcast transaction
+	tx, err := client.SpendFunds(ctx, nil, spendInfos)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to SpendFunds")
+		return common.SpendTx{}, err
+	}
+
+	return tx, nil
+}

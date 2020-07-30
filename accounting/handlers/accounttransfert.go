@@ -21,21 +21,27 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func AccountTransfert(ctx context.Context, transfert common.AccountTransfert) (common.AccountTransfert, error) {
-	log := logger.Logger(ctx).WithField("Method", "accounting.AccountTransfert")
+func AccountTransfer(ctx context.Context, transfer common.AccountTransfer) (common.AccountTransfer, error) {
+	log := logger.Logger(ctx).WithField("Method", "accounting.AccountTransfer")
 
 	log = log.WithFields(logrus.Fields{
-		"SrcAccountID": transfert.Source.AccountID,
-		"DstAccountID": transfert.Destination.AccountID,
-		"Currency":     transfert.Source.Currency,
-		"Amount":       transfert.Source.Amount,
+		"SrcAccountID": transfer.Source.AccountID,
+		"DstAccountID": transfer.Destination.AccountID,
+		"Currency":     transfer.Source.Currency,
+		"Amount":       transfer.Source.Amount,
 	})
 
-	// check for accounts
-	if transfert.Source.AccountID == transfert.Destination.AccountID {
+	// check operation type
+	if model.OperationType(transfer.Destination.OperationType) != model.OperationTypeTransfer {
 		log.
-			Error("Can not transfert within same account")
-		return common.AccountTransfert{}, database.ErrInvalidAccountOperation
+			Error("OperationType is not transfer")
+		return common.AccountTransfer{}, database.ErrInvalidAccountOperation
+	}
+	// check for accounts
+	if transfer.Source.AccountID == transfer.Destination.AccountID {
+		log.
+			Error("Can not transfer within same account")
+		return common.AccountTransfer{}, database.ErrInvalidAccountOperation
 	}
 
 	db := appcontext.Database(ctx)
@@ -43,159 +49,121 @@ func AccountTransfert(ctx context.Context, transfert common.AccountTransfert) (c
 	// check for currencies match
 	{
 		// fetch source account from DB
-		srcAccount, err := database.GetAccountByID(db, model.AccountID(transfert.Source.AccountID))
+		srcAccount, err := database.GetAccountByID(db, model.AccountID(transfer.Source.AccountID))
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to get srcAccount")
-			return common.AccountTransfert{}, database.ErrInvalidAccountOperation
+			return common.AccountTransfer{}, database.ErrInvalidAccountOperation
 		}
 		// fetch destination account from DB
-		dstAccount, err := database.GetAccountByID(db, model.AccountID(transfert.Destination.AccountID))
+		dstAccount, err := database.GetAccountByID(db, model.AccountID(transfer.Destination.AccountID))
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to get dstAccount")
-			return common.AccountTransfert{}, database.ErrInvalidAccountOperation
+			return common.AccountTransfer{}, database.ErrInvalidAccountOperation
 		}
 		// currency must match
 		if srcAccount.CurrencyName != dstAccount.CurrencyName {
 			log.WithFields(logrus.Fields{
 				"SrcCurrency": srcAccount.CurrencyName,
 				"DstCurrency": dstAccount.CurrencyName,
-			}).Error("Can not transfert currencies")
-			return common.AccountTransfert{}, database.ErrInvalidAccountOperation
+			}).Error("Can not transfer currencies")
+			return common.AccountTransfer{}, database.ErrInvalidAccountOperation
 		}
 	}
 
 	// Acquire Locks for source and destination accounts
-	lockSource, err := cache.LockAccount(ctx, transfert.Source.AccountID)
+	lockSource, err := cache.LockAccount(ctx, transfer.Source.AccountID)
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to lock account")
-		return common.AccountTransfert{}, cache.ErrLockError
+		return common.AccountTransfer{}, cache.ErrLockError
 	}
 	defer lockSource.Unlock()
 
-	lockDestination, err := cache.LockAccount(ctx, transfert.Destination.AccountID)
+	lockDestination, err := cache.LockAccount(ctx, transfer.Destination.AccountID)
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to lock account")
-		return common.AccountTransfert{}, cache.ErrLockError
+		return common.AccountTransfer{}, cache.ErrLockError
 	}
 	defer lockDestination.Unlock()
 
 	// Prepare data
-	transfert.Source.SynchroneousType = transfert.Destination.SynchroneousType
-	transfert.Source.OperationType = transfert.Destination.OperationType
-	transfert.Source.ReferenceID = transfert.Destination.ReferenceID
-	transfert.Source.Timestamp = transfert.Destination.Timestamp
-	transfert.Source.Amount = -transfert.Destination.Amount // do not create money
-	transfert.Source.Label = transfert.Destination.Label
+	transfer.Source.OperationType = transfer.Destination.OperationType
+	transfer.Source.ReferenceID = transfer.Destination.ReferenceID
+	transfer.Source.Timestamp = transfer.Destination.Timestamp
+	transfer.Source.Label = transfer.Destination.Label
+
+	switch transfer.Source.SynchroneousType {
+	case "sync":
+		transfer.Source.Amount = -transfer.Destination.Amount // do not create money
+		transfer.Source.LockAmount = 0.0
+	case "async-start":
+		transfer.Source.Amount = 0.0                             // funds are not gone yet
+		transfer.Source.LockAmount = transfer.Destination.Amount // lock funds
+	case "async-end":
+		transfer.Source.Amount = -transfer.Destination.Amount     // do not create money
+		transfer.Source.LockAmount = -transfer.Destination.Amount // unlock funds
+	}
+	switch transfer.Destination.SynchroneousType {
+	case "sync":
+		// NOOP
+	case "async-start":
+		transfer.Destination.LockAmount = transfer.Destination.Amount // lock funds
+	case "async-end":
+		transfer.Destination.LockAmount = -transfer.Destination.Amount // unlock funds
+	}
 
 	// Store operations
 	operations, err := database.AppendAccountOperationSlice(db,
-		convertEntryToOperation(transfert.Source),
-		convertEntryToOperation(transfert.Destination),
+		common.ConvertEntryToOperation(transfer.Source),
+		common.ConvertEntryToOperation(transfer.Destination),
 	)
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to AppendAccountOperationSlice")
-		return common.AccountTransfert{}, err
+		return common.AccountTransfer{}, err
 	}
 
 	// response should contains 2 operations
 	if len(operations) != 2 {
 		log.
 			Error("Invalid operations count")
-		return common.AccountTransfert{}, database.ErrInvalidAccountOperation
+		return common.AccountTransfer{}, database.ErrInvalidAccountOperation
 	}
 
 	source := operations[0]
 	destination := operations[1]
-	log.WithFields(logrus.Fields{
-		"SrcPrevID": source.PrevID,
-		"DstPrevID": destination.PrevID,
-	}).Trace("Account transfert")
+	log.Trace("Account transfer")
 
-	return common.AccountTransfert{
-		Source:      convertOperationToEntry(source, "N/A"),
-		Destination: convertOperationToEntry(destination, "N/A"),
+	return common.AccountTransfer{
+		Source:      common.ConvertOperationToEntry(source, "N/A"),
+		Destination: common.ConvertOperationToEntry(destination, "N/A"),
 	}, nil
 }
 
-func OnAccountTransfert(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
-	log := logger.Logger(ctx).WithField("Method", "Accounting.OnAccountTransfert")
+func OnAccountTransfer(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
+	log := logger.Logger(ctx).WithField("Method", "Accounting.OnAccountTransfer")
 	log = log.WithFields(logrus.Fields{
 		"Subject": subject,
 	})
 
-	var request common.AccountTransfert
+	var request common.AccountTransfer
 	return messaging.HandleRequest(ctx, message, &request,
 		func(ctx context.Context, _ bank.BankObject) (bank.BankObject, error) {
 
-			response, err := AccountTransfert(ctx, request)
+			response, err := AccountTransfer(ctx, request)
 			if err != nil {
 				log.WithError(err).
 					WithFields(logrus.Fields{
 						"SrcAccountID": request.Source.AccountID,
 						"DstAccountID": request.Destination.AccountID,
-					}).Errorf("Failed to AccountTransfert")
+					}).Errorf("Failed to AccountTransfer")
 				return nil, cache.ErrInternalError
 			}
 
 			// return response
 			return &response, nil
 		})
-}
-
-// conversion helpers
-
-func convertOperationToEntry(op model.AccountOperation, label string) common.AccountEntry {
-	return common.AccountEntry{
-
-		OperationID:     uint64(op.ID),
-		OperationPrevID: uint64(op.PrevID),
-
-		AccountID:        uint64(op.AccountID),
-		ReferenceID:      uint64(op.ReferenceID),
-		OperationType:    string(op.OperationType),
-		SynchroneousType: string(op.SynchroneousType),
-
-		Timestamp: op.Timestamp,
-		Label:     label,
-		Amount:    float64(*op.Amount),
-		Balance:   float64(*op.Balance),
-
-		LockAmount:  float64(*op.LockAmount),
-		TotalLocked: float64(*op.TotalLocked),
-	}
-}
-
-func convertEntryToOperation(entry common.AccountEntry) model.AccountOperation {
-	amount := model.Float(entry.Amount)
-	lockAmount := model.Float(entry.LockAmount)
-
-	// Balance & totalLocked ar computed by database later, must be valid for pre-check
-	var balance model.Float
-	if balance < amount {
-		balance = amount
-	}
-	var totalLocked model.Float
-	if totalLocked < lockAmount {
-		totalLocked = lockAmount
-	}
-
-	return model.AccountOperation{
-		AccountID:        model.AccountID(entry.AccountID),
-		SynchroneousType: model.ParseSynchroneousType(entry.SynchroneousType),
-		OperationType:    model.ParseOperationType(entry.OperationType),
-		ReferenceID:      model.RefID(entry.ReferenceID),
-
-		Amount:  &amount,
-		Balance: &balance,
-
-		LockAmount:  &lockAmount,
-		TotalLocked: &totalLocked,
-
-		Timestamp: entry.Timestamp,
-	}
 }

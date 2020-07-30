@@ -125,6 +125,7 @@ func (p *BitcoinClient) GetAddressInfo(ctx context.Context, address string) (com
 	result := common.AddressInfo{
 		PublicAddress:  publicAddress,
 		Unconfidential: info.Unconfidential,
+		IsValid:        len(info.ScriptPubKey) != 0,
 	}
 
 	log.WithFields(logrus.Fields{
@@ -245,6 +246,59 @@ func (p *BitcoinClient) GetTransaction(ctx context.Context, txID string) (common
 	return convertTransactionInfo(tx), nil
 }
 
+func (p *BitcoinClient) SpendFunds(ctx context.Context, inputs []common.UTXOInfo, outputs []common.SpendInfo) (common.SpendTx, error) {
+	log := logger.Logger(ctx).WithField("Method", "bitcoin.SpendFunds")
+
+	client := p.client
+	if p.client == nil {
+		return common.SpendTx{}, ErrInternalError
+	}
+
+	in := convertUTXOInfo(inputs...)
+	out := convertSpendInfo(outputs...)
+
+	// Create transaction with no input
+	hex, err := commands.CreateRawTransaction(ctx, client.Client, in, out)
+	if err != nil {
+		log.WithError(err).
+			Error("GetTransaction failed")
+		return common.SpendTx{}, ErrRPCError
+	}
+
+	// Fund transaction (bitcoin-core will select inputs automatically)
+	funded, err := commands.FundRawTransaction(ctx, client.Client, hex)
+	if err != nil {
+		log.WithError(err).
+			Error("FundRawTransaction failed")
+		return common.SpendTx{}, ErrRPCError
+	}
+
+	// Sign transaction
+	signed, err := commands.SignRawTransactionWithWallet(ctx, client.Client, commands.Transaction(funded.Hex))
+	if err != nil {
+		log.WithError(err).
+			Error("SignRawTransactionWithWallet failed")
+		return common.SpendTx{}, ErrRPCError
+	}
+	if !signed.Complete {
+		log.Error("SignRawTransactionWithWallet not Complete")
+		return common.SpendTx{}, ErrRPCError
+	}
+
+	// Broadcast transaction to network
+	tx, err := commands.SendRawTransaction(ctx, client.Client, commands.Transaction(signed.Hex))
+	if err != nil {
+		log.WithError(err).
+			Error("SendRawTransaction failed")
+		return common.SpendTx{}, ErrRPCError
+	}
+
+	// return TxID
+	return common.SpendTx{
+		TxID: string(tx),
+	}, nil
+}
+
 func convertTransactionInfo(tx commands.TransactionInfo) common.TransactionInfo {
 	return common.TransactionInfo{
 		Account:       tx.Label,
@@ -256,4 +310,72 @@ func convertTransactionInfo(tx commands.TransactionInfo) common.TransactionInfo 
 		Confirmations: tx.Confirmations,
 		Spendable:     tx.Spendable,
 	}
+}
+
+func convertUTXOInfo(inputs ...common.UTXOInfo) []commands.UTXOInfo {
+	var result []commands.UTXOInfo
+	for _, input := range inputs {
+		result = append(result, commands.UTXOInfo{
+			TxID: input.TxID,
+			Vout: input.Vout,
+		})
+	}
+
+	return result
+}
+
+func convertSpendInfo(inputs ...common.SpendInfo) []commands.SpendInfo {
+	var result []commands.SpendInfo
+	for _, input := range inputs {
+		result = append(result, commands.SpendInfo{
+			Address: input.PublicAddress,
+			Amount:  input.Amount,
+		})
+	}
+
+	return result
+}
+
+func getFundedPrivateKeys(ctx context.Context, client *rpc.Client, funded commands.FundedTransaction) ([]commands.Address, error) {
+	log := logger.Logger(ctx).WithField("Method", "bitcoin.getFundedPrivateKeys")
+	decoded, err := commands.DecodeRawTransaction(ctx, client.Client, commands.Transaction(funded.Hex))
+	if err != nil {
+		log.WithError(err).
+			Error("DecodeRawTransaction failed")
+		return nil, ErrRPCError
+	}
+
+	addressMap := make(map[commands.Address]commands.Address)
+	for _, in := range decoded.Vin {
+		txInfo, err := commands.GetTransaction(ctx, client.Client, in.Txid)
+		if err != nil {
+			log.WithError(err).
+				Error("GetTransaction failed")
+			return nil, ErrRPCError
+		}
+
+		addressMap[txInfo.Address] = txInfo.Address
+		for _, d := range txInfo.Details {
+			address := commands.Address(d.Address)
+			addressMap[address] = address
+		}
+	}
+
+	var addresses []commands.Address
+	for _, address := range addressMap {
+		addresses = append(addresses, address)
+	}
+
+	var privkeys []commands.Address
+	for _, address := range addresses {
+		privkey, err := commands.DumpPrivkey(ctx, client.Client, address)
+		if err != nil {
+			log.WithError(err).
+				Error("DumpPrivkey failed")
+			return nil, ErrRPCError
+		}
+		privkeys = append(privkeys, privkey)
+	}
+
+	return privkeys[:], nil
 }

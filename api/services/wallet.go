@@ -12,6 +12,7 @@ import (
 	"github.com/condensat/bank-core/api/sessions"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/secureid"
 
 	accounting "github.com/condensat/bank-core/accounting/client"
 	"github.com/condensat/bank-core/wallet/client"
@@ -21,6 +22,8 @@ import (
 
 var (
 	ErrWalletChainNotFoundError = errors.New("Chain Not Found")
+	ErrInvalidPublicAddress     = errors.New("Invalid Public Address")
+	ErrInvalidWithdraw          = errors.New("Invalid Withdraw")
 )
 
 type WalletService int
@@ -147,12 +150,277 @@ func getChainFromCurrencyName(isCrypto bool, currencyName string) (string, error
 	}
 }
 
+// WalletSendFundsRequest holds args for wallet requests
+type WalletSendFundsRequest struct {
+	SessionArgs
+	AccountID     string  `json:"accountId"`
+	PublicAddress string  `json:"publicAddress"`
+	Amount        float64 `json:"amount"`
+}
+
+// WalletSendFundsResponse holds args for wallet requests
+type WalletSendFundsResponse struct {
+	WithdrawID string `json:"withdrawId"`
+}
+
+func (p *WalletService) SendFunds(r *http.Request, request *WalletSendFundsRequest, reply *WalletSendFundsResponse) error {
+	ctx := r.Context()
+	log := logger.Logger(ctx).WithField("Method", "WalletService.SendFunds")
+	log = GetServiceRequestLog(log, r, "Wallet", "SendFunds")
+
+	// Retrieve context values
+	_, session, err := ContextValues(ctx)
+	if err != nil {
+		log.WithError(err).
+			Error("ContextValues Failed")
+		return ErrServiceInternalError
+	}
+
+	// Get userID from session
+	request.SessionID = getSessionCookie(r)
+	sessionID := sessions.SessionID(request.SessionID)
+	userID := session.UserSession(ctx, sessionID)
+	if !sessions.IsUserValid(userID) {
+		log.Error("Invalid userSession")
+		return sessions.ErrInvalidSessionID
+	}
+	log = log.WithFields(logrus.Fields{
+		"SessionID": sessionID,
+		"UserID":    userID,
+	})
+
+	sID := appcontext.SecureID(ctx)
+	accountID, err := sID.FromSecureID("account", sID.Parse(request.AccountID))
+	if err != nil {
+		log.WithError(err).
+			WithField("AccountID", request.AccountID).
+			Error("Wrong AccountID")
+		return sessions.ErrInternalError
+	}
+
+	account, err := accounting.AccountInfo(ctx, uint64(accountID))
+	if err != nil {
+		log.WithError(err).Error("AccountInfo failed")
+		return err
+	}
+	if account.Status != "normal" {
+		log.WithFields(logrus.Fields{
+			"AccountID": request.AccountID,
+			"Status":    account.Status,
+		}).Error("Account status does not allow to send fund")
+		return ErrInvalidAccountID
+	}
+	if !account.Currency.Crypto {
+		log.WithField("AccountID", request.AccountID).
+			Error("Non Crypto Account")
+		return sessions.ErrInternalError
+	}
+	chain, err := getChainFromCurrencyName(account.Currency.Crypto, account.Currency.Name)
+	if err != nil {
+		log.WithError(err).
+			WithField("AccountID", request.AccountID).
+			Error("getChainFromCurrencyName failed")
+		return sessions.ErrInternalError
+	}
+
+	log = log.WithFields(logrus.Fields{
+		"Chain":     chain,
+		"AccountID": accountID,
+	})
+
+	addr, err := client.AddressInfo(ctx, chain, request.PublicAddress)
+	if err != nil {
+		log.WithError(err).
+			Error("AddressInfo Failed")
+		return ErrInvalidPublicAddress
+	}
+
+	if !addr.IsValid {
+		log.WithError(ErrInvalidPublicAddress).
+			Error("PublicAddress is not valid")
+		return ErrInvalidPublicAddress
+	}
+
+	withdrawID, err := accounting.AccountTransferWithdrawCrypto(ctx, account.AccountID, account.Currency.Name, request.Amount, "normal", "Api SendFunds", chain, request.PublicAddress)
+	if err != nil {
+		log.WithError(err).
+			Error("AccountTransferWithdrawCrypto Failed")
+		return ErrInvalidWithdraw
+	}
+
+	secureID, err := sID.ToSecureID("withdraw", secureid.Value(withdrawID))
+	if err != nil {
+		log.WithError(err).
+			Error("ToSecureID Failed")
+		return ErrServiceInternalError
+	}
+
+	*reply = WalletSendFundsResponse{
+		WithdrawID: sID.ToString(secureID),
+	}
+
+	return nil
+}
+
+// WalletCancelWithdrawRequest holds args for wallet requests
+type WalletCancelWithdrawRequest struct {
+	SessionArgs
+	WithdrawID string `json:"withdrawId"`
+}
+
+// WalletCancelWithdrawResponse holds args for wallet requests
+type WalletCancelWithdrawResponse struct {
+	WithdrawID string `json:"withdrawId"`
+	Status     string `json:"status"`
+}
+
+func (p *WalletService) CancelWithdraw(r *http.Request, request *WalletCancelWithdrawRequest, reply *WalletCancelWithdrawResponse) error {
+	ctx := r.Context()
+	log := logger.Logger(ctx).WithField("Method", "WalletService.CancelWithdraw")
+	log = GetServiceRequestLog(log, r, "Wallet", "CancelWithdraw")
+
+	// Retrieve context values
+	_, session, err := ContextValues(ctx)
+	if err != nil {
+		log.WithError(err).
+			Error("ContextValues Failed")
+		return ErrServiceInternalError
+	}
+
+	// Get userID from session
+	request.SessionID = getSessionCookie(r)
+	sessionID := sessions.SessionID(request.SessionID)
+	userID := session.UserSession(ctx, sessionID)
+	if !sessions.IsUserValid(userID) {
+		log.Error("Invalid userSession")
+		return sessions.ErrInvalidSessionID
+	}
+	log = log.WithFields(logrus.Fields{
+		"SessionID": sessionID,
+		"UserID":    userID,
+	})
+
+	sID := appcontext.SecureID(ctx)
+	withdrawID, err := sID.FromSecureID("withdraw", sID.Parse(request.WithdrawID))
+	if err != nil {
+		log.WithError(err).
+			WithField("WithdrawID", request.WithdrawID).
+			Error("Wrong WithdrawID")
+		return sessions.ErrInternalError
+	}
+
+	log = log.WithField("WithdrawID", withdrawID)
+
+	wi, err := accounting.CancelWithdraw(ctx, uint64(withdrawID))
+	if err != nil {
+		log.WithError(err).Error("CancelWithdraw failed")
+		return err
+	}
+
+	*reply = WalletCancelWithdrawResponse{
+		WithdrawID: request.WithdrawID,
+		Status:     wi.Status,
+	}
+
+	return nil
+}
+
+// WalletSendHistoryRequest holds args for wallet requests
+type WalletSendHistoryRequest struct {
+	SessionArgs
+}
+
+type WithdrawInfo struct {
+	WithdrawID string  `json:"withdrawId"`
+	Timestamp  int64   `json:"timestamp"`
+	AccountID  string  `json:"accountId"`
+	Amount     float64 `json:"amount"`
+	Chain      string  `json:"chain"`
+	PublicKey  string  `json:"publicKey"`
+	Status     string  `json:"status"`
+}
+
+// WalletSendFundsResponse holds args for wallet requests
+type WalletSendHistoryResponse struct {
+	Withdraws []WithdrawInfo `json:"withdraws"`
+}
+
+func (p *WalletService) SendHistory(r *http.Request, request *WalletSendHistoryRequest, reply *WalletSendHistoryResponse) error {
+	ctx := r.Context()
+	log := logger.Logger(ctx).WithField("Method", "WalletService.SendHistory")
+	log = GetServiceRequestLog(log, r, "Wallet", "SendHistory")
+
+	// Retrieve context values
+	_, session, err := ContextValues(ctx)
+	if err != nil {
+		log.WithError(err).
+			Error("ContextValues Failed")
+		return ErrServiceInternalError
+	}
+
+	// Get userID from session
+	request.SessionID = getSessionCookie(r)
+	sessionID := sessions.SessionID(request.SessionID)
+	userID := session.UserSession(ctx, sessionID)
+	if !sessions.IsUserValid(userID) {
+		log.Error("Invalid userSession")
+		return sessions.ErrInvalidSessionID
+	}
+	log = log.WithFields(logrus.Fields{
+		"SessionID": sessionID,
+		"UserID":    userID,
+	})
+
+	userWithdraws, err := accounting.UserWithdrawsCrypto(ctx, userID)
+	if !sessions.IsUserValid(userID) {
+		log.WithError(err).
+			Error("UserWithdrawsCrypto Failed")
+		return sessions.ErrInvalidUserID
+	}
+
+	sID := appcontext.SecureID(ctx)
+
+	var withdraws []WithdrawInfo
+	for _, uw := range userWithdraws.Withdraws {
+		swID, err := sID.ToSecureID("withdraw", secureid.Value(uw.WithdrawID))
+		if err != nil {
+			log.WithError(err).
+				WithField("WithdrawID", uw.WithdrawID).
+				Error("ToSecureID Failed")
+			continue
+		}
+		saID, err := sID.ToSecureID("account", secureid.Value(uw.AccountID))
+		if err != nil {
+			log.WithError(err).
+				WithField("AccountID", uw.AccountID).
+				Error("ToSecureID Failed")
+			continue
+		}
+
+		withdraws = append(withdraws, WithdrawInfo{
+			WithdrawID: sID.ToString(swID),
+			Timestamp:  makeTimestampMillis(uw.Timestamp),
+			AccountID:  sID.ToString(saID),
+			Amount:     uw.Amount,
+			Chain:      uw.Chain,
+			PublicKey:  uw.PublicKey,
+			Status:     uw.Status,
+		})
+	}
+
+	*reply = WalletSendHistoryResponse{
+		Withdraws: withdraws[:],
+	}
+
+	return nil
+}
+
 func getProtocolFromCurrencyName(isCrypto bool, currencyName string) (string, error) {
 	switch currencyName {
 	case "BTC":
 		return "bitcoin", nil
 	case "TBTC":
-		return "bitcoin", nil
+		return "bitcoin-testnet", nil
 	case "LBTC":
 		return "liquid", nil
 
