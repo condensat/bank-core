@@ -31,6 +31,12 @@ func AccountTransfer(ctx context.Context, transfer common.AccountTransfer) (comm
 		"Amount":       transfer.Source.Amount,
 	})
 
+	// check operation type
+	if model.OperationType(transfer.Destination.OperationType) != model.OperationTypeTransfer {
+		log.
+			Error("OperationType is not transfer")
+		return common.AccountTransfer{}, database.ErrInvalidAccountOperation
+	}
 	// check for accounts
 	if transfer.Source.AccountID == transfer.Destination.AccountID {
 		log.
@@ -111,8 +117,8 @@ func AccountTransfer(ctx context.Context, transfer common.AccountTransfer) (comm
 
 	// Store operations
 	operations, err := database.AppendAccountOperationSlice(db,
-		convertEntryToOperation(transfer.Source),
-		convertEntryToOperation(transfer.Destination),
+		common.ConvertEntryToOperation(transfer.Source),
+		common.ConvertEntryToOperation(transfer.Destination),
 	)
 	if err != nil {
 		log.WithError(err).
@@ -132,8 +138,8 @@ func AccountTransfer(ctx context.Context, transfer common.AccountTransfer) (comm
 	log.Trace("Account transfer")
 
 	return common.AccountTransfer{
-		Source:      convertOperationToEntry(source, "N/A"),
-		Destination: convertOperationToEntry(destination, "N/A"),
+		Source:      common.ConvertOperationToEntry(source, "N/A"),
+		Destination: common.ConvertOperationToEntry(destination, "N/A"),
 	}, nil
 }
 
@@ -160,55 +166,4 @@ func OnAccountTransfer(ctx context.Context, subject string, message *bank.Messag
 			// return response
 			return &response, nil
 		})
-}
-
-// conversion helpers
-
-func convertOperationToEntry(op model.AccountOperation, label string) common.AccountEntry {
-	return common.AccountEntry{
-		OperationID: uint64(op.ID),
-		AccountID:   uint64(op.AccountID),
-		ReferenceID: uint64(op.ReferenceID),
-
-		OperationType:    string(op.OperationType),
-		SynchroneousType: string(op.SynchroneousType),
-
-		Timestamp: op.Timestamp,
-		Label:     label,
-		Amount:    float64(*op.Amount),
-		Balance:   float64(*op.Balance),
-
-		LockAmount:  float64(*op.LockAmount),
-		TotalLocked: float64(*op.TotalLocked),
-	}
-}
-
-func convertEntryToOperation(entry common.AccountEntry) model.AccountOperation {
-	amount := model.Float(entry.Amount)
-	lockAmount := model.Float(entry.LockAmount)
-
-	// Balance & totalLocked ar computed by database later, must be valid for pre-check
-	var balance model.Float
-	if balance < amount {
-		balance = amount
-	}
-	var totalLocked model.Float
-	if totalLocked < lockAmount {
-		totalLocked = lockAmount
-	}
-
-	return model.AccountOperation{
-		AccountID:        model.AccountID(entry.AccountID),
-		SynchroneousType: model.ParseSynchroneousType(entry.SynchroneousType),
-		OperationType:    model.ParseOperationType(entry.OperationType),
-		ReferenceID:      model.RefID(entry.ReferenceID),
-
-		Amount:  &amount,
-		Balance: &balance,
-
-		LockAmount:  &lockAmount,
-		TotalLocked: &totalLocked,
-
-		Timestamp: entry.Timestamp,
-	}
 }

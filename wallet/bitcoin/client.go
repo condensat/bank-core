@@ -125,6 +125,7 @@ func (p *BitcoinClient) GetAddressInfo(ctx context.Context, address string) (com
 	result := common.AddressInfo{
 		PublicAddress:  publicAddress,
 		Unconfidential: info.Unconfidential,
+		IsValid:        len(info.ScriptPubKey) != 0,
 	}
 
 	log.WithFields(logrus.Fields{

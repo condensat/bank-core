@@ -165,6 +165,48 @@ func TestFindWithdrawByCurrencyNameAndStatus(t *testing.T) {
 	}
 }
 
+func TestFindWithdrawByUser(t *testing.T) {
+	const databaseName = "TestFindWithdrawByUser"
+	t.Parallel()
+
+	db := setup(databaseName, WithdrawModel())
+	defer teardown(db, databaseName)
+	data := createTestAccountStateData(db)
+	// c1 := data.Currencies[0]
+	a1 := data.Accounts[0]
+	a2 := data.Accounts[2]
+
+	w1, _ := AddWithdraw(db, a1.ID, a2.ID, 0.1, model.BatchModeNormal, "{}")
+	w2, _ := AddWithdraw(db, a2.ID, a1.ID, 0.1, model.BatchModeNormal, "{}")
+
+	type args struct {
+		userID model.UserID
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []model.Withdraw
+		wantErr bool
+	}{
+		{"default", args{}, nil, true},
+		{"first", args{a1.UserID}, []model.Withdraw{w1}, false},
+		{"second", args{a2.UserID}, []model.Withdraw{w2}, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := FindWithdrawByUser(db, tt.args.userID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FindWithdrawByUser() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("FindWithdrawByUser() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func createWithdraw(from model.AccountID, to model.AccountID, amount model.Float, batch model.BatchMode, data model.WithdrawData) model.Withdraw {
 	return model.Withdraw{
 		From:   from,

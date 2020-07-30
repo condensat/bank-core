@@ -69,6 +69,28 @@ func GetWithdrawInfo(db bank.Database, ID model.WithdrawInfoID) (model.WithdrawI
 	return result, nil
 }
 
+func GetLastWithdrawInfo(db bank.Database, withdrawID model.WithdrawID) (model.WithdrawInfo, error) {
+	gdb := db.DB().(*gorm.DB)
+	if db == nil {
+		return model.WithdrawInfo{}, errors.New("Invalid appcontext.Database")
+	}
+
+	if withdrawID == 0 {
+		return model.WithdrawInfo{}, ErrInvalidWithdrawInfoID
+	}
+
+	var result model.WithdrawInfo
+	err := gdb.
+		Where(&model.WithdrawInfo{WithdrawID: withdrawID}).
+		Last(&result).Error
+	if err != nil {
+		return model.WithdrawInfo{}, err
+	}
+
+	return result, nil
+
+}
+
 func GetWithdrawHistory(db bank.Database, withdrawID model.WithdrawID) ([]model.WithdrawInfo, error) {
 	gdb := db.DB().(*gorm.DB)
 	if db == nil {
@@ -92,6 +114,33 @@ func GetWithdrawHistory(db bank.Database, withdrawID model.WithdrawID) ([]model.
 	}
 
 	return convertWithdrawInfoList(list), nil
+}
+
+func ListCancelingWithdrawsAccountOperations(db bank.Database) ([]model.AccountOperation, error) {
+	gdb := getGormDB(db)
+	if gdb == nil {
+		return nil, ErrInvalidDatabase
+	}
+
+	subQueryLastWitdrawInfo := gdb.Model(&model.WithdrawInfo{}).
+		Select("MAX(id)").
+		Group("withdraw_id").
+		SubQuery()
+
+	var list []*model.AccountOperation
+	err := gdb.
+		Joins("JOIN (withdraw_info) ON account_operation.reference_id = withdraw_info.withdraw_id").
+		Where("withdraw_info.id IN (?)", subQueryLastWitdrawInfo).
+		Where(model.AccountOperation{OperationType: model.OperationTypeTransfer}).
+		Where(model.WithdrawInfo{Status: model.WithdrawStatusCanceling}).
+		Order("id ASC").
+		Find(&list).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return convertAccountOperationList(list), nil
 }
 
 func convertWithdrawInfoList(list []*model.WithdrawInfo) []model.WithdrawInfo {

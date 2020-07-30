@@ -70,6 +70,9 @@ func (p *Accounting) registerHandlers(ctx context.Context) {
 	nats.SubscribeWorkers(ctx, common.BatchWithdrawListSubject, 2*concurencyLevel, handlers.OnBatchWithdrawList)
 	nats.SubscribeWorkers(ctx, common.BatchWithdrawUpdateSubject, 2*concurencyLevel, handlers.OnBatchWithdrawUpdate)
 
+	nats.SubscribeWorkers(ctx, common.UserWithdrawListSubject, 2*concurencyLevel, handlers.OnUserWithdrawList)
+	nats.SubscribeWorkers(ctx, common.CancelWithdrawSubject, 2*concurencyLevel, handlers.OnCancelWithdraw)
+
 	log.Debug("Bank Accounting registered")
 }
 
@@ -121,6 +124,13 @@ func (p *Accounting) scheduledWithdrawBatch(ctx context.Context, interval time.D
 					// continue to next task
 				}
 
+				err = processCancelingWithdraws(ctx)
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to processCancelingWithdraws")
+					// continue to next task
+				}
+
 				err = processPendingBatches(ctx)
 				if err != nil {
 					log.WithError(err).
@@ -161,6 +171,104 @@ func processPendingWithdraws(ctx context.Context) error {
 		log.WithError(err).
 			Error("Failed to ProcessWithdraws")
 		return err
+	}
+
+	return nil
+}
+
+func processCancelingWithdraws(ctx context.Context) error {
+	log := logger.Logger(ctx).WithField("Method", "Accounting.processCancelingWithdraws")
+	db := appcontext.Database(ctx)
+
+	accountOperations, err := FetchCancelingOperations(ctx)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to FetchCancelingOperations")
+		return err
+	}
+
+	if len(accountOperations) == 0 {
+		log.
+			Debug("FetchCancelingOperations returns empty list")
+		return err
+	}
+
+	var ops []model.AccountOperation
+	for len(accountOperations) >= 2 {
+		ops, accountOperations = accountOperations[:2], accountOperations[2:]
+		from := ops[0]
+		to := ops[1]
+		if !from.IsValid() {
+			log.Error("Invalid from")
+			continue
+		}
+		if !to.IsValid() {
+			log.Error("Invalid to")
+			continue
+		}
+		// from represent the original source account for transfert (user)
+		// to represent the original destination account for transfert (bank)
+		if *from.Amount > 0.0 {
+			from, to = to, from
+		}
+
+		if from.ReferenceID != to.ReferenceID {
+			log.Error("Invalid ReferenceID")
+			continue
+		}
+		if from.OperationType != model.OperationTypeTransfer {
+			log.Error("Invalid OperationType")
+			continue
+		}
+		if to.OperationType != model.OperationTypeTransfer {
+			log.Error("Invalid OperationType")
+			continue
+		}
+
+		wID := model.WithdrawID(from.ReferenceID)
+		log = log.WithField("WithdrawID", wID)
+
+		err = db.Transaction(func(db bank.Database) error {
+			// mark withdraw as Canceled
+			_, err = database.AddWithdrawInfo(db, model.WithdrawID(wID), model.WithdrawStatusCanceled, "{}")
+			if err != nil {
+				log.WithError(err).
+					Error("Failed to AddWithdrawInfo")
+				return err
+			}
+
+			_, err := accountRefund(ctx, db, common.AccountTransfer{
+				Source: common.AccountEntry{
+					AccountID:   uint64(to.AccountID),
+					ReferenceID: uint64(to.ReferenceID),
+				},
+				Destination: common.AccountEntry{
+					AccountID:   uint64(from.AccountID),
+					ReferenceID: uint64(from.ReferenceID),
+
+					OperationType:    "refund",
+					SynchroneousType: "sync",
+
+					Timestamp: time.Now(),
+					Amount:    -float64(*from.Amount), // restore original amount
+					Label:     "Withdraw Cancel",
+				},
+			})
+			if err != nil {
+				log.WithError(err).
+					Error("Failed to AccountRefund")
+				return err
+			}
+
+			return nil
+		})
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to Cancel operations")
+			continue
+		}
+
+		log.Debug("Withdraw canceled and refunded")
 	}
 
 	return nil
@@ -241,13 +349,33 @@ func processConfirmedBatches(ctx context.Context) error {
 					Error("Failed to GetBatchWithdraws")
 				return err
 			}
+
+			wInfos := make(map[model.WithdrawID]model.WithdrawInfo)
 			for _, wID := range withdraws {
-				_, err = database.AddWithdrawInfo(db, wID, model.WithdrawStatusSettled, "{}")
+				// get last withdraw stats
+				wi, err := database.GetLastWithdrawInfo(db, wID)
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to GetLastWithdrawInfo")
+					continue
+				}
+				// skip if last status is not processing
+				if wi.Status != model.WithdrawStatusProcessing {
+					log.WithField("Status", wi.Status).
+						Warning("Withdraw Status is not Processing")
+					continue
+				}
+
+				// mark withdraw as Settled
+				wi, err = database.AddWithdrawInfo(db, wID, model.WithdrawStatusSettled, "{}")
 				if err != nil {
 					log.WithError(err).
 						Error("Failed to AddWithdrawInfo")
 					return err
 				}
+
+				// store withdraw for settlement
+				wInfos[wID] = wi
 			}
 
 			// Mark BatchInfo as settled
@@ -260,6 +388,11 @@ func processConfirmedBatches(ctx context.Context) error {
 
 			// Settle account operation
 			for _, wID := range withdraws {
+				// skip withdraws not not marked for settlement
+				if _, ok := wInfos[wID]; !ok {
+					continue
+				}
+
 				// withdrawID is use as reference in transfert account operation
 				err = settleAccountOperation(ctx, db, model.RefID(wID))
 				if err != nil {
