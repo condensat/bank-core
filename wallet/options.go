@@ -18,21 +18,30 @@ type WalletOptions struct {
 	Mode     common.CryptoMode
 }
 
-func loadChainsOptionsFromFile(fileName string) ChainsOptions {
-	var result ChainsOptions
-
+func loadOptionsFromFile(fileName string, options interface{}) error {
 	file, err := os.Open(fileName)
 	if err != nil {
-		return ChainsOptions{}
+		return err
 	}
 	defer file.Close()
 
 	data, err := ioutil.ReadAll(file)
 	if err != nil {
-		return ChainsOptions{}
+		return err
 	}
 
-	err = json.Unmarshal(data, &result)
+	err = json.Unmarshal(data, options)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func loadChainsOptionsFromFile(fileName string) ChainsOptions {
+	var result ChainsOptions
+
+	err := loadOptionsFromFile(fileName, &result)
 	if err != nil {
 		return ChainsOptions{}
 	}
@@ -57,6 +66,26 @@ func (p *ChainsOptions) Names() []string {
 	for _, option := range p.Chains {
 		result = append(result, option.Chain)
 	}
+	return result
+}
+
+type SsmOption struct {
+	Device   string `json:"device"`
+	Endpoint string `json:"endpoint"`
+}
+
+type SsmOptions struct {
+	Ssm []SsmOption `json:"ssm"`
+}
+
+func loadSsmOptionsFromFile(fileName string) SsmOptions {
+	var result SsmOptions
+
+	err := loadOptionsFromFile(fileName, &result)
+	if err != nil {
+		return SsmOptions{}
+	}
+
 	return result
 }
 
