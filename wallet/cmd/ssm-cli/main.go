@@ -126,15 +126,18 @@ func main() {
 		amount := out.Value
 		address := addressPaths[out.ScriptPubKey.Addresses[0]]
 		inputs = append(inputs, ssmCommands.SignTxInputs{
-			Fingerprint: fingerprint,
-			Path:        address,
-			Amount:      amount,
+			SsmPath: ssmCommands.SsmPath{
+				Chain:       "bitcoin",
+				Fingerprint: fingerprint,
+				Path:        address,
+			},
+			Amount: amount,
 		})
 	}
 
 	// Sign Transaction
 	signedTx := func() string {
-		signed, err := ssmCommands.SignTx(ctx, ssmClient, chain, txToSign, inputs)
+		signed, err := ssmCommands.SignTx(ctx, ssmClient, chain, txToSign, inputs...)
 		if err != nil {
 			panic(err)
 		}

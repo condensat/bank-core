@@ -72,7 +72,7 @@ func (p *SsmClient) SignTx(ctx context.Context, chain, inputransaction string, i
 		return "", ErrInternalError
 	}
 
-	result, err := commands.SignTx(ctx, client.Client, chain, inputransaction, inputs)
+	result, err := commands.SignTx(ctx, client.Client, chain, inputransaction, inputs...)
 	if err != nil {
 		log.WithError(err).Error("SignTx failed")
 		return "", ErrRPCError

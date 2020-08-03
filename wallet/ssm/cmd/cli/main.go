@@ -103,10 +103,14 @@ func main() {
 
 	// chain: str, tx: str, fingerprints: str, paths: str, values
 	txToSign := "0200000001bf4ec7c318c2e61c33d02c2fc6fa9f6d56bf65aa07d46485a199c4194b0a53c60100000000feffffff021b610000000000001600142c6cb5f4191cde8bb1aa0b0d3683bb361075cba050c3000000000000160014bdef03be9f98c2af20b5caeaea617016da675c9400000000"
-	var inputs []commands.SignTxInputs = []commands.SignTxInputs{
-		{Fingerprint: fingerprint, Path: spendPath, Amount: 0.0005},
+	var inputs []commands.SignTxInputs = []commands.SignTxInputs{{
+		SsmPath: commands.SsmPath{
+			Fingerprint: fingerprint,
+			Path:        spendPath,
+		},
+		Amount: 0.0005},
 	}
-	signed, err := commands.SignTx(ctx, rpcClient, chain, txToSign, inputs)
+	signed, err := commands.SignTx(ctx, rpcClient, chain, txToSign, inputs...)
 	if err != nil {
 		panic(err)
 	}

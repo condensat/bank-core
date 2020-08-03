@@ -18,7 +18,7 @@ var (
 	ErrInputsError = errors.New("Inputs errors")
 )
 
-func SignTx(ctx context.Context, rpcClient RpcClient, chain, inputransaction string, inputs []SignTxInputs) (SignTxResponse, error) {
+func SignTx(ctx context.Context, rpcClient RpcClient, chain, inputransaction string, inputs ...SignTxInputs) (SignTxResponse, error) {
 	if rpcClient == nil {
 		return SignTxResponse{}, ErrInvalidRPCClient
 	}

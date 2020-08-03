@@ -10,10 +10,15 @@ type NewAddressResponse struct {
 	PubKey  string `json:"pubkey"`
 }
 
-type SignTxInputs struct {
+type SsmPath struct {
+	Chain       string
 	Fingerprint string
 	Path        string
-	Amount      float64
+}
+
+type SignTxInputs struct {
+	SsmPath
+	Amount float64
 }
 
 type SignTxResponse struct {
