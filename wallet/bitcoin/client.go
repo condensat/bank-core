@@ -24,6 +24,7 @@ var (
 	ErrRPCError         = errors.New("RPC Error")
 	ErrInvalidAccount   = errors.New("Invalid Account")
 	ErrInvalidAddress   = errors.New("Invalid Address format")
+	ErrInvalidPubKey    = errors.New("Invalid PubKey")
 	ErrLockUnspentFails = errors.New("LockUnpent Failed")
 )
 
@@ -96,6 +97,43 @@ func (p *BitcoinClient) GetNewAddress(ctx context.Context, account string) (stri
 		}).Debug("Bitcoin RPC")
 
 	return string(result), nil
+}
+
+func (p *BitcoinClient) ImportAddress(ctx context.Context, account, address, pubkey string) error {
+	log := logger.Logger(ctx).WithField("Method", "bitcoin.InmportAddress")
+
+	client := p.client
+	if p.client == nil {
+		return ErrInternalError
+	}
+	if len(address) == 0 {
+		return ErrInvalidAddress
+	}
+	if len(pubkey) == 0 {
+		return ErrInvalidPubKey
+	}
+
+	err := commands.ImportAddress(ctx, client.Client, commands.Address(address), account, false)
+	if err != nil {
+		log.WithError(err).
+			Error("ImportAddress failed")
+		return ErrRPCError
+	}
+
+	err = commands.ImportPubKey(ctx, client.Client, commands.PubKey(pubkey), account, false)
+	if err != nil {
+		log.WithError(err).
+			Error("ImportPubKey failed")
+		return ErrRPCError
+	}
+
+	log.
+		WithFields(logrus.Fields{
+			"PubKey":  pubkey,
+			"Address": address,
+		}).Debug("Bitcoin RPC")
+
+	return nil
 }
 
 func (p *BitcoinClient) GetAddressInfo(ctx context.Context, address string) (common.AddressInfo, error) {

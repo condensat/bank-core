@@ -13,6 +13,7 @@ import (
 // ChainClient interface specification for bitcoin and elements
 type ChainClient interface {
 	GetNewAddress(ctx context.Context, account string) (string, error)
+	ImportAddress(ctx context.Context, account, address, pubkey string) error
 	GetAddressInfo(ctx context.Context, address string) (AddressInfo, error)
 	GetBlockCount(ctx context.Context) (int64, error)
 	ListUnspent(ctx context.Context, minConf, maxConf int, addresses ...string) ([]TransactionInfo, error)
