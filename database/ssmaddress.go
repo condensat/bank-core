@@ -81,6 +81,47 @@ func CountSsmAddress(db bank.Database, chain model.SsmChain, fingerprint model.S
 	return result, nil
 }
 
+func CountSsmAddressByState(db bank.Database, chain model.SsmChain, fingerprint model.SsmFingerprint, state model.SsmAddressStatus) (int, error) {
+	gdb := db.DB().(*gorm.DB)
+	if db == nil {
+		return 0, errors.New("Invalid appcontext.Database")
+	}
+
+	if len(chain) == 0 {
+		return 0, errors.New("Invalid chain")
+	}
+
+	if len(fingerprint) == 0 {
+		return 0, errors.New("Invalid fingerprint")
+	}
+
+	subQueryInfo := gdb.
+		Model(&model.SsmAddressInfo{}).
+		Where(&model.SsmAddressInfo{
+			Chain:       chain,
+			Fingerprint: fingerprint,
+		}).
+		SubQuery()
+
+	subQueryLast := gdb.Model(&model.SsmAddressState{}).
+		Select("MAX(id)").
+		Group("ssm_address_id").
+		SubQuery()
+
+	result := 0
+	err := gdb.Model(&model.SsmAddressState{}).
+		Joins("JOIN (?) AS i ON i.ssm_address_id = ssm_address_state.ssm_address_id", subQueryInfo).
+		Where("state = ?", state).
+		Where("ssm_address_state.id IN (?)", subQueryLast).
+		Count(&result).Error
+
+	if err != nil {
+		return 0, err
+	}
+
+	return result, nil
+}
+
 func GetSsmAddress(db bank.Database, addressID model.SsmAddressID) (model.SsmAddress, error) {
 	gdb := db.DB().(*gorm.DB)
 	if db == nil {
