@@ -15,6 +15,7 @@ import (
 	"github.com/ybbus/jsonrpc"
 
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/wallet/common"
 	"github.com/condensat/bank-core/wallet/rpc"
 	"github.com/condensat/bank-core/wallet/ssm/commands"
 )
@@ -64,26 +65,33 @@ func NewWithTorEndpoint(ctx context.Context, endpoint string) *SsmClient {
 	}
 }
 
-func (p *SsmClient) NewAddress(ctx context.Context, ssmPath commands.SsmPath) (string, error) {
+func (p *SsmClient) NewAddress(ctx context.Context, ssmPath commands.SsmPath) (common.SsmAddress, error) {
 	log := logger.Logger(ctx).WithField("Method", "ssm.NewAddress")
 
 	client := p.client
 	if p.client == nil {
-		return "", ErrInternalError
+		return common.SsmAddress{}, ErrInternalError
 	}
 
 	result, err := commands.NewAddress(ctx, client.Client, ssmPath.Chain, ssmPath.Fingerprint, ssmPath.Path)
 	if err != nil {
 		log.WithError(err).Error("NewAddress failed")
-		return "", ErrRPCError
+		return common.SsmAddress{}, ErrRPCError
 	}
 
 	log.
 		WithField("Chain", result.Chain).
 		WithField("Address", result.Address).
+		WithField("PubKey", result.PubKey).
+		WithField("BlindingKey", result.BlindingKey).
 		Debug("SSM RPC")
 
-	return result.Address, nil
+	return common.SsmAddress{
+		Chain:       result.Chain,
+		Address:     result.Address,
+		PubKey:      result.PubKey,
+		BlindingKey: result.BlindingKey,
+	}, nil
 }
 
 func (p *SsmClient) SignTx(ctx context.Context, chain, inputransaction string, inputs ...commands.SignTxInputs) (string, error) {

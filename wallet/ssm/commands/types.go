@@ -5,9 +5,10 @@
 package commands
 
 type NewAddressResponse struct {
-	Address string `json:"address"`
-	Chain   string `json:"chain"`
-	PubKey  string `json:"pubkey"`
+	Chain       string `json:"chain"`
+	Address     string `json:"address"`
+	PubKey      string `json:"pubkey"`
+	BlindingKey string `json:"blinding_key"`
 }
 
 type SsmPath struct {

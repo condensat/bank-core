@@ -26,6 +26,6 @@ type ChainClient interface {
 
 // SsmClient interface specification for crypto-ssm
 type SsmClient interface {
-	NewAddress(ctx context.Context, ssmPath commands.SsmPath) (string, error)
+	NewAddress(ctx context.Context, ssmPath commands.SsmPath) (SsmAddress, error)
 	SignTx(ctx context.Context, chain, inputransaction string, inputs ...commands.SignTxInputs) (string, error)
 }

@@ -23,6 +23,13 @@ type CryptoAddress struct {
 	Unconfidential  string
 }
 
+type SsmAddress struct {
+	Chain       string
+	Address     string
+	PubKey      string
+	BlindingKey string
+}
+
 type TransactionInfo struct {
 	Chain         string
 	Account       string
