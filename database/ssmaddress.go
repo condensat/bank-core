@@ -55,6 +55,32 @@ func AddSsmAddress(db bank.Database, address model.SsmAddress, info model.SsmAdd
 	return result.ID, nil
 }
 
+func CountSsmAddress(db bank.Database, chain model.SsmChain, fingerprint model.SsmFingerprint) (int, error) {
+	gdb := db.DB().(*gorm.DB)
+	if db == nil {
+		return 0, errors.New("Invalid appcontext.Database")
+	}
+
+	if len(chain) == 0 {
+		return 0, errors.New("Invalid chain")
+	}
+
+	if len(fingerprint) == 0 {
+		return 0, errors.New("Invalid fingerprint")
+	}
+
+	result := 0
+	err := gdb.Model(&model.SsmAddressInfo{}).Where(&model.SsmAddressInfo{
+		Chain:       chain,
+		Fingerprint: fingerprint,
+	}).Count(&result).Error
+	if err != nil {
+		return 0, err
+	}
+
+	return result, nil
+}
+
 func GetSsmAddress(db bank.Database, addressID model.SsmAddressID) (model.SsmAddress, error) {
 	gdb := db.DB().(*gorm.DB)
 	if db == nil {

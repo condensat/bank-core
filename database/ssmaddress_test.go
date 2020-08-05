@@ -50,6 +50,49 @@ func TestAddSsmAddress(t *testing.T) {
 	}
 }
 
+func TestCountSsmAddress(t *testing.T) {
+	const databaseName = "TestCountSsmAddress"
+	t.Parallel()
+
+	db := setup(databaseName, SsmAddressModel())
+	defer teardown(db, databaseName)
+
+	address := model.SsmAddress{ID: 0, PublicAddress: "foo", ScriptPubkey: "bar", BlindingKey: "foobar"}
+	info := model.SsmAddressInfo{SsmAddressID: 42, Chain: "chain", Fingerprint: "ffffffff", HDPath: "path"}
+
+	_, _ = AddSsmAddress(db, address, info)
+	type args struct {
+		chain       model.SsmChain
+		fingerprint model.SsmFingerprint
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    int
+		wantErr bool
+	}{
+		{"default", args{}, 0, true},
+		{"invalidchain", args{"", info.Fingerprint}, 0, true},
+		{"invalidfingerprint", args{info.Chain, ""}, 0, true},
+
+		{"zero", args{info.Chain, "other"}, 0, false},
+		{"one", args{info.Chain, info.Fingerprint}, 1, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := CountSsmAddress(db, tt.args.chain, tt.args.fingerprint)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CountSsmAddress() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("CountSsmAddress() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestGetSsmAddress(t *testing.T) {
 	const databaseName = "TestGetSsmAddress"
 	t.Parallel()
