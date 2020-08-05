@@ -78,6 +78,14 @@ type SsmOptions struct {
 	Ssm []SsmOption `json:"ssm"`
 }
 
+func (p *SsmOptions) Devices() []string {
+	var result []string
+	for _, option := range p.Ssm {
+		result = append(result, option.Device)
+	}
+	return result
+}
+
 func loadSsmOptionsFromFile(fileName string) SsmOptions {
 	var result SsmOptions
 
