@@ -29,3 +29,11 @@ type SsmClient interface {
 	NewAddress(ctx context.Context, ssmPath commands.SsmPath) (SsmAddress, error)
 	SignTx(ctx context.Context, chain, inputransaction string, inputs ...commands.SignTxInputs) (string, error)
 }
+
+type SsmDevice string
+type SsmChain string
+type SsmFingerprint string
+
+type SsmDeviceInfo interface {
+	Fingerprint(ctx context.Context, chain SsmChain) (SsmFingerprint, error)
+}

@@ -76,6 +76,22 @@ func (p *Wallet) Run(ctx context.Context, options WalletOptions) {
 		ctx = common.SsmClientContext(ctx, ssmDevice.Name, ssm.NewWithTorEndpoint(ctx, ssmDevice.Endpoint))
 	}
 
+	// add chain / fingerprint relation to ssmInfo
+	ssmInfo := ssm.NewDeviceInfo(ctx)
+	for _, chain := range ssmOptions.Ssm.Chains {
+		err := ssmInfo.Add(ctx,
+			common.SsmChain(chain.Chain),
+			common.SsmFingerprint(chain.Fingerprint),
+		)
+		if err != nil {
+			log.WithError(err).
+				Info("Failed to Add chain / fingerprint to ssmInfo")
+			continue
+		}
+	}
+	// add ssmInfo to context
+	ctx = common.SsmDeviceInfoContext(ctx, ssmInfo)
+
 	p.registerHandlers(ctx)
 
 	log.WithFields(logrus.Fields{

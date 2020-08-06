@@ -115,3 +115,49 @@ func (p *SsmClient) SignTx(ctx context.Context, chain, inputransaction string, i
 
 	return result.SignedTx, nil
 }
+
+type SsmDeviceInfo struct {
+	sync.Mutex
+	info map[common.SsmChain]common.SsmFingerprint
+}
+
+func NewDeviceInfo(ctx context.Context) *SsmDeviceInfo {
+	return &SsmDeviceInfo{
+		info: make(map[common.SsmChain]common.SsmFingerprint),
+	}
+}
+
+func (p *SsmDeviceInfo) Add(ctx context.Context, chain common.SsmChain, fingerprint common.SsmFingerprint) error {
+	p.Lock()
+	defer p.Unlock()
+
+	if len(chain) == 0 {
+		return errors.New("Invalid chain")
+	}
+	if len(fingerprint) == 0 {
+		return errors.New("Invalid fingerprint")
+	}
+	if _, ok := p.info[chain]; ok {
+		return errors.New("Chain fingerprint exists")
+	}
+
+	p.info[chain] = fingerprint
+
+	return nil
+}
+
+func (p *SsmDeviceInfo) Fingerprint(ctx context.Context, chain common.SsmChain) (common.SsmFingerprint, error) {
+	p.Lock()
+	defer p.Unlock()
+
+	if len(chain) == 0 {
+		return "", errors.New("Invalid chain")
+	}
+
+	result, ok := p.info[chain]
+	if !ok {
+		return "", errors.New("Fingerprint not found")
+	}
+
+	return result, nil
+}

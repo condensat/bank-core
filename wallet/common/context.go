@@ -10,9 +10,10 @@ import (
 )
 
 const (
-	ChainClientKey = "Key.ChainClientKey"
-	SsmClientKey   = "Key.SsmClientKey"
-	CryptoModeKey  = "Key.CryptoModeKey"
+	ChainClientKey   = "Key.ChainClientKey"
+	SsmClientKey     = "Key.SsmClientKey"
+	SsmDeviceInfoKey = "Key.SsmDeviceInfoKey"
+	CryptoModeKey    = "Key.CryptoModeKey"
 )
 
 func CryptoModeContext(ctx context.Context, mode CryptoMode) context.Context {
@@ -161,4 +162,15 @@ func (p *multiSsmClient) Client(device string) SsmClient {
 
 	client := p.clients[device]
 	return client
+}
+
+func SsmDeviceInfoContext(ctx context.Context, info SsmDeviceInfo) context.Context {
+	return context.WithValue(ctx, CryptoModeKey, info)
+}
+
+func SsmDeviceInfoFromContext(ctx context.Context) SsmDeviceInfo {
+	if info, ok := ctx.Value(SsmDeviceInfoKey).(SsmDeviceInfo); ok {
+		return info
+	}
+	return nil
 }
