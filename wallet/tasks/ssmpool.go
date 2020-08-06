@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	SsmMaxUnusedAddress = 10
+	SsmMaxUnusedAddress = 1000
+	SsmFillBatchSize    = 10
 )
 
 type SsmInfo struct {
@@ -70,7 +71,11 @@ func SsmPool(ctx context.Context, epoch time.Time, infos []SsmInfo) {
 		}).Debug("SsmPool status")
 
 		// Fill ssm pool
-		for unusedCount < SsmMaxUnusedAddress {
+		nextUnusedCount := unusedCount + SsmFillBatchSize
+		if nextUnusedCount > SsmMaxUnusedAddress {
+			nextUnusedCount = SsmMaxUnusedAddress
+		}
+		for unusedCount < nextUnusedCount {
 			err := func() error {
 				// create new address for next path
 				// Todo: manage annual rotation for path
