@@ -195,8 +195,8 @@ func (p *Wallet) GetNewAddress(ctx context.Context, chainName, account string) (
 	return chain.GetNewAddress(ctx, chainName, account)
 }
 
-func (p *Wallet) ImportAddress(ctx context.Context, chainName, account, address, pubkey string) error {
-	return chain.ImportAddress(ctx, chainName, account, address, pubkey)
+func (p *Wallet) ImportAddress(ctx context.Context, chainName, account, address, pubkey, blindingkey string) error {
+	return chain.ImportAddress(ctx, chainName, account, address, pubkey, blindingkey)
 }
 
 func (p *Wallet) GetAddressInfo(ctx context.Context, chainName, address string) (common.AddressInfo, error) {

@@ -99,7 +99,7 @@ func (p *BitcoinClient) GetNewAddress(ctx context.Context, account string) (stri
 	return string(result), nil
 }
 
-func (p *BitcoinClient) ImportAddress(ctx context.Context, account, address, pubkey string) error {
+func (p *BitcoinClient) ImportAddress(ctx context.Context, account, address, pubkey, blindingkey string) error {
 	log := logger.Logger(ctx).WithField("Method", "bitcoin.InmportAddress")
 
 	client := p.client
@@ -127,10 +127,21 @@ func (p *BitcoinClient) ImportAddress(ctx context.Context, account, address, pub
 		return ErrRPCError
 	}
 
+	// optional blindingkey for liquid clients
+	if len(blindingkey) > 0 {
+		err = commands.ImportBlindingKey(ctx, client.Client, commands.Address(address), commands.BlindingKey(blindingkey))
+		if err != nil {
+			log.WithError(err).
+				Error("ImportPubKey failed")
+			return ErrRPCError
+		}
+	}
+
 	log.
 		WithFields(logrus.Fields{
-			"PubKey":  pubkey,
-			"Address": address,
+			"PubKey":      pubkey,
+			"Address":     address,
+			"BlindingKey": blindingkey,
 		}).Debug("Bitcoin RPC")
 
 	return nil

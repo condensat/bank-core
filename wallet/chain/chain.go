@@ -69,7 +69,7 @@ func GetNewAddress(ctx context.Context, chain, account string) (string, error) {
 	return client.GetNewAddress(ctx, account)
 }
 
-func ImportAddress(ctx context.Context, chain, account, address, pubkey string) error {
+func ImportAddress(ctx context.Context, chain, account, address, pubkey, blindingkey string) error {
 	log := logger.Logger(ctx).WithField("Method", "wallet.ImportAddress")
 
 	log = log.WithField("Chain", chain)
@@ -88,7 +88,7 @@ func ImportAddress(ctx context.Context, chain, account, address, pubkey string) 
 	}
 	defer lock.Unlock()
 
-	return client.ImportAddress(ctx, account, address, pubkey)
+	return client.ImportAddress(ctx, account, address, pubkey, blindingkey)
 }
 
 func GetAddressInfo(ctx context.Context, chain, address string) (common.AddressInfo, error) {
