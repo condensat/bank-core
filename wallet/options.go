@@ -70,18 +70,27 @@ func (p *ChainsOptions) Names() []string {
 }
 
 type SsmOption struct {
-	Device   string `json:"device"`
+	Name     string `json:"name"`
 	Endpoint string `json:"endpoint"`
 }
 
+type SsmChain struct {
+	Device      string `json:"device"`
+	Chain       string `json:"chain"`
+	Fingerprint string `json:"fingerprint"`
+}
+
 type SsmOptions struct {
-	Ssm []SsmOption `json:"ssm"`
+	Ssm struct {
+		Devices []SsmOption `json:"devices"`
+		Chains  []SsmChain  `json:"chains"`
+	} `json:"ssm"`
 }
 
 func (p *SsmOptions) Devices() []string {
 	var result []string
-	for _, option := range p.Ssm {
-		result = append(result, option.Device)
+	for _, option := range p.Ssm.Devices {
+		result = append(result, option.Name)
 	}
 	return result
 }

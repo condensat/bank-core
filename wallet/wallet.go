@@ -27,7 +27,7 @@ import (
 
 const (
 	DefaultChainInterval      time.Duration = 30 * time.Second
-	DefaultSsmInterval        time.Duration = 30 * time.Second
+	DefaultSsmInterval        time.Duration = 5 * time.Second
 	DefaultOperationsInterval time.Duration = 5 * time.Second
 	DefaultAssetInfoInterval  time.Duration = 30 * time.Second
 
@@ -69,11 +69,11 @@ func (p *Wallet) Run(ctx context.Context, options WalletOptions) {
 
 	ssmOptions := loadSsmOptionsFromFile(options.FileName)
 	// create all ssm rpc clients
-	for _, ssmOptions := range ssmOptions.Ssm {
-		log.WithField("Device", ssmOptions.Device).
+	for _, ssmDevice := range ssmOptions.Ssm.Devices {
+		log.WithField("Device", ssmDevice.Name).
 			Info("Adding ssm rpc client")
 
-		ctx = common.SsmClientContext(ctx, ssmOptions.Device, ssm.NewWithTorEndpoint(ctx, ssmOptions.Endpoint))
+		ctx = common.SsmClientContext(ctx, ssmDevice.Name, ssm.NewWithTorEndpoint(ctx, ssmDevice.Endpoint))
 	}
 
 	p.registerHandlers(ctx)
@@ -82,7 +82,7 @@ func (p *Wallet) Run(ctx context.Context, options WalletOptions) {
 		"Hostname": utils.Hostname(),
 	}).Info("Wallet Service started")
 
-	go mainScheduler(ctx, chainsOptions.Names(), ssmOptions.Devices())
+	go mainScheduler(ctx, chainsOptions.Names(), ssmOptions)
 
 	<-ctx.Done()
 }
@@ -103,7 +103,7 @@ func (p *Wallet) registerHandlers(ctx context.Context) {
 	log.Debug("Bank Wallet registered")
 }
 
-func mainScheduler(ctx context.Context, chains, devices []string) {
+func mainScheduler(ctx context.Context, chains []string, ssmOptions SsmOptions) {
 	log := logger.Logger(ctx).WithField("Method", "Wallet.mainScheduler")
 
 	taskChainUpdate := utils.Scheduler(ctx, DefaultChainInterval, 0)
@@ -114,6 +114,15 @@ func mainScheduler(ctx context.Context, chains, devices []string) {
 
 	// update once at startup
 	tasks.UpdateAssetInfo(ctx, time.Now().UTC())
+
+	var ssmInfo []tasks.SsmInfo
+	for _, chain := range ssmOptions.Ssm.Chains {
+		ssmInfo = append(ssmInfo, tasks.SsmInfo{
+			Device:      chain.Device,
+			Chain:       chain.Chain,
+			Fingerprint: chain.Fingerprint,
+		})
+	}
 
 	// Initialize SingleCalls nonce
 	const singleCallPrefix = "bank.wallet."
@@ -142,11 +151,11 @@ func mainScheduler(ctx context.Context, chains, devices []string) {
 					return nil
 				})
 
-		// update chains
+		// ssm pool
 		case epoch := <-taskSsmPool:
 			_ = cache.ExecuteSingleCall(ctx, singleCallPrefix+"SsmPool",
 				func(ctx context.Context) error {
-					tasks.SsmPool(ctx, epoch, []tasks.SsmInfo{})
+					tasks.SsmPool(ctx, epoch, ssmInfo)
 					return nil
 				})
 
