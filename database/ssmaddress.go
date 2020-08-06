@@ -164,6 +164,40 @@ func GetSsmAddressInfo(db bank.Database, addressID model.SsmAddressID) (model.Ss
 	return result, nil
 }
 
+func NextSsmAddressID(db bank.Database, chain model.SsmChain, fingerprint model.SsmFingerprint) (model.SsmAddressID, error) {
+	gdb := db.DB().(*gorm.DB)
+	if db == nil {
+		return 0, errors.New("Invalid appcontext.Database")
+	}
+
+	if len(chain) == 0 {
+		return 0, errors.New("Invalid chain")
+	}
+
+	if len(fingerprint) == 0 {
+		return 0, errors.New("Invalid fingerprint")
+	}
+
+	subQueryInfo := gdb.
+		Model(&model.SsmAddressInfo{}).
+		Where(&model.SsmAddressInfo{
+			Chain:       chain,
+			Fingerprint: fingerprint,
+		}).
+		SubQuery()
+
+	result := model.SsmAddressState{}
+	err := gdb.Model(&model.SsmAddressState{}).
+		Joins("JOIN (?) AS i ON i.ssm_address_id = ssm_address_state.ssm_address_id", subQueryInfo).
+		Where("state = ?", model.SsmAddressStatusUnused).
+		First(&result).Error
+	if err != nil {
+		return 0, err
+	}
+
+	return result.SsmAddressID, nil
+}
+
 func GetSsmAddressByPublicAddress(db bank.Database, publicAddress model.SsmPublicAddress) (model.SsmAddress, error) {
 	gdb := db.DB().(*gorm.DB)
 	if db == nil {

@@ -5,6 +5,7 @@
 package database
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -231,6 +232,52 @@ func TestGetSsmAddressInfo(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GetSsmAddressInfo() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNextSsmAddressID(t *testing.T) {
+	const databaseName = "TestNextSsmAddressID"
+	t.Parallel()
+
+	db := setup(databaseName, SsmAddressModel())
+	defer teardown(db, databaseName)
+
+	address := model.SsmAddress{ID: 0, PublicAddress: "foo", ScriptPubkey: "bar", BlindingKey: "foobar"}
+	info := model.SsmAddressInfo{SsmAddressID: 42, Chain: "chain", Fingerprint: "ffffffff", HDPath: "path"}
+	nextID, _ := AddSsmAddress(db, address, info)
+
+	for i := 0; i < 10; i++ {
+		address.PublicAddress = model.SsmPublicAddress(fmt.Sprintf("foo_%d", i))
+		_, _ = AddSsmAddress(db, address, info)
+	}
+
+	type args struct {
+		chain       model.SsmChain
+		fingerprint model.SsmFingerprint
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    model.SsmAddressID
+		wantErr bool
+	}{
+		{"default", args{}, 0, true},
+		{"none", args{"none", info.Fingerprint}, 0, true},
+
+		{"next", args{info.Chain, info.Fingerprint}, nextID, false},
+	}
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NextSsmAddressID(db, tt.args.chain, tt.args.fingerprint)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NextSsmAddressInfo() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NextSsmAddressInfo() = %v, want %v", got, tt.want)
 			}
 		})
 	}
