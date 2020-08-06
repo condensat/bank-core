@@ -21,6 +21,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	SsmMaxUnusedAddress = 10
+)
+
 type SsmInfo struct {
 	Device      string
 	Chain       string
@@ -40,7 +44,15 @@ func SsmPool(ctx context.Context, epoch time.Time, infos []SsmInfo) {
 	for _, info := range infos {
 		ssm := common.SsmClientFromContext(ctx, info.Device)
 
-		// Todo: count unused ssm addresses from database
+		unusedCount, err := database.CountSsmAddressByState(db,
+			model.SsmChain(info.Chain),
+			model.SsmFingerprint(info.Fingerprint),
+			model.SsmAddressStatusUnused,
+		)
+		if err != nil {
+			log.WithError(err).Error("CountSsmAddressByState failed")
+			continue
+		}
 
 		// count actual ssm addresses count for chain/fingerprint
 		addressCount, err := database.CountSsmAddress(db,
@@ -52,46 +64,64 @@ func SsmPool(ctx context.Context, epoch time.Time, infos []SsmInfo) {
 			continue
 		}
 
-		// create new address for next path
-		// Todo: manage annual rotation for path
-		nextPath := fmt.Sprintf("84h/0h/%d", addressCount+1)
+		log.WithFields(logrus.Fields{
+			"UnusedCount":  unusedCount,
+			"AddressCount": addressCount,
+		}).Debug("SsmPool status")
 
-		ssmAddress, err := ssm.NewAddress(ctx, commands.SsmPath{
-			Chain:       info.Chain,
-			Fingerprint: info.Fingerprint,
-			Path:        nextPath,
-		})
-		if err != nil {
-			log.WithError(err).Error("NewAddress failed")
-			continue
-		}
-		if info.Chain != ssmAddress.Address {
+		// Fill ssm pool
+		for unusedCount < SsmMaxUnusedAddress {
+			err := func() error {
+				// create new address for next path
+				// Todo: manage annual rotation for path
+				nextPath := fmt.Sprintf("84h/0h/%d", addressCount+1)
+
+				ssmAddress, err := ssm.NewAddress(ctx, commands.SsmPath{
+					Chain:       info.Chain,
+					Fingerprint: info.Fingerprint,
+					Path:        nextPath,
+				})
+				if err != nil {
+					log.WithError(err).Error("NewAddress failed")
+					return err
+				}
+				if info.Chain != ssmAddress.Address {
+					if err != nil {
+						log.WithError(err).Error("Wrong ssmAddress chain")
+						return err
+					}
+				}
+
+				// store new address to database
+				ssmAddressID, err := database.AddSsmAddress(db,
+					model.SsmAddress{
+						PublicAddress: model.SsmPublicAddress(ssmAddress.Address),
+						ScriptPubkey:  model.SsmPubkey(ssmAddress.PubKey),
+						BlindingKey:   model.SsmBlindingKey(ssmAddress.BlindingKey),
+					},
+					model.SsmAddressInfo{
+						Chain:       model.SsmChain(info.Chain),
+						Fingerprint: model.SsmFingerprint(info.Fingerprint),
+						HDPath:      model.SsmHDPath(nextPath),
+					},
+				)
+				if err != nil {
+					log.WithError(err).Error("AddSsmAddress failed")
+					return err
+				}
+
+				log.
+					WithField("ssmAddressID", ssmAddressID).
+					Debug("New ssm address")
+
+				return nil
+			}()
 			if err != nil {
-				log.WithError(err).Error("Wrong ssmAddress chain")
-				continue
+				break
 			}
-		}
 
-		// store new address to database
-		ssmAddressID, err := database.AddSsmAddress(db,
-			model.SsmAddress{
-				PublicAddress: model.SsmPublicAddress(ssmAddress.Address),
-				ScriptPubkey:  model.SsmPubkey(ssmAddress.PubKey),
-				BlindingKey:   model.SsmBlindingKey(ssmAddress.BlindingKey),
-			},
-			model.SsmAddressInfo{
-				Chain:       model.SsmChain(info.Chain),
-				Fingerprint: model.SsmFingerprint(info.Fingerprint),
-				HDPath:      model.SsmHDPath(nextPath),
-			},
-		)
-		if err != nil {
-			log.WithError(err).Error("AddSsmAddress failed")
-			continue
+			unusedCount++
+			addressCount++
 		}
-
-		log.
-			WithField("ssmAddressID", ssmAddressID).
-			Debug("New ssm address")
 	}
 }
