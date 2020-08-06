@@ -6,6 +6,7 @@ package commands
 
 type Address string
 type PubKey string
+type BlindingKey string
 type Transaction string
 type TransactionID string
 
