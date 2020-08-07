@@ -73,7 +73,17 @@ func (p *Wallet) Run(ctx context.Context, options WalletOptions) {
 		log.WithField("Device", ssmDevice.Name).
 			Info("Adding ssm rpc client")
 
-		ctx = common.SsmClientContext(ctx, ssmDevice.Name, ssm.NewWithTorEndpoint(ctx, ssmDevice.Endpoint))
+		if len(ssmOptions.TorProxy) > 0 {
+			ctx = common.SsmClientContext(ctx, ssmDevice.Name, ssm.NewWithTorEndpoint(ctx, ssmOptions.TorProxy, ssmDevice.Endpoint))
+		} else {
+			ctx = common.SsmClientContext(ctx, ssmDevice.Name, ssm.New(ctx, ssm.SsmOptions{
+				ServerOptions: bank.ServerOptions{
+					Protocol: "http",
+					HostName: "ssm_server",
+					Port:     5000,
+				},
+			}))
+		}
 	}
 
 	// add chain / fingerprint relation to ssmInfo

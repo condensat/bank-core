@@ -85,6 +85,8 @@ type SsmOptions struct {
 		Devices []SsmOption `json:"devices"`
 		Chains  []SsmChain  `json:"chains"`
 	} `json:"ssm"`
+
+	TorProxy string `json:"tor_proxy"`
 }
 
 func (p *SsmOptions) Devices() []string {

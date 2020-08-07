@@ -46,8 +46,8 @@ func New(ctx context.Context, options SsmOptions) *SsmClient {
 	}
 }
 
-func NewWithTorEndpoint(ctx context.Context, endpoint string) *SsmClient {
-	proxyURL, err := url.Parse("socks5://127.0.0.1:9050")
+func NewWithTorEndpoint(ctx context.Context, torProxy, endpoint string) *SsmClient {
+	proxyURL, err := url.Parse(torProxy)
 	if err != nil {
 		panic(err)
 	}
