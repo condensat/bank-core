@@ -17,7 +17,9 @@ var testContext = context.Background()
 
 func init() {
 	dbArg := database.DefaultOptions()
+	dbArg.HostName = "mariadb"
 	natsArg := messaging.DefaultOptions()
+	natsArg.HostName = "nats"
 
 	ctx := testContext
 	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, natsArg))

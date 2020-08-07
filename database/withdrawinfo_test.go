@@ -118,7 +118,7 @@ func TestGetWithdrawInfo(t *testing.T) {
 }
 
 func TestGetLastWithdrawInfo(t *testing.T) {
-	const databaseName = "TestGetWithdrawHistory"
+	const databaseName = "TestGetLastWithdrawInfo"
 	t.Parallel()
 
 	db := setup(databaseName, WithdrawModel())

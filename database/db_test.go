@@ -18,7 +18,7 @@ import (
 
 func setup(databaseName string, models []model.Model) bank.Database {
 	options := Options{
-		HostName:      "localhost",
+		HostName:      "mariadb",
 		Port:          3306,
 		User:          "condensat",
 		Password:      "condensat",
