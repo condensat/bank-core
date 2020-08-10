@@ -165,7 +165,7 @@ func (p *multiSsmClient) Client(device string) SsmClient {
 }
 
 func SsmDeviceInfoContext(ctx context.Context, info SsmDeviceInfo) context.Context {
-	return context.WithValue(ctx, CryptoModeKey, info)
+	return context.WithValue(ctx, SsmDeviceInfoKey, info)
 }
 
 func SsmDeviceInfoFromContext(ctx context.Context) SsmDeviceInfo {
