@@ -261,13 +261,13 @@ func txNewCryptoAddressSsm(ctx context.Context, db bank.Database, chainHandler C
 func convertToSsmChain(chain model.String) model.SsmChain {
 	switch chain {
 
-	case "bitcoin-mainet":
+	case "bitcoin-mainnet":
 		return "bitcoin-main"
 
 	case "bitcoin-testnet":
 		return "bitcoin-test"
 
-	case "liquid-mainnet ":
+	case "liquid-mainnet":
 		return "liquidv1"
 
 	default:
