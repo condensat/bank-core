@@ -47,7 +47,9 @@ func (p *Wallet) Run(ctx context.Context, options WalletOptions) {
 
 	// add RedisMutext to context
 	ctx = cache.RedisMutexContext(ctx)
-	ctx = common.CryptoModeContext(ctx, options.Mode)
+
+	// add CryptoMode to context
+	ctx = common.CryptoModeContext(ctx, parseCryptoMode(options.Mode))
 
 	// load rpc clients configurations
 	chainsOptions := loadChainsOptionsFromFile(options.FileName)

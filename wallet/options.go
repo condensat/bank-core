@@ -15,7 +15,7 @@ import (
 
 type WalletOptions struct {
 	FileName string
-	Mode     common.CryptoMode
+	Mode     string
 }
 
 func loadOptionsFromFile(fileName string, options interface{}) error {
@@ -115,9 +115,7 @@ func OptionArgs(args *WalletOptions) {
 
 	flag.StringVar(&args.FileName, "chains", "chains.json", "Json file for (default chain.json)")
 	cryptoMode := string(common.CryptoModeBitcoinCore)
-	flag.StringVar(&cryptoMode, "cryptoMode", cryptoMode, "Crypto mode for new address & signature (default bitcoin-core)")
-
-	args.Mode = parseCryptoMode(cryptoMode)
+	flag.StringVar(&args.Mode, "cryptoMode", cryptoMode, "Crypto mode for new address & signature (default bitcoin-core)")
 }
 
 func parseCryptoMode(cryptoMode string) common.CryptoMode {
