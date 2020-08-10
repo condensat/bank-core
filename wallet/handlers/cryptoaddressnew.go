@@ -174,7 +174,7 @@ func txNewCryptoAddressFullNode(ctx context.Context, db bank.Database, chainHand
 }
 
 func txNewCryptoAddressSsm(ctx context.Context, db bank.Database, chainHandler ChainHandler, chain model.String, accountID model.AccountID) (model.CryptoAddress, error) {
-	log := logger.Logger(ctx).WithField("Method", "wallet.txNewCryptoAddressFullNode")
+	log := logger.Logger(ctx).WithField("Method", "wallet.txNewCryptoAddressSsm")
 	account := genAccountLabelFromAccountID(accountID)
 
 	ssmChain := convertToSsmChain(chain)
@@ -192,7 +192,8 @@ func txNewCryptoAddressSsm(ctx context.Context, db bank.Database, chainHandler C
 	}
 
 	var result model.CryptoAddress
-	err := db.Transaction(func(db bank.Database) error {
+	// already within a db transaction
+	err := func(db bank.Database) error {
 
 		ssmAddressID, err := database.NextSsmAddressID(db, ssmChain, fingerprint)
 		if err != nil {
@@ -247,10 +248,10 @@ func txNewCryptoAddressSsm(ctx context.Context, db bank.Database, chainHandler C
 		}
 
 		return nil
-	})
+	}(db)
 	if err != nil {
 		log.WithError(err).
-			Error("Database Transaction failed")
+			Error("Failed to generate new CryptoAddress with Ssm")
 		return model.CryptoAddress{}, ErrGenAddress
 	}
 
