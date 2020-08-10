@@ -73,10 +73,6 @@ type AddressInfo struct {
 	HdKeyPath           string `json:"hdkeypath"`
 	HdSeedID            string `json:"hdseedid"`
 	HdMasterfingerprint string `json:"hdmasterfingerprint"`
-	Labels              []struct {
-		Name    string `json:"name"`
-		Purpose string `json:"purpose"`
-	} `json:"labels"`
 
 	// Liquid Specific
 	Confidential    string `json:"confidential"`
