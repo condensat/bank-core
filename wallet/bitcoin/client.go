@@ -300,6 +300,9 @@ func (p *BitcoinClient) GetTransaction(ctx context.Context, txID string) (common
 func (p *BitcoinClient) SpendFunds(ctx context.Context, inputs []common.UTXOInfo, outputs []common.SpendInfo) (common.SpendTx, error) {
 	log := logger.Logger(ctx).WithField("Method", "bitcoin.SpendFunds")
 
+	cryptoMode := common.CryptoModeFromContext(ctx)
+	log = log.WithField("CryptoMode", cryptoMode)
+
 	client := p.client
 	if p.client == nil {
 		return common.SpendTx{}, ErrInternalError
@@ -317,7 +320,7 @@ func (p *BitcoinClient) SpendFunds(ctx context.Context, inputs []common.UTXOInfo
 	}
 
 	// Fund transaction (bitcoin-core will select inputs automatically)
-	funded, err := commands.FundRawTransaction(ctx, client.Client, hex)
+	funded, err := fundRawTransactionWithCryptoMode(ctx, client, cryptoMode, hex)
 	if err != nil {
 		log.WithError(err).
 			Error("FundRawTransaction failed")
@@ -348,6 +351,21 @@ func (p *BitcoinClient) SpendFunds(ctx context.Context, inputs []common.UTXOInfo
 	return common.SpendTx{
 		TxID: string(tx),
 	}, nil
+}
+
+func fundRawTransactionWithCryptoMode(ctx context.Context, client *rpc.Client, cryptoMode common.CryptoMode, hex commands.Transaction) (commands.FundedTransaction, error) {
+	switch cryptoMode {
+	case common.CryptoModeCryptoSsm:
+		return commands.FundRawTransactionWithOptions(ctx,
+			client.Client,
+			hex,
+			commands.FundRawTransactionOptions{
+				IncludeWatching: true,
+			},
+		)
+	default:
+		return commands.FundRawTransaction(ctx, client.Client, hex)
+	}
 }
 
 func convertTransactionInfo(tx commands.TransactionInfo) common.TransactionInfo {
