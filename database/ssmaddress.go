@@ -186,9 +186,15 @@ func NextSsmAddressID(db bank.Database, chain model.SsmChain, fingerprint model.
 		}).
 		SubQuery()
 
+	subQueryLast := gdb.Model(&model.SsmAddressState{}).
+		Select("MAX(id)").
+		Group("ssm_address_id").
+		SubQuery()
+
 	result := model.SsmAddressState{}
 	err := gdb.Model(&model.SsmAddressState{}).
 		Joins("JOIN (?) AS i ON i.ssm_address_id = ssm_address_state.ssm_address_id", subQueryInfo).
+		Where("ssm_address_state.id IN (?)", subQueryLast).
 		Where("state = ?", model.SsmAddressStatusUnused).
 		First(&result).Error
 	if err != nil {
