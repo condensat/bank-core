@@ -56,6 +56,11 @@ func CryptoAddressNextDeposit(ctx context.Context, address common.CryptoAddress)
 		return result, ErrInvalidAccountID
 	}
 
+	log = log.WithFields(logrus.Fields{
+		"Chain":     address.Chain,
+		"AccountID": address.AccountID,
+	})
+
 	// Database Query
 	db := appcontext.Database(ctx)
 	err := db.Transaction(func(db bank.Database) error {

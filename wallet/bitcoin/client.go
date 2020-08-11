@@ -148,7 +148,7 @@ func (p *BitcoinClient) ImportAddress(ctx context.Context, account, address, pub
 }
 
 func (p *BitcoinClient) GetAddressInfo(ctx context.Context, address string) (common.AddressInfo, error) {
-	log := logger.Logger(ctx).WithField("Method", "bitcoin.GetNewAddress")
+	log := logger.Logger(ctx).WithField("Method", "bitcoin.GetAddressInfo")
 
 	client := p.client
 	if p.client == nil {
@@ -157,6 +157,8 @@ func (p *BitcoinClient) GetAddressInfo(ctx context.Context, address string) (com
 	if len(address) == 0 {
 		return common.AddressInfo{}, ErrInvalidAddress
 	}
+
+	log = log.WithField("Address", address)
 
 	info, err := commands.GetAddressInfo(ctx, client.Client, commands.Address(address))
 	if err != nil {

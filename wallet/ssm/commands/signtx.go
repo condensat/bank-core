@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/condensat/bank-core/utils"
-	"github.com/condensat/bank-core/wallet/rpc"
 )
 
 var (
@@ -42,7 +41,7 @@ func SignTx(ctx context.Context, rpcClient RpcClient, chain, inputransaction str
 	var signedTx SignTxResponse
 	err := callCommand(rpcClient, CmdSignTx, &signedTx, chain, inputransaction, fingerprints, paths, amounts)
 	if err != nil {
-		return SignTxResponse{}, rpc.ErrRpcError
+		return SignTxResponse{}, err
 	}
 
 	return signedTx, nil

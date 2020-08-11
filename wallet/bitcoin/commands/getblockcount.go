@@ -7,8 +7,6 @@ package commands
 import (
 	"context"
 	"errors"
-
-	"github.com/condensat/bank-core/wallet/rpc"
 )
 
 var (
@@ -23,7 +21,7 @@ func GetBlockCount(ctx context.Context, rpcClient RpcClient) (int64, error) {
 	var blockount int64
 	err := callCommand(rpcClient, CmdGetBlockCount, &blockount)
 	if err != nil {
-		return 0, rpc.ErrRpcError
+		return 0, err
 	}
 
 	return blockount, nil

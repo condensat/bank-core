@@ -7,8 +7,6 @@ package commands
 import (
 	"context"
 	"errors"
-
-	"github.com/condensat/bank-core/wallet/rpc"
 )
 
 var (
@@ -23,7 +21,7 @@ func NewAddress(ctx context.Context, rpcClient RpcClient, chain, fingerprint, pa
 	var address NewAddressResponse
 	err := callCommand(rpcClient, CmdNewAddress, &address, chain, fingerprint, path)
 	if err != nil {
-		return NewAddressResponse{}, rpc.ErrRpcError
+		return NewAddressResponse{}, err
 	}
 
 	return address, nil

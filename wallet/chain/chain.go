@@ -113,7 +113,7 @@ func GetAddressInfo(ctx context.Context, chain, address string) (common.AddressI
 	info, err := client.GetAddressInfo(ctx, address)
 	if err != nil {
 		log.WithError(err).
-			Error("Failed to lock chain")
+			Error("Failed to GetAddressInfo")
 		return common.AddressInfo{}, cache.ErrLockError
 	}
 
