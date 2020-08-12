@@ -104,7 +104,7 @@ func (p *Wallet) Run(ctx context.Context, options WalletOptions) {
 	// add ssmInfo to context
 	ctx = common.SsmDeviceInfoContext(ctx, ssmInfo)
 
-	p.registerHandlers(ctx)
+	ctx = p.registerHandlers(ctx)
 
 	log.WithFields(logrus.Fields{
 		"Hostname": utils.Hostname(),
@@ -115,7 +115,7 @@ func (p *Wallet) Run(ctx context.Context, options WalletOptions) {
 	<-ctx.Done()
 }
 
-func (p *Wallet) registerHandlers(ctx context.Context) {
+func (p *Wallet) registerHandlers(ctx context.Context) context.Context {
 	log := logger.Logger(ctx).WithField("Method", "Accounting.RegisterHandlers")
 
 	nats := appcontext.Messaging(ctx)
@@ -129,6 +129,7 @@ func (p *Wallet) registerHandlers(ctx context.Context) {
 	nats.SubscribeWorkers(ctx, common.AddressInfoSubject, concurencyLevel, handlers.OnAddressInfo)
 
 	log.Debug("Bank Wallet registered")
+	return ctx
 }
 
 func mainScheduler(ctx context.Context, chains []string, ssmOptions SsmOptions) {
