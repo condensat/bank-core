@@ -297,7 +297,7 @@ func (p *BitcoinClient) GetTransaction(ctx context.Context, txID string) (common
 	return convertTransactionInfo(tx), nil
 }
 
-func (p *BitcoinClient) SpendFunds(ctx context.Context, inputs []common.UTXOInfo, outputs []common.SpendInfo) (common.SpendTx, error) {
+func (p *BitcoinClient) SpendFunds(ctx context.Context, changeAddress string, inputs []common.UTXOInfo, outputs []common.SpendInfo) (common.SpendTx, error) {
 	log := logger.Logger(ctx).WithField("Method", "bitcoin.SpendFunds")
 
 	cryptoMode := common.CryptoModeFromContext(ctx)
@@ -320,7 +320,7 @@ func (p *BitcoinClient) SpendFunds(ctx context.Context, inputs []common.UTXOInfo
 	}
 
 	// Fund transaction (bitcoin-core will select inputs automatically)
-	funded, err := fundRawTransactionWithCryptoMode(ctx, client, cryptoMode, hex)
+	funded, err := fundRawTransactionWithCryptoMode(ctx, client, cryptoMode, changeAddress, hex)
 	if err != nil {
 		log.WithError(err).
 			Error("FundRawTransaction failed")
@@ -353,14 +353,20 @@ func (p *BitcoinClient) SpendFunds(ctx context.Context, inputs []common.UTXOInfo
 	}, nil
 }
 
-func fundRawTransactionWithCryptoMode(ctx context.Context, client *rpc.Client, cryptoMode common.CryptoMode, hex commands.Transaction) (commands.FundedTransaction, error) {
+func fundRawTransactionWithCryptoMode(ctx context.Context, client *rpc.Client, cryptoMode common.CryptoMode, changeAddress string, hex commands.Transaction) (commands.FundedTransaction, error) {
 	switch cryptoMode {
 	case common.CryptoModeCryptoSsm:
+		if changeAddress == "" {
+			return commands.FundedTransaction{}, errors.New("Invalid Change Address")
+		}
 		return commands.FundRawTransactionWithOptions(ctx,
 			client.Client,
 			hex,
 			commands.FundRawTransactionOptions{
-				IncludeWatching: true,
+				IncludeWatching:        true,
+				ChangeAddress:          changeAddress,
+				ChangePosition:         0,
+				SubtractFeeFromOutputs: []int{0},
 			},
 		)
 	default:

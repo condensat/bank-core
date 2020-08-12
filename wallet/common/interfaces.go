@@ -21,7 +21,7 @@ type ChainClient interface {
 	ListLockUnspent(ctx context.Context) ([]TransactionInfo, error)
 	GetTransaction(ctx context.Context, txID string) (TransactionInfo, error)
 
-	SpendFunds(ctx context.Context, inputs []UTXOInfo, outputs []SpendInfo) (SpendTx, error)
+	SpendFunds(ctx context.Context, changeAddress string, inputs []UTXOInfo, outputs []SpendInfo) (SpendTx, error)
 }
 
 // SsmClient interface specification for crypto-ssm
