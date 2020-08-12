@@ -15,8 +15,10 @@ import (
 	"github.com/condensat/bank-core/wallet/rpc"
 
 	"github.com/condensat/bank-core/wallet/bitcoin/commands"
+	ssmCommands "github.com/condensat/bank-core/wallet/ssm/commands"
 
 	"github.com/sirupsen/logrus"
+	"github.com/ybbus/jsonrpc"
 )
 
 var (
@@ -297,7 +299,7 @@ func (p *BitcoinClient) GetTransaction(ctx context.Context, txID string) (common
 	return convertTransactionInfo(tx), nil
 }
 
-func (p *BitcoinClient) SpendFunds(ctx context.Context, changeAddress string, inputs []common.UTXOInfo, outputs []common.SpendInfo) (common.SpendTx, error) {
+func (p *BitcoinClient) SpendFunds(ctx context.Context, changeAddress string, inputs []common.UTXOInfo, outputs []common.SpendInfo, addressInfo common.GetAddressInfo) (common.SpendTx, error) {
 	log := logger.Logger(ctx).WithField("Method", "bitcoin.SpendFunds")
 
 	cryptoMode := common.CryptoModeFromContext(ctx)
@@ -328,7 +330,7 @@ func (p *BitcoinClient) SpendFunds(ctx context.Context, changeAddress string, in
 	}
 
 	// Sign transaction
-	signed, err := commands.SignRawTransactionWithWallet(ctx, client.Client, commands.Transaction(funded.Hex))
+	signed, err := signRawTransactionWithCryptoMode(ctx, client.Client, cryptoMode, string(funded.Hex), addressInfo)
 	if err != nil {
 		log.WithError(err).
 			Error("SignRawTransactionWithWallet failed")
@@ -371,6 +373,80 @@ func fundRawTransactionWithCryptoMode(ctx context.Context, client *rpc.Client, c
 		)
 	default:
 		return commands.FundRawTransaction(ctx, client.Client, hex)
+	}
+}
+
+func signRawTransactionWithCryptoMode(ctx context.Context, client jsonrpc.RPCClient, cryptoMode common.CryptoMode, txToSign string, addressInfo common.GetAddressInfo) (commands.SignedTransaction, error) {
+	switch cryptoMode {
+	case common.CryptoModeCryptoSsm:
+		const device = "crypto-ssm"
+		ssmClient := common.SsmClientFromContext(ctx, device)
+		if ssmClient == nil {
+			return commands.SignedTransaction{}, errors.New("SSM not found")
+		}
+
+		if addressInfo == nil {
+			return commands.SignedTransaction{}, errors.New("Invalid sign Callback")
+		}
+		transaction, err := commands.DecodeRawTransaction(ctx, client, commands.Transaction(txToSign))
+		if err != nil {
+			return commands.SignedTransaction{}, errors.New("Failed to DecodeRawTransaction")
+		}
+
+		chain := ""
+		// grab inputs path & amouts
+		var inputs []ssmCommands.SignTxInputs
+		for _, in := range transaction.Vin {
+			txID := commands.TransactionID(in.Txid)
+			txHex, err := commands.GetRawTransaction(ctx, client, txID)
+			if err != nil {
+				return commands.SignedTransaction{}, errors.New("Failed to GetRawTransaction")
+			}
+			tx, err := commands.DecodeRawTransaction(ctx, client, commands.Transaction(txHex))
+			if err != nil {
+				return commands.SignedTransaction{}, errors.New("Failed to DecodeRawTransaction")
+			}
+
+			// append input entry
+			out := tx.Vout[in.Vout]
+			amount := out.Value
+			address := out.ScriptPubKey.Addresses[0]
+			info, err := addressInfo(ctx, address)
+			if err != nil {
+				return commands.SignedTransaction{}, errors.New("Failed to get address info")
+			}
+
+			// select chain from first input
+			if len(chain) == 0 {
+				chain = info.Chain
+			} else if info.Chain != chain {
+				return commands.SignedTransaction{}, errors.New("Chain missmatch")
+			}
+
+			inputs = append(inputs, ssmCommands.SignTxInputs{
+				SsmPath: ssmCommands.SsmPath{
+					Chain:       info.Chain,
+					Fingerprint: info.Fingerprint,
+					Path:        info.Path,
+				},
+				Amount: amount,
+			})
+		}
+
+		if len(chain) == 0 {
+			return commands.SignedTransaction{}, errors.New("Invalid chain")
+		}
+
+		// Sign Transaction
+		signedTx, err := ssmClient.SignTx(ctx, chain, txToSign, inputs...)
+
+		return commands.SignedTransaction{
+			Complete: len(signedTx) > 0,
+			Hex:      signedTx,
+		}, err
+
+	default:
+		return commands.SignRawTransactionWithWallet(ctx, client, commands.Transaction(txToSign))
 	}
 }
 
