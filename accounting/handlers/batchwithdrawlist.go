@@ -24,17 +24,33 @@ import (
 func BatchWithdrawList(ctx context.Context, status, network string) (common.BatchWithdraws, error) {
 	log := logger.Logger(ctx).WithField("Method", "accounting.BatchWithdrawList")
 
+	result := common.BatchWithdraws{
+		Network: network,
+	}
+
 	// Database Query
 	db := appcontext.Database(ctx)
 	batches, err := database.GetLastBatchInfoByStatusAndNetwork(db, model.BatchStatus(status), model.BatchNetwork(network))
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to GetLastBatchInfoByStatusAndNetwork")
+		return result, err
 	}
 
-	result := common.BatchWithdraws{
-		Network: network,
+	// get BankWithdraw accountID from network currency
+	currency := getNetworkMainCurrency(ctx, network)
+	if len(currency) == 0 {
+		log.WithField("Network", network).
+			Error("Failed to getNetworkMainCurrency")
+		return result, err
 	}
+	bankAccountID, err := getBankWithdrawAccount(ctx, currency)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to getBankWithdrawAccount")
+		return result, err
+	}
+
 	for _, batch := range batches {
 		if batch.Type != model.BatchInfoCrypto {
 			log.Warn("Wrong Batch Type")
@@ -56,10 +72,11 @@ func BatchWithdrawList(ctx context.Context, status, network string) (common.Batc
 		}
 
 		batchWithdraw := common.BatchWithdraw{
-			BatchID: uint64(batch.BatchID),
-			Network: network,
-			Status:  string(batch.Status),
-			TxID:    string(cryptoData.TxID),
+			BatchID:       uint64(batch.BatchID),
+			BankAccountID: uint64(bankAccountID),
+			Network:       network,
+			Status:        string(batch.Status),
+			TxID:          string(cryptoData.TxID),
 		}
 
 		for _, wID := range withdraws {
@@ -133,4 +150,20 @@ func OnBatchWithdrawList(ctx context.Context, subject string, message *bank.Mess
 			// create & return response
 			return &response, nil
 		})
+}
+
+func getNetworkMainCurrency(ctx context.Context, network string) string {
+	switch network {
+	case "bitcoin-mainnet":
+		return "BTC"
+
+	case "bitcoin-testnet":
+		return "TBTC"
+
+	case "liquid-mainnet":
+		return "LBTC"
+
+	default:
+		return ""
+	}
 }

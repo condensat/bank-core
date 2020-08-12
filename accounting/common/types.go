@@ -110,11 +110,12 @@ type UserWithdraws struct {
 }
 
 type BatchWithdraw struct {
-	BatchID   uint64
-	Network   string
-	Status    string
-	TxID      string
-	Withdraws []WithdrawInfo
+	BatchID       uint64
+	BankAccountID uint64
+	Network       string
+	Status        string
+	TxID          string
+	Withdraws     []WithdrawInfo
 }
 
 type BatchWithdraws struct {
