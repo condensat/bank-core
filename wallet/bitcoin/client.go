@@ -365,10 +365,8 @@ func fundRawTransactionWithCryptoMode(ctx context.Context, client *rpc.Client, c
 			client.Client,
 			hex,
 			commands.FundRawTransactionOptions{
-				IncludeWatching:        true,
-				ChangeAddress:          changeAddress,
-				ChangePosition:         0,
-				SubtractFeeFromOutputs: []int{0},
+				ChangeAddress:   changeAddress,
+				IncludeWatching: true,
 			},
 		)
 	default:
