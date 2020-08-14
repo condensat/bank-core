@@ -32,7 +32,7 @@ func SignTx(ctx context.Context, rpcClient RpcClient, chain, inputransaction str
 	for _, input := range inputs {
 		fingerprints = fmt.Sprintf("%s %s", fingerprints, input.Fingerprint)
 		paths = fmt.Sprintf("%s %s", paths, input.Path)
-		amounts = fmt.Sprintf("%s %f", amounts, utils.ToFixed(input.Amount, 8))
+		amounts = fmt.Sprintf("%s %.8f", amounts, utils.ToFixed(input.Amount, 8))
 	}
 	fingerprints = strings.Trim(fingerprints, " ")
 	paths = strings.Trim(paths, " ")
