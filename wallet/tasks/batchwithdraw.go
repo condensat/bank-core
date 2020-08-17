@@ -105,8 +105,9 @@ func processBatchWithdrawChain(ctx context.Context, network string) error {
 		}
 
 		bankAddress, err := handlers.CryptoAddressNewDeposit(ctx, common.CryptoAddress{
-			Chain:     batch.Network,
-			AccountID: batch.BankAccountID,
+			Chain:            batch.Network,
+			AccountID:        batch.BankAccountID,
+			IgnoreAccounting: true,
 		})
 		if err != nil {
 			log.WithError(err).

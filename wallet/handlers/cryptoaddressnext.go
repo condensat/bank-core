@@ -75,23 +75,24 @@ func CryptoAddressNextDeposit(ctx context.Context, address common.CryptoAddress)
 			return err
 		}
 
-		// return last unised address
+		// return last unused address
 		if len(addresses) > 0 {
 			addr := addresses[len(addresses)-1]
 
 			log.Debug("Found unused deposit address")
 
 			result = common.CryptoAddress{
-				CryptoAddressID: uint64(addr.ID),
-				Chain:           string(addr.Chain),
-				AccountID:       uint64(addr.AccountID),
-				PublicAddress:   string(addr.PublicAddress),
-				Unconfidential:  string(addr.Unconfidential),
+				CryptoAddressID:  uint64(addr.ID),
+				Chain:            string(addr.Chain),
+				AccountID:        uint64(addr.AccountID),
+				PublicAddress:    string(addr.PublicAddress),
+				Unconfidential:   string(addr.Unconfidential),
+				IgnoreAccounting: false,
 			}
 			return nil
 		}
 
-		addr, err := txNewCryptoAddress(ctx, db, chainHandler, chain, accountID)
+		addr, err := txNewCryptoAddress(ctx, db, chainHandler, chain, accountID, false)
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to txNewCryptoAddress")

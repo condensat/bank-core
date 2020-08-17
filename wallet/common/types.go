@@ -16,11 +16,12 @@ const (
 )
 
 type CryptoAddress struct {
-	CryptoAddressID uint64
-	Chain           string
-	AccountID       uint64
-	PublicAddress   string
-	Unconfidential  string
+	CryptoAddressID  uint64
+	Chain            string
+	AccountID        uint64
+	PublicAddress    string
+	Unconfidential   string
+	IgnoreAccounting bool
 }
 
 type SsmAddress struct {

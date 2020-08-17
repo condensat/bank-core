@@ -448,6 +448,9 @@ func fetchActiveAddresses(ctx context.Context, state chain.ChainState) ([]string
 	var result []string                 // addresses for rpc call
 	var addresses []model.CryptoAddress // addresses for operations update
 	for _, cryptoAddress := range allAddresses {
+		if cryptoAddress.IgnoreAccounting {
+			continue
+		}
 		address := string(cryptoAddress.PublicAddress)
 		if len(cryptoAddress.Unconfidential) != 0 {
 			// use unconfidential address for listunspent call
