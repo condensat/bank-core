@@ -19,7 +19,8 @@ type SsmPath struct {
 
 type SignTxInputs struct {
 	SsmPath
-	Amount float64
+	Amount          float64
+	ValueCommitment string
 }
 
 type SignTxResponse struct {
