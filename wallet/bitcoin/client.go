@@ -299,7 +299,7 @@ func (p *BitcoinClient) GetTransaction(ctx context.Context, txID string) (common
 	return convertTransactionInfo(tx), nil
 }
 
-func (p *BitcoinClient) SpendFunds(ctx context.Context, changeAddress string, inputs []common.UTXOInfo, outputs []common.SpendInfo, addressInfo common.GetAddressInfo) (common.SpendTx, error) {
+func (p *BitcoinClient) SpendFunds(ctx context.Context, changeAddress string, inputs []common.UTXOInfo, outputs []common.SpendInfo, addressInfo common.GetAddressInfo, blindTransaction bool) (common.SpendTx, error) {
 	log := logger.Logger(ctx).WithField("Method", "bitcoin.SpendFunds")
 
 	cryptoMode := common.CryptoModeFromContext(ctx)
@@ -329,15 +329,29 @@ func (p *BitcoinClient) SpendFunds(ctx context.Context, changeAddress string, in
 		return common.SpendTx{}, ErrRPCError
 	}
 
+	// blind transaction if required
+	txToSign := funded.Hex
+	if blindTransaction {
+		blinded, err := commands.BlindRawTransaction(ctx, client.Client, commands.Transaction(txToSign))
+		if err != nil {
+			log.WithError(err).
+				Error("BlindRawTransaction failed")
+			return common.SpendTx{}, ErrRPCError
+		}
+
+		txToSign = string(blinded)
+	}
+
 	// Sign transaction
-	signed, err := signRawTransactionWithCryptoMode(ctx, client.Client, cryptoMode, string(funded.Hex), addressInfo)
+	signed, err := signRawTransactionWithCryptoMode(ctx, client.Client, cryptoMode, txToSign, addressInfo)
 	if err != nil {
 		log.WithError(err).
-			Error("SignRawTransactionWithWallet failed")
+			WithField("TxToSign", txToSign).
+			Error("signRawTransactionWithCryptoMode failed")
 		return common.SpendTx{}, ErrRPCError
 	}
 	if !signed.Complete {
-		log.Error("SignRawTransactionWithWallet not Complete")
+		log.Error("signRawTransactionWithCryptoMode not Complete")
 		return common.SpendTx{}, ErrRPCError
 	}
 

@@ -385,7 +385,8 @@ func SpendFunds(ctx context.Context, chain string, changeAddress string, spendIn
 	}
 
 	// Create, Fund, Sign & Broadcast transaction
-	tx, err := client.SpendFunds(ctx, changeAddress, nil, spendInfos, getAddressInfoFromDatabase)
+	blindTransaction := blindTransactionFromChain(chain)
+	tx, err := client.SpendFunds(ctx, changeAddress, nil, spendInfos, getAddressInfoFromDatabase, blindTransaction)
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to SpendFunds")
@@ -421,4 +422,14 @@ func getAddressInfoFromDatabase(ctx context.Context, address string) (commands.S
 		Fingerprint: string(addressInfo.Fingerprint),
 		Path:        string(addressInfo.HDPath),
 	}, nil
+}
+
+func blindTransactionFromChain(chain string) bool {
+	switch chain {
+	case "liquid-mainnet":
+		return true
+
+	default:
+		return false
+	}
 }
