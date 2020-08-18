@@ -103,7 +103,12 @@ func main() {
 		return funded.Hex
 	}()
 
-	transaction, err := btcCommands.DecodeRawTransaction(ctx, btcClient, btcCommands.Transaction(txToSign))
+	rawTx, err := btcCommands.DecodeRawTransaction(ctx, btcClient, btcCommands.Transaction(txToSign))
+	if err != nil {
+		panic(err)
+	}
+
+	transaction, err := btcCommands.ConvertToRawTransactionBitcoin(rawTx)
 	if err != nil {
 		panic(err)
 	}
@@ -116,7 +121,11 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		tx, err := btcCommands.DecodeRawTransaction(ctx, btcClient, btcCommands.Transaction(txHex))
+		rawTxIn, err := btcCommands.DecodeRawTransaction(ctx, btcClient, btcCommands.Transaction(txHex))
+		if err != nil {
+			panic(err)
+		}
+		tx, err := btcCommands.ConvertToRawTransactionBitcoin(rawTxIn)
 		if err != nil {
 			panic(err)
 		}

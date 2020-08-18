@@ -40,7 +40,11 @@ func RawTransaction(ctx context.Context) {
 	}
 	log.Printf("CreateRawTransaction: %s\n", hex)
 
-	decoded, err := commands.DecodeRawTransaction(ctx, rpcClient, hex)
+	rawTx, err := commands.DecodeRawTransaction(ctx, rpcClient, hex)
+	if err != nil {
+		panic(err)
+	}
+	decoded, err := commands.ConvertToRawTransactionBitcoin(rawTx)
 	if err != nil {
 		panic(err)
 	}
@@ -52,7 +56,11 @@ func RawTransaction(ctx context.Context) {
 	}
 	log.Printf("FundRawTransaction: %+v\n", funded)
 
-	decoded, err = commands.DecodeRawTransaction(ctx, rpcClient, commands.Transaction(funded.Hex))
+	rawTx, err = commands.DecodeRawTransaction(ctx, rpcClient, commands.Transaction(funded.Hex))
+	if err != nil {
+		panic(err)
+	}
+	decoded, err = commands.ConvertToRawTransactionBitcoin(rawTx)
 	if err != nil {
 		panic(err)
 	}

@@ -343,7 +343,7 @@ func (p *BitcoinClient) SpendFunds(ctx context.Context, changeAddress string, in
 	}
 
 	// Sign transaction
-	signed, err := signRawTransactionWithCryptoMode(ctx, client.Client, cryptoMode, txToSign, addressInfo)
+	signed, err := signRawTransactionWithCryptoMode(ctx, client.Client, cryptoMode, txToSign, addressInfo, blindTransaction)
 	if err != nil {
 		log.WithError(err).
 			WithField("TxToSign", txToSign).
@@ -388,7 +388,7 @@ func fundRawTransactionWithCryptoMode(ctx context.Context, client *rpc.Client, c
 	}
 }
 
-func signRawTransactionWithCryptoMode(ctx context.Context, client jsonrpc.RPCClient, cryptoMode common.CryptoMode, txToSign string, addressInfo common.GetAddressInfo) (commands.SignedTransaction, error) {
+func signRawTransactionWithCryptoMode(ctx context.Context, client jsonrpc.RPCClient, cryptoMode common.CryptoMode, txToSign string, addressInfo common.GetAddressInfo, blindedTransaction bool) (commands.SignedTransaction, error) {
 	switch cryptoMode {
 	case common.CryptoModeCryptoSsm:
 		const device = "crypto-ssm"
@@ -400,49 +400,61 @@ func signRawTransactionWithCryptoMode(ctx context.Context, client jsonrpc.RPCCli
 		if addressInfo == nil {
 			return commands.SignedTransaction{}, errors.New("Invalid sign Callback")
 		}
-		transaction, err := commands.DecodeRawTransaction(ctx, client, commands.Transaction(txToSign))
+		rawTx, err := commands.DecodeRawTransaction(ctx, client, commands.Transaction(txToSign))
 		if err != nil {
 			return commands.SignedTransaction{}, errors.New("Failed to DecodeRawTransaction")
 		}
 
-		chain := ""
-		// grab inputs path & amouts
 		var inputs []ssmCommands.SignTxInputs
-		for _, in := range transaction.Vin {
-			txID := commands.TransactionID(in.Txid)
-			txHex, err := commands.GetRawTransaction(ctx, client, txID)
+		chain := ""
+		if !blindedTransaction {
+			transaction, err := commands.ConvertToRawTransactionBitcoin(rawTx)
 			if err != nil {
-				return commands.SignedTransaction{}, errors.New("Failed to GetRawTransaction")
+				return commands.SignedTransaction{}, errors.New("Failed to ConvertToRawTransactionBitcoin")
 			}
-			tx, err := commands.DecodeRawTransaction(ctx, client, commands.Transaction(txHex))
-			if err != nil {
-				return commands.SignedTransaction{}, errors.New("Failed to DecodeRawTransaction")
-			}
+			// grab inputs path & amouts
+			for _, in := range transaction.Vin {
+				txID := commands.TransactionID(in.Txid)
+				txHex, err := commands.GetRawTransaction(ctx, client, txID)
+				if err != nil {
+					return commands.SignedTransaction{}, errors.New("Failed to GetRawTransaction")
+				}
+				rawTxIn, err := commands.DecodeRawTransaction(ctx, client, commands.Transaction(txHex))
+				if err != nil {
+					return commands.SignedTransaction{}, errors.New("Failed to DecodeRawTransaction")
+				}
+				tx, err := commands.ConvertToRawTransactionBitcoin(rawTxIn)
+				if err != nil {
+					return commands.SignedTransaction{}, errors.New("Failed to ConvertToRawTransactionBitcoin")
+				}
 
-			// append input entry
-			out := tx.Vout[in.Vout]
-			amount := out.Value
-			address := out.ScriptPubKey.Addresses[0]
-			info, err := addressInfo(ctx, address)
-			if err != nil {
-				return commands.SignedTransaction{}, errors.New("Failed to get address info")
-			}
+				// append input entry
+				out := tx.Vout[in.Vout]
+				amount := out.Value
+				address := out.ScriptPubKey.Addresses[0]
+				info, err := addressInfo(ctx, address)
+				if err != nil {
+					return commands.SignedTransaction{}, errors.New("Failed to get address info")
+				}
 
-			// select chain from first input
-			if len(chain) == 0 {
-				chain = info.Chain
-			} else if info.Chain != chain {
-				return commands.SignedTransaction{}, errors.New("Chain missmatch")
-			}
+				// select chain from first input
+				if len(chain) == 0 {
+					chain = info.Chain
+				} else if info.Chain != chain {
+					return commands.SignedTransaction{}, errors.New("Chain missmatch")
+				}
 
-			inputs = append(inputs, ssmCommands.SignTxInputs{
-				SsmPath: ssmCommands.SsmPath{
-					Chain:       info.Chain,
-					Fingerprint: info.Fingerprint,
-					Path:        info.Path,
-				},
-				Amount: amount,
-			})
+				inputs = append(inputs, ssmCommands.SignTxInputs{
+					SsmPath: ssmCommands.SsmPath{
+						Chain:       info.Chain,
+						Fingerprint: info.Fingerprint,
+						Path:        info.Path,
+					},
+					Amount: amount,
+				})
+			}
+		} else {
+
 		}
 
 		if len(chain) == 0 {
@@ -501,10 +513,17 @@ func convertSpendInfo(inputs ...common.SpendInfo) []commands.SpendInfo {
 
 func getFundedPrivateKeys(ctx context.Context, client *rpc.Client, funded commands.FundedTransaction) ([]commands.Address, error) {
 	log := logger.Logger(ctx).WithField("Method", "bitcoin.getFundedPrivateKeys")
-	decoded, err := commands.DecodeRawTransaction(ctx, client.Client, commands.Transaction(funded.Hex))
+	rawTx, err := commands.DecodeRawTransaction(ctx, client.Client, commands.Transaction(funded.Hex))
 	if err != nil {
 		log.WithError(err).
 			Error("DecodeRawTransaction failed")
+		return nil, ErrRPCError
+	}
+
+	decoded, err := commands.ConvertToRawTransactionBitcoin(rawTx)
+	if err != nil {
+		log.WithError(err).
+			Error("ConvertToRawTransactionBitcoin failed")
 		return nil, ErrRPCError
 	}
 
