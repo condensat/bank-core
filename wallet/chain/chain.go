@@ -396,12 +396,24 @@ func SpendFunds(ctx context.Context, chain string, changeAddress string, spendIn
 	return tx, nil
 }
 
-func getAddressInfoFromDatabase(ctx context.Context, address string) (commands.SsmPath, error) {
+func getAddressInfoFromDatabase(ctx context.Context, address string, isUnconfidential bool) (commands.SsmPath, error) {
 	log := logger.Logger(ctx).WithField("Method", "wallet.chain.getAddressInfoFromDatabase")
 	db := appcontext.Database(ctx)
 
 	if len(address) == 0 {
 		return commands.SsmPath{}, errors.New("Invalid address")
+	}
+
+	if isUnconfidential {
+		cryptoAddress, err := database.GetCryptoAddressWithUnconfidential(db, model.String(address))
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to GetCryptoAddressWithUnconfidential")
+			return commands.SsmPath{}, err
+		}
+
+		// get public address for ssm database request
+		address = string(cryptoAddress.PublicAddress)
 	}
 
 	ssmAddress, err := database.GetSsmAddressByPublicAddress(db, model.SsmPublicAddress(address))

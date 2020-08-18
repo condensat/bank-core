@@ -432,7 +432,7 @@ func signRawTransactionWithCryptoMode(ctx context.Context, client jsonrpc.RPCCli
 				out := tx.Vout[in.Vout]
 				amount := out.Value
 				address := out.ScriptPubKey.Addresses[0]
-				info, err := addressInfo(ctx, address)
+				info, err := addressInfo(ctx, address, false)
 				if err != nil {
 					return commands.SignedTransaction{}, errors.New("Failed to get address info")
 				}
@@ -454,7 +454,51 @@ func signRawTransactionWithCryptoMode(ctx context.Context, client jsonrpc.RPCCli
 				})
 			}
 		} else {
+			transaction, err := commands.ConvertToRawTransactionLiquid(rawTx)
+			if err != nil {
+				return commands.SignedTransaction{}, errors.New("Failed to ConvertToRawTransactionLiquid")
+			}
+			// grab inputs path & amouts
+			for _, in := range transaction.Vin {
+				txID := commands.TransactionID(in.Txid)
+				txHex, err := commands.GetRawTransaction(ctx, client, txID)
+				if err != nil {
+					return commands.SignedTransaction{}, errors.New("Failed to GetRawTransaction")
+				}
+				rawTxIn, err := commands.DecodeRawTransaction(ctx, client, commands.Transaction(txHex))
+				if err != nil {
+					return commands.SignedTransaction{}, errors.New("Failed to DecodeRawTransaction")
+				}
+				tx, err := commands.ConvertToRawTransactionLiquid(rawTxIn)
+				if err != nil {
+					return commands.SignedTransaction{}, errors.New("Failed to ConvertToRawTransactionLiquid")
+				}
 
+				// append input entry
+				out := tx.Vout[in.Vout]
+				valueCommitment := out.Valuecommitment
+				address := out.ScriptPubKey.Addresses[0]
+				info, err := addressInfo(ctx, address, true)
+				if err != nil {
+					return commands.SignedTransaction{}, errors.New("Failed to get address info")
+				}
+
+				// select chain from first input
+				if len(chain) == 0 {
+					chain = info.Chain
+				} else if info.Chain != chain {
+					return commands.SignedTransaction{}, errors.New("Chain missmatch")
+				}
+
+				inputs = append(inputs, ssmCommands.SignTxInputs{
+					SsmPath: ssmCommands.SsmPath{
+						Chain:       info.Chain,
+						Fingerprint: info.Fingerprint,
+						Path:        info.Path,
+					},
+					ValueCommitment: valueCommitment,
+				})
+			}
 		}
 
 		if len(chain) == 0 {
