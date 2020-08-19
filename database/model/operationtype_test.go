@@ -120,12 +120,13 @@ func Test_knownOperationType(t *testing.T) {
 	knownEnums := []string{
 		"", //OperationTypeInvalid
 
-		"init",       // OperationTypeInit
-		"deposit",    // OperationTypeDeposit
-		"withdraw",   //OperationTypeWithdraw
-		"transfer",   // OperationTypeTransfer
-		"refund",     // OperationTypeRefund
-		"adjustment", // OperationTypeAdjustment
+		"init",         // OperationTypeInit
+		"deposit",      // OperationTypeDeposit
+		"withdraw",     // OperationTypeWithdraw
+		"transfer",     // OperationTypeTransfer
+		"transfer_fee", // OperationTypeTransferFee
+		"refund",       // OperationTypeRefund
+		"adjustment",   // OperationTypeAdjustment
 
 		"none",  // OperationTypeNone
 		"other", // OperationTypeOther
