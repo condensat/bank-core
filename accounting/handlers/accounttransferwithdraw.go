@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/condensat/bank-core"
@@ -91,7 +92,65 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 
 		referenceID := uint64(w.ID)
 
+		currency, err := database.GetCurrencyByName(db, model.CurrencyName(withdraw.Source.Currency))
+		if err != nil {
+			log.WithError(err).
+				Error("GetCurrencyByName failed")
+			return err
+		}
+
+		// get fee informations
+		isAsset := currency.IsCrypto() && currency.GetType() == 2
+		feeCurrencyName := getFeeCurrency(string(currency.Name), isAsset)
+		if feeCurrencyName != withdraw.Source.Currency {
+			return errors.New("Not Implemented")
+		}
+
+		feeBankAccountID, err := getBankWithdrawAccount(ctx, feeCurrencyName)
+		if err != nil {
+			log.WithError(err).
+				Error("Invalid Fee BankAccount")
+			return database.ErrInvalidAccountID
+		}
+
+		feeInfo, err := database.GetFeeInfo(db, model.CurrencyName(feeCurrencyName))
+		if err != nil {
+			log.WithError(err).
+				Error("GetFeeInfo failed")
+			return err
+		}
+		if !feeInfo.IsValid() {
+			log.Error("Invalid FeeInfo")
+			return errors.New("Invalid FeeInfo")
+		}
+
+		feeAmount := feeInfo.Compute(model.Float(amount))
+
+		// Transfert fees from account to bankAccount
+		// Todo: Move within current database transaction
+		result, err = AccountTransfer(ctx, common.AccountTransfer{
+			Source: withdraw.Source,
+			Destination: common.AccountEntry{
+				AccountID: uint64(feeBankAccountID),
+
+				OperationType:    string(model.OperationTypeTransferFee),
+				SynchroneousType: "sync",
+				ReferenceID:      referenceID,
+
+				Timestamp: time.Now(),
+				Amount:    float64(feeAmount),
+
+				Currency: feeCurrencyName,
+			},
+		})
+		if err != nil {
+			log.WithError(err).
+				Error("AccountTransfer fee failed")
+			return err
+		}
+
 		// Transfert amount from account to bank account
+		// Todo: Move within current database transaction
 		result, err = AccountTransfer(ctx, common.AccountTransfer{
 			Source: withdraw.Source,
 			Destination: common.AccountEntry{
@@ -191,4 +250,20 @@ func getBankWithdrawAccount(ctx context.Context, currency string) (model.Account
 	}
 
 	return account.ID, nil
+}
+
+func getFeeCurrency(currency string, isAsset bool) string {
+	if !isAsset {
+		return currency
+	}
+
+	switch currency {
+	case "USDt":
+		fallthrough
+	case "LCAD":
+		return currency
+
+	default:
+		return "LBTC"
+	}
 }
