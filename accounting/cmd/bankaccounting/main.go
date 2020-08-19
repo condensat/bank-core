@@ -58,6 +58,7 @@ func main() {
 	ctx = appcontext.WithDatabase(ctx, database.NewDatabase(args.Database))
 
 	migrateDatabase(ctx)
+	createDefaultFeeInfo(ctx)
 
 	bankUser := createBankAccounts(ctx, args.Accounting)
 
@@ -73,6 +74,49 @@ func migrateDatabase(ctx context.Context) {
 		logger.Logger(ctx).WithError(err).
 			WithField("Method", "main.migrateDatabase").
 			Panic("Failed to migrate accounting models")
+	}
+}
+
+func createDefaultFeeInfo(ctx context.Context) {
+	db := appcontext.Database(ctx)
+
+	defaultFeeInfo := []model.FeeInfo{
+		// Fiat
+		{Currency: "CHF", Minimum: 0.5, Rate: model.DefaultFeeRate},
+		{Currency: "EUR", Minimum: 0.5, Rate: model.DefaultFeeRate},
+
+		// Crypto
+		{Currency: "BTC", Minimum: 0.00001000, Rate: model.DefaultFeeRate},
+		{Currency: "LBTC", Minimum: 0.00001000, Rate: model.DefaultFeeRate},
+		{Currency: "TBTC", Minimum: 0.00001000, Rate: model.DefaultFeeRate},
+
+		// Liquid Asset with quote
+		{Currency: "USDt", Minimum: 0.5, Rate: model.DefaultFeeRate},
+		{Currency: "LCAD", Minimum: 0.5, Rate: model.DefaultFeeRate},
+	}
+
+	for _, feeInfo := range defaultFeeInfo {
+		// Check FeeInfo validity
+		if !feeInfo.IsValid() {
+			logger.Logger(ctx).
+				WithField("Method", "main.createDefaultFeeInfo").
+				WithField("FeeInfo", feeInfo).
+				Panic("Invalid default feeInfo")
+			continue
+		}
+		// Do not update feeInfo since it could have been updated since creation
+		if database.FeeInfoExists(db, feeInfo.Currency) {
+			continue
+		}
+		// create default FeeInfo
+		_, err := database.AddOrUpdateFeeInfo(db, feeInfo)
+		if err != nil {
+			logger.Logger(ctx).WithError(err).
+				WithField("Method", "main.createDefaultFeeInfo").
+				WithField("FeeInfo", "feeInfo").
+				Error("AddOrUpdateFeeInfo failed")
+			continue
+		}
 	}
 }
 
