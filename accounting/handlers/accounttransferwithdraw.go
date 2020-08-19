@@ -127,8 +127,7 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 		feeAmount := feeInfo.Compute(model.Float(amount))
 
 		// Transfert fees from account to bankAccount
-		// Todo: Move within current database transaction
-		result, err = AccountTransfer(ctx, common.AccountTransfer{
+		result, err = AccountTransferWithDatabase(ctx, db, common.AccountTransfer{
 			Source: withdraw.Source,
 			Destination: common.AccountEntry{
 				AccountID: uint64(feeBankAccountID),
@@ -150,8 +149,7 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 		}
 
 		// Transfert amount from account to bank account
-		// Todo: Move within current database transaction
-		result, err = AccountTransfer(ctx, common.AccountTransfer{
+		result, err = AccountTransferWithDatabase(ctx, db, common.AccountTransfer{
 			Source: withdraw.Source,
 			Destination: common.AccountEntry{
 				AccountID: uint64(bankAccountID),

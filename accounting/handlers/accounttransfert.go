@@ -22,6 +22,19 @@ import (
 )
 
 func AccountTransfer(ctx context.Context, transfer common.AccountTransfer) (common.AccountTransfer, error) {
+	db := appcontext.Database(ctx)
+
+	var result common.AccountTransfer
+	err := db.Transaction(func(db bank.Database) error {
+		var txErr error
+		result, txErr = AccountTransferWithDatabase(ctx, db, transfer)
+		return txErr
+	})
+
+	return result, err
+}
+
+func AccountTransferWithDatabase(ctx context.Context, db bank.Database, transfer common.AccountTransfer) (common.AccountTransfer, error) {
 	log := logger.Logger(ctx).WithField("Method", "accounting.AccountTransfer")
 
 	log = log.WithFields(logrus.Fields{
@@ -43,8 +56,6 @@ func AccountTransfer(ctx context.Context, transfer common.AccountTransfer) (comm
 			Error("Can not transfer within same account")
 		return common.AccountTransfer{}, database.ErrInvalidAccountOperation
 	}
-
-	db := appcontext.Database(ctx)
 
 	// check for currencies match
 	{
@@ -116,13 +127,13 @@ func AccountTransfer(ctx context.Context, transfer common.AccountTransfer) (comm
 	}
 
 	// Store operations
-	operations, err := database.AppendAccountOperationSlice(db,
+	operations, err := database.TxAppendAccountOperationSlice(db,
 		common.ConvertEntryToOperation(transfer.Source),
 		common.ConvertEntryToOperation(transfer.Destination),
 	)
 	if err != nil {
 		log.WithError(err).
-			Error("Failed to AppendAccountOperationSlice")
+			Error("Failed to TxAppendAccountOperationSlice")
 		return common.AccountTransfer{}, err
 	}
 
