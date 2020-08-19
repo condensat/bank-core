@@ -83,6 +83,7 @@ func WithdrawModel() []model.Model {
 		model.Model(new(model.WithdrawInfo)),
 		model.Model(new(model.WithdrawTarget)),
 		model.Model(new(model.Fee)),
+		model.Model(new(model.FeeInfo)),
 		model.Model(new(model.Batch)),
 		model.Model(new(model.BatchInfo)),
 		model.Model(new(model.BatchWithdraw)),
