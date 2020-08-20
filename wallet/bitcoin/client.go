@@ -575,11 +575,28 @@ func convertSpendInfo(inputs ...common.SpendInfo) ([]commands.SpendInfo, []comma
 			Amount:  input.Amount,
 		})
 
-		if len(input.Asset) > 0 {
+		if len(input.Asset.Hash) > 0 {
+			// do not create output if no change
+			if input.Asset.ChangeAmount > 0.0 {
+				result = append(result, commands.SpendInfo{
+					Address: input.Asset.ChangeAddress,
+					Amount:  input.Asset.ChangeAmount,
+				})
+			}
+
+			// Append output asset
 			assets = append(assets, commands.AssetInfo{
 				Address: input.PublicAddress,
-				Asset:   input.Asset,
+				Asset:   input.Asset.Hash,
 			})
+
+			// do not create output if no change
+			if input.Asset.ChangeAmount > 0.0 {
+				assets = append(assets, commands.AssetInfo{
+					Address: input.Asset.ChangeAddress,
+					Asset:   input.Asset.Hash,
+				})
+			}
 		}
 	}
 
