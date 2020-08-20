@@ -7,6 +7,7 @@ package chain
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"sort"
 
 	"github.com/condensat/bank-core/appcontext"
@@ -386,7 +387,53 @@ func SpendFunds(ctx context.Context, chain string, changeAddress string, spendIn
 
 	// Create, Fund, Sign & Broadcast transaction
 	blindTransaction := blindTransactionFromChain(chain)
-	tx, err := client.SpendFunds(ctx, changeAddress, nil, spendInfos, getAddressInfoFromDatabase, blindTransaction)
+	var inputs []common.UTXOInfo
+	if blindTransaction {
+
+		for i, spendInfo := range spendInfos {
+			if len(spendInfo.Asset.Hash) == 0 {
+				continue
+			}
+
+			transactions, err := client.ListUnspentByAsset(ctx, 0, 999999, spendInfo.Asset.Hash)
+			if err != nil {
+				log.WithError(err).
+					WithField("Asset", spendInfo.Asset.Hash).
+					Error("Failed to ListUnspentByAsset")
+				return common.SpendTx{}, err
+			}
+
+			// shuffle UTXO to spent
+			rand.Shuffle(len(transactions), func(i, j int) {
+				transactions[i], transactions[j] = transactions[j], transactions[i]
+			})
+
+			var totalAmount float64
+			for _, transaction := range transactions {
+				if transaction.Asset != spendInfo.Asset.Hash {
+					log.WithError(err).
+						WithField("Asset", spendInfo.Asset.Hash).
+						WithField("TransactionAsset", transaction.Asset).
+						Error("Asset Hash missmatch")
+					return common.SpendTx{}, err
+				}
+				totalAmount = utils.ToFixed(totalAmount+transaction.Amount, 8)
+
+				inputs = append(inputs, common.UTXOInfo{
+					TxID: transaction.TxID,
+					Vout: int(transaction.Vout),
+				})
+
+				if totalAmount >= spendInfo.Amount {
+					// update changeAmount
+					spendInfo.Asset.ChangeAmount = utils.ToFixed(totalAmount-spendInfo.Amount, 8)
+					spendInfos[i] = spendInfo
+					break
+				}
+			}
+		}
+	}
+	tx, err := client.SpendFunds(ctx, changeAddress, inputs, spendInfos, getAddressInfoFromDatabase, blindTransaction)
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to SpendFunds")
