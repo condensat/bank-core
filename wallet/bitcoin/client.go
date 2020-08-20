@@ -311,10 +311,10 @@ func (p *BitcoinClient) SpendFunds(ctx context.Context, changeAddress string, in
 	}
 
 	in := convertUTXOInfo(inputs...)
-	out := convertSpendInfo(outputs...)
+	out, assets := convertSpendInfo(outputs...)
 
 	// Create transaction with no input
-	hex, err := commands.CreateRawTransaction(ctx, client.Client, in, out)
+	hex, err := commands.CreateRawTransaction(ctx, client.Client, in, out, assets)
 	if err != nil {
 		log.WithError(err).
 			Error("GetTransaction failed")
@@ -543,16 +543,28 @@ func convertUTXOInfo(inputs ...common.UTXOInfo) []commands.UTXOInfo {
 	return result
 }
 
-func convertSpendInfo(inputs ...common.SpendInfo) []commands.SpendInfo {
+func convertSpendInfo(inputs ...common.SpendInfo) ([]commands.SpendInfo, []commands.AssetInfo) {
 	var result []commands.SpendInfo
+	var assets []commands.AssetInfo
 	for _, input := range inputs {
 		result = append(result, commands.SpendInfo{
 			Address: input.PublicAddress,
 			Amount:  input.Amount,
 		})
+
+		if len(input.Asset) > 0 {
+			assets = append(assets, commands.AssetInfo{
+				Address: input.PublicAddress,
+				Asset:   input.Asset,
+			})
+		}
 	}
 
-	return result
+	if len(assets) == 0 {
+		assets = nil
+	}
+
+	return result, assets
 }
 
 func getFundedPrivateKeys(ctx context.Context, client *rpc.Client, funded commands.FundedTransaction) ([]commands.Address, error) {

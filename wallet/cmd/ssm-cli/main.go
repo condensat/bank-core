@@ -85,7 +85,7 @@ func main() {
 	txToSign := func() string {
 		hex, err := btcCommands.CreateRawTransaction(ctx, btcClient, nil, []btcCommands.SpendInfo{
 			{Address: "tb1qhhhs805lnrp27g94et4w5ctszmdxwhy5e90gw9", Amount: 0.001},
-		})
+		}, nil)
 		if err != nil {
 			panic(err)
 		}

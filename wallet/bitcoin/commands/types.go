@@ -90,6 +90,11 @@ type SpendInfo struct {
 	Amount  float64
 }
 
+type AssetInfo struct {
+	Address string
+	Asset   string
+}
+
 type RawTransaction map[string]interface{}
 
 type RawTransactionBitcoin struct {

@@ -34,7 +34,7 @@ func RawTransaction(ctx context.Context) {
 
 	hex, err := commands.CreateRawTransaction(ctx, rpcClient, nil, []commands.SpendInfo{
 		{Address: "tb1qqjv0dec9vagycgwpchdkxsnapl9uy92dek4nau", Amount: 0.000003},
-	})
+	}, nil)
 	if err != nil {
 		panic(err)
 	}
