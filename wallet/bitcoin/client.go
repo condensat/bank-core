@@ -190,13 +190,6 @@ func (p *BitcoinClient) GetAddressInfo(ctx context.Context, address string) (com
 }
 
 func (p *BitcoinClient) ListUnspent(ctx context.Context, minConf, maxConf int, addresses ...string) ([]common.TransactionInfo, error) {
-	log := logger.Logger(ctx).WithField("Method", "bitcoin.ListUnspent")
-
-	client := p.client
-	if p.client == nil {
-		return nil, ErrInternalError
-	}
-
 	var filter []commands.Address
 	for _, addr := range addresses {
 		filter = append(filter, commands.Address(addr))
@@ -206,10 +199,36 @@ func (p *BitcoinClient) ListUnspent(ctx context.Context, minConf, maxConf int, a
 		minConf, maxConf = maxConf, minConf
 	}
 
-	list, err := commands.ListUnspentMinMaxAddresses(ctx, client.Client, minConf, maxConf, filter)
+	return p.listUnspent(ctx, minConf, maxConf, filter, "")
+}
+
+func (p *BitcoinClient) ListUnspentByAsset(ctx context.Context, minConf, maxConf int, asset string) ([]common.TransactionInfo, error) {
+	var filter []commands.Address
+
+	if minConf > maxConf {
+		minConf, maxConf = maxConf, minConf
+	}
+
+	return p.listUnspent(ctx, minConf, maxConf, filter, asset)
+}
+
+func (p *BitcoinClient) listUnspent(ctx context.Context, minConf, maxConf int, filter []commands.Address, asset string) ([]common.TransactionInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "bitcoin.listUnspent")
+	client := p.client
+	if p.client == nil {
+		return nil, ErrInternalError
+	}
+
+	list, err := commands.ListUnspentMinMaxAddressesAndOptions(ctx,
+		client.Client,
+		minConf, maxConf, filter,
+		commands.ListUnspentOption{
+			Asset: asset,
+		},
+	)
 	if err != nil {
 		log.WithError(err).
-			Error("ListUnspentMinMaxAddresses failed")
+			Error("ListUnspentMinMaxAddressesAndOptions failed")
 		return nil, ErrRPCError
 	}
 
