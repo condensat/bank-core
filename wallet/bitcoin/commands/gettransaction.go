@@ -11,9 +11,9 @@ import (
 
 type GenericJson map[string]interface{}
 
-func GetTransaction(ctx context.Context, rpcClient RpcClient, txID string) (TransactionInfo, error) {
+func GetTransaction(ctx context.Context, rpcClient RpcClient, txID string, watchOnly bool) (TransactionInfo, error) {
 	var obj GenericJson
-	err := callCommand(rpcClient, CmdGetTransaction, &obj, txID)
+	err := callCommand(rpcClient, CmdGetTransaction, &obj, txID, watchOnly)
 	if err != nil {
 		return TransactionInfo{}, err
 	}

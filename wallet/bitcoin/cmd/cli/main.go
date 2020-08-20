@@ -69,7 +69,7 @@ func RawTransaction(ctx context.Context) {
 	addressMap := make(map[commands.Address]commands.Address)
 	for _, in := range decoded.Vin {
 
-		txInfo, err := commands.GetTransaction(ctx, rpcClient, in.Txid)
+		txInfo, err := commands.GetTransaction(ctx, rpcClient, in.Txid, true)
 		if err != nil {
 			panic(err)
 		}
