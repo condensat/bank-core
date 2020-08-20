@@ -171,10 +171,36 @@ func processBatchWithdrawChain(ctx context.Context, network string) error {
 				return string(asset.Hash)
 			}()
 
+			var changeAddress string
+			if len(assetHash) > 0 {
+				// create new deposit address for asset change
+				cryptoAddress, err := handlers.CryptoAddressNewDeposit(ctx, common.CryptoAddress{
+					Chain:            batch.Network,
+					AccountID:        withdraw.AccountID,
+					IgnoreAccounting: true,
+				})
+				if err != nil {
+					log.WithError(err).
+						Error("Failed to CryptoAddressNewDeposit for asset")
+					return ErrProcessingBatchWithdraw
+				}
+				changeAddress = cryptoAddress.PublicAddress
+				if len(cryptoAddress.Unconfidential) != 0 {
+					changeAddress = cryptoAddress.Unconfidential
+				}
+				if len(changeAddress) == 0 {
+					log.Warn("Invalid withdraw asset changeAddress")
+					return ErrProcessingBatchWithdraw
+				}
+			}
+
 			spendInfo = append(spendInfo, common.SpendInfo{
 				PublicAddress: withdraw.PublicKey,
 				Amount:        withdraw.Amount,
-				Asset:         string(assetHash),
+				Asset: common.SpendAssetInfo{
+					Hash:          string(assetHash),
+					ChangeAddress: changeAddress,
+				},
 			})
 		}
 		spendTx, err := chain.SpendFunds(ctx, network, changeAddress, spendInfo)

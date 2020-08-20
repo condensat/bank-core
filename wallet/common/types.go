@@ -55,10 +55,17 @@ type UTXOInfo struct {
 	Vout int
 }
 
+type SpendAssetInfo struct {
+	Hash          string
+	ChangeAddress string
+	ChangeAmount  float64
+}
+
 type SpendInfo struct {
 	PublicAddress string
 	Amount        float64
-	Asset         string
+	// Asset optional
+	Asset SpendAssetInfo
 }
 
 type SpendTx struct {

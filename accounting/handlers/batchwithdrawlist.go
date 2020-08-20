@@ -106,6 +106,7 @@ func BatchWithdrawList(ctx context.Context, status, network string) (common.Batc
 				continue
 			}
 			batchWithdraw.Withdraws = append(batchWithdraw.Withdraws, common.WithdrawInfo{
+				AccountID: uint64(w.From),
 				Amount:    float64(*w.Amount),
 				PublicKey: data.PublicKey,
 			})
