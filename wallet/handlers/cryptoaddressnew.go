@@ -61,14 +61,7 @@ func CryptoAddressNewDeposit(ctx context.Context, address common.CryptoAddress) 
 			return err
 		}
 
-		result = common.CryptoAddress{
-			CryptoAddressID:  uint64(addr.ID),
-			Chain:            string(addr.Chain),
-			AccountID:        uint64(addr.AccountID),
-			PublicAddress:    string(addr.PublicAddress),
-			Unconfidential:   string(addr.Unconfidential),
-			IgnoreAccounting: addr.IgnoreAccounting,
-		}
+		result = convertCryptoAddress(addr)
 
 		return nil
 	})
