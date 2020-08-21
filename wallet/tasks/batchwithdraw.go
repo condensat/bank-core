@@ -184,10 +184,8 @@ func processBatchWithdrawChain(ctx context.Context, network string) error {
 						Error("Failed to CryptoAddressNewDeposit for asset")
 					return ErrProcessingBatchWithdraw
 				}
+				// changeAddress must be confidential
 				changeAddress = cryptoAddress.PublicAddress
-				if len(cryptoAddress.Unconfidential) != 0 {
-					changeAddress = cryptoAddress.Unconfidential
-				}
 				if len(changeAddress) == 0 {
 					log.Warn("Invalid withdraw asset changeAddress")
 					return ErrProcessingBatchWithdraw
