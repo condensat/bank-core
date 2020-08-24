@@ -500,6 +500,15 @@ func signRawTransactionWithCryptoMode(ctx context.Context, client jsonrpc.RPCCli
 				// append input entry
 				out := tx.Vout[in.Vout]
 				valueCommitment := out.Valuecommitment
+				var value float64
+				if len(valueCommitment) == 0 {
+					value = out.Value
+				}
+				// at least one of value and valueCommitment musr be valid
+				if len(valueCommitment) == 0 && value <= 0.0 {
+					return commands.SignedTransaction{}, errors.New("Invalid value or valueCommitment")
+				}
+
 				address := out.ScriptPubKey.Addresses[0]
 				info, err := addressInfo(ctx, address, true)
 				if err != nil {
@@ -520,6 +529,7 @@ func signRawTransactionWithCryptoMode(ctx context.Context, client jsonrpc.RPCCli
 						Path:        info.Path,
 					},
 					ValueCommitment: valueCommitment,
+					Amount:          value, // value is valid when valueCommitment is empty
 				})
 			}
 		}
