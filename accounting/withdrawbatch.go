@@ -194,7 +194,7 @@ func processWithdrawOnChainByNetwork(ctx context.Context, chain string, datas []
 	err = db.Transaction(func(db bank.Database) error {
 
 		var IDs []model.WithdrawID
-
+		withdrawPubkeyMap := make(map[model.WithdrawID]string)
 		for _, data := range datas {
 			// check if public key is valid
 			if len(data.Data.PublicKey) == 0 {
@@ -202,6 +202,10 @@ func processWithdrawOnChainByNetwork(ctx context.Context, chain string, datas []
 				canceled = append(canceled, data.Withdraw.ID)
 				continue
 			}
+
+			// store withdrawID publicKey
+			withdrawPubkeyMap[data.Withdraw.ID] = data.Data.PublicKey
+
 			// check if withdraw amount is valid
 			if data.Withdraw.Amount == nil || *data.Withdraw.Amount <= 0.0 {
 				log.Error("Invalid Withdraw Amount")
@@ -233,7 +237,7 @@ func processWithdrawOnChainByNetwork(ctx context.Context, chain string, datas []
 			}
 
 			// get capacity of current batch
-			count, capacity, err := batchWithdrawCount(db, batchInfo.BatchID)
+			count, capacity, withdrawIDs, err := batchWithdrawCount(db, batchInfo.BatchID)
 			if err != nil {
 				log.WithError(err).
 					Error("Failed to batchWithdrawCount")
@@ -244,6 +248,24 @@ func processWithdrawOnChainByNetwork(ctx context.Context, chain string, datas []
 				// seek to next batch
 				batchOffset++
 				continue
+			}
+
+			addressMap := make(map[string]model.WithdrawID)
+			for _, withdrawID := range withdrawIDs {
+				wt, err := database.GetWithdrawTargetByWithdrawID(db, withdrawID)
+				if err != nil {
+					log.WithError(err).
+						Error("GetWithdrawTargetByWithdrawID Failed")
+					return ErrProcessingWithdraw
+				}
+				data, err := wt.OnChainData()
+				if err != nil {
+					log.WithError(err).
+						Error("WithdrawTarget OnChainData Failed")
+					return ErrProcessingWithdraw
+				}
+				// mark address as used
+				addressMap[data.PublicKey] = withdrawID
 			}
 
 			// get all batch IDs
@@ -259,13 +281,28 @@ func processWithdrawOnChainByNetwork(ctx context.Context, chain string, datas []
 				}
 			}
 
-			// append batchIds to current batch
-			err = database.AddWithdrawToBatch(db, batchInfo.BatchID, batchIDs...)
-			if err != nil {
-				canceled = append(canceled, batchIDs...)
-				log.WithError(err).
-					Error("Failed to AddWithdrawToBatch")
-				return ErrProcessingWithdraw
+			// find & remove witdraw from batch with same PublicKey
+			batchCopy := make([]model.WithdrawID, len(batchIDs))
+			copy(batchCopy, batchIDs)
+			for i, batchID := range batchCopy {
+				pubKey := withdrawPubkeyMap[batchID]
+				if _, exists := addressMap[pubKey]; exists {
+					batchIDs = removeWithdraw(batchIDs, i)            // remove from current batch
+					IDs = append([]model.WithdrawID{batchID}, IDs...) // prepend for next batch
+					continue
+				}
+			}
+
+			// Add witdraws to batch
+			if len(batchIDs) > 0 {
+				// append batchIds to current batch
+				err = database.AddWithdrawToBatch(db, batchInfo.BatchID, batchIDs...)
+				if err != nil {
+					canceled = append(canceled, batchIDs...)
+					log.WithError(err).
+						Error("Failed to AddWithdrawToBatch")
+					return ErrProcessingWithdraw
+				}
 			}
 
 			if len(IDs) > 0 {
@@ -320,17 +357,17 @@ func findOrCreateBatchInfo(db bank.Database, chain string, batchOffset int) (mod
 	return batchInfo, nil
 }
 
-func batchWithdrawCount(db bank.Database, batchID model.BatchID) (int, int, error) {
+func batchWithdrawCount(db bank.Database, batchID model.BatchID) (int, int, []model.WithdrawID, error) {
 	batch, err := database.GetBatch(db, batchID)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, nil, err
 	}
 	withdraws, err := database.GetBatchWithdraws(db, batch.ID)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, nil, err
 	}
 
-	return len(withdraws), int(batch.Capacity), nil
+	return len(withdraws), int(batch.Capacity), withdraws, nil
 }
 
 func accountRefund(ctx context.Context, db bank.Database, transfer common.AccountTransfer) (common.AccountTransfer, error) {
@@ -442,4 +479,9 @@ func accountRefund(ctx context.Context, db bank.Database, transfer common.Accoun
 		Source:      common.ConvertOperationToEntry(source, "N/A"),
 		Destination: common.ConvertOperationToEntry(destination, "N/A"),
 	}, nil
+}
+
+func removeWithdraw(s []model.WithdrawID, i int) []model.WithdrawID {
+	s[i] = s[len(s)-1]
+	return s[:len(s)-1]
 }
