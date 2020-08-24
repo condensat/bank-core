@@ -390,15 +390,33 @@ func SpendFunds(ctx context.Context, chain string, changeAddress string, spendIn
 	var inputs []common.UTXOInfo
 	if blindTransaction {
 
+		// Sum up amounts for each assets
+		assetTotalSpend := make(map[string]float64)
+		for _, spendInfo := range spendInfos {
+			assetHash := spendInfo.Asset.Hash
+			if len(assetHash) == 0 {
+				continue
+			}
+			if _, exists := assetTotalSpend[assetHash]; !exists {
+				assetTotalSpend[assetHash] = 0.0
+			}
+
+			assetTotalSpend[assetHash] = utils.ToFixed(assetTotalSpend[assetHash]+spendInfo.Amount, 8)
+		}
+
+		// Compute change amount for asset
+		// only one spendInfo contain a ChangeAddress for each asset
 		for i, spendInfo := range spendInfos {
-			if len(spendInfo.Asset.Hash) == 0 {
+			changeAddress := spendInfo.Asset.ChangeAddress
+			if len(changeAddress) == 0 {
 				continue
 			}
 
-			transactions, err := client.ListUnspentByAsset(ctx, 0, 999999, spendInfo.Asset.Hash)
+			assetHash := spendInfo.Asset.Hash
+			transactions, err := client.ListUnspentByAsset(ctx, 0, 999999, assetHash)
 			if err != nil {
 				log.WithError(err).
-					WithField("Asset", spendInfo.Asset.Hash).
+					WithField("Asset", assetHash).
 					Error("Failed to ListUnspentByAsset")
 				return common.SpendTx{}, err
 			}
@@ -408,11 +426,12 @@ func SpendFunds(ctx context.Context, chain string, changeAddress string, spendIn
 				transactions[i], transactions[j] = transactions[j], transactions[i]
 			})
 
+			totalSpendAmount := assetTotalSpend[assetHash]
 			var totalAmount float64
 			for _, transaction := range transactions {
-				if transaction.Asset != spendInfo.Asset.Hash {
+				if transaction.Asset != assetHash {
 					log.WithError(err).
-						WithField("Asset", spendInfo.Asset.Hash).
+						WithField("Asset", assetHash).
 						WithField("TransactionAsset", transaction.Asset).
 						Error("Asset Hash missmatch")
 					return common.SpendTx{}, err
@@ -424,9 +443,9 @@ func SpendFunds(ctx context.Context, chain string, changeAddress string, spendIn
 					Vout: int(transaction.Vout),
 				})
 
-				if totalAmount >= spendInfo.Amount {
+				if totalAmount >= totalSpendAmount {
 					// update changeAmount
-					spendInfo.Asset.ChangeAmount = utils.ToFixed(totalAmount-spendInfo.Amount, 8)
+					spendInfo.Asset.ChangeAmount = utils.ToFixed(totalAmount-totalSpendAmount, 8)
 					spendInfos[i] = spendInfo
 					break
 				}
