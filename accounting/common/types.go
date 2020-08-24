@@ -15,6 +15,7 @@ type CurrencyType int
 type CurrencyInfo struct {
 	Name             string
 	DisplayName      string
+	DatabaseName     string
 	Available        bool
 	AutoCreate       bool
 	Crypto           bool
