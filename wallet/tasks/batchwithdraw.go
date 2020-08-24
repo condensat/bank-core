@@ -140,6 +140,7 @@ func processBatchWithdrawChain(ctx context.Context, network string) error {
 
 		// Resquest chain
 		var spendInfo []common.SpendInfo
+		assetMap := make(map[string]bool)
 		db := appcontext.Database(ctx)
 		for _, withdraw := range batch.Withdraws {
 			account, err := database.GetAccountByID(db, model.AccountID(withdraw.AccountID))
@@ -173,22 +174,35 @@ func processBatchWithdrawChain(ctx context.Context, network string) error {
 
 			var changeAddress string
 			if len(assetHash) > 0 {
-				// create new deposit address for asset change
-				cryptoAddress, err := handlers.CryptoAddressNewDeposit(ctx, common.CryptoAddress{
-					Chain:            batch.Network,
-					AccountID:        withdraw.AccountID,
-					IgnoreAccounting: true,
-				})
+				err = func() error {
+					// keep only one change per asset
+					if _, exists := assetMap[assetHash]; exists {
+						return nil
+					}
+					assetMap[assetHash] = true
+
+					// create new deposit address for asset change
+					cryptoAddress, err := handlers.CryptoAddressNewDeposit(ctx, common.CryptoAddress{
+						Chain:            batch.Network,
+						AccountID:        withdraw.AccountID,
+						IgnoreAccounting: true,
+					})
+					if err != nil {
+						log.WithError(err).
+							Error("Failed to CryptoAddressNewDeposit for asset")
+						return ErrProcessingBatchWithdraw
+					}
+					// changeAddress must be confidential
+					changeAddress = cryptoAddress.PublicAddress
+					if len(changeAddress) == 0 {
+						log.Warn("Invalid withdraw asset changeAddress")
+						return ErrProcessingBatchWithdraw
+					}
+
+					return nil
+				}()
 				if err != nil {
-					log.WithError(err).
-						Error("Failed to CryptoAddressNewDeposit for asset")
-					return ErrProcessingBatchWithdraw
-				}
-				// changeAddress must be confidential
-				changeAddress = cryptoAddress.PublicAddress
-				if len(changeAddress) == 0 {
-					log.Warn("Invalid withdraw asset changeAddress")
-					return ErrProcessingBatchWithdraw
+					return err
 				}
 			}
 
