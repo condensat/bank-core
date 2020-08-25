@@ -26,4 +26,5 @@ type SignTxInputs struct {
 type SignTxResponse struct {
 	Chain    string `json:"chain"`
 	SignedTx string `json:"signed_tx"`
+	Debug    string `json:"debug"`
 }

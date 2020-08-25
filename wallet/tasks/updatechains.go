@@ -59,6 +59,10 @@ func updateChain(ctx context.Context, epoch time.Time, state chain.ChainState) {
 	db := appcontext.Database(ctx)
 
 	list, addresses := fetchActiveAddresses(ctx, state)
+	if len(list) > 0 {
+		log.WithField("Addresses", list).
+			Trace("Active Addresses")
+	}
 
 	// Resquest chain
 	infos, err := chain.FetchChainAddressesInfo(ctx, state, AddressInfoMinConfirmation, AddressInfoMaxConfirmation, list...)
@@ -66,6 +70,10 @@ func updateChain(ctx context.Context, epoch time.Time, state chain.ChainState) {
 		log.WithError(err).
 			Error("Failed to FetchChainAddressesInfo")
 		return
+	}
+	if len(infos) > 0 {
+		log.WithField("Info", infos).
+			Trace("Chain Info")
 	}
 
 	// local map for lookup cryptoAddresses from PublicAddress

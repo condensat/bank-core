@@ -6,6 +6,7 @@ package commands
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -47,6 +48,22 @@ func SignTx(ctx context.Context, rpcClient RpcClient, chain, inputransaction str
 	if err != nil {
 		return SignTxResponse{}, err
 	}
+
+	type DebugSignTx struct {
+		Fingerprints string
+		Paths        string
+		Amounts      string
+	}
+
+	debug := DebugSignTx{
+		Fingerprints: fingerprints,
+		Paths:        paths,
+		Amounts:      amounts,
+	}
+
+	str, _ := json.Marshal(&debug)
+
+	signedTx.Debug = string(str)
 
 	return signedTx, nil
 }

@@ -319,6 +319,9 @@ func FetchChainAddressesInfo(ctx context.Context, state ChainState, minConf, max
 				Error("Failed to ListLockUnspent")
 			return nil, err
 		}
+		log.WithField("LockedUtxos", lockedUtxos).
+			Trace("ListLockUnspent")
+
 		for _, utxo := range lockedUtxos {
 			tx, err := client.GetTransaction(ctx, utxo.TxID)
 			if err != nil {
@@ -326,6 +329,9 @@ func FetchChainAddressesInfo(ctx context.Context, state ChainState, minConf, max
 					Error("Failed to GetTransaction")
 				return nil, err
 			}
+			log.WithField("Tx", tx).
+				Trace("Locked Tx")
+
 			list = append(list, tx)
 		}
 
@@ -421,6 +427,11 @@ func SpendFunds(ctx context.Context, chain string, changeAddress string, spendIn
 				return common.SpendTx{}, err
 			}
 
+			log.WithFields(logrus.Fields{
+				"AssetHash":    assetHash,
+				"Transactions": transactions,
+			}).Trace("UTXOs")
+
 			// shuffle UTXO to spent
 			rand.Shuffle(len(transactions), func(i, j int) {
 				transactions[i], transactions[j] = transactions[j], transactions[i]
@@ -431,9 +442,11 @@ func SpendFunds(ctx context.Context, chain string, changeAddress string, spendIn
 			for _, transaction := range transactions {
 				if transaction.Asset != assetHash {
 					log.WithError(err).
-						WithField("Asset", assetHash).
-						WithField("TransactionAsset", transaction.Asset).
-						Error("Asset Hash missmatch")
+						WithFields(logrus.Fields{
+							"Asset":            assetHash,
+							"TransactionAsset": transaction.Asset,
+						}).Error("Asset Hash missmatch")
+
 					return common.SpendTx{}, err
 				}
 				totalAmount = utils.ToFixed(totalAmount+transaction.Amount, 8)
@@ -447,11 +460,30 @@ func SpendFunds(ctx context.Context, chain string, changeAddress string, spendIn
 					// update changeAmount
 					spendInfo.Asset.ChangeAmount = utils.ToFixed(totalAmount-totalSpendAmount, 8)
 					spendInfos[i] = spendInfo
+					log.WithFields(logrus.Fields{
+						"SpendInfo":         spendInfo,
+						"TotalSpendAmount":  totalSpendAmount,
+						"ChangeAmount":      spendInfo.Asset.ChangeAmount,
+						"TransactionAmount": transaction.Amount,
+						"TotalAmount":       totalAmount,
+					}).Trace("ChangeAmount")
 					break
 				}
 			}
+
+			if totalAmount <= 0.0 {
+				log.WithFields(logrus.Fields{
+					"SpendInfo":   spendInfo,
+					"TotalAmount": totalAmount,
+				}).Warning("No change created")
+			}
 		}
 	}
+	log.WithFields(logrus.Fields{
+		"SpendInfos": spendInfos,
+		"Inputs":     inputs,
+	}).Trace("Spend Infos")
+
 	tx, err := client.SpendFunds(ctx, changeAddress, inputs, spendInfos, getAddressInfoFromDatabase, blindTransaction)
 	if err != nil {
 		log.WithError(err).
