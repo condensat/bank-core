@@ -25,14 +25,16 @@ import (
 )
 
 const (
-	SsmMaxUnusedAddress = 1000
-	SsmFillBatchSize    = 16
+	DefaultDerivationPrefix = "84h/0h"
+	SsmMaxUnusedAddress     = 1000
+	SsmFillBatchSize        = 16
 )
 
 type SsmInfo struct {
-	Device      string
-	Chain       string
-	Fingerprint string
+	Device           string
+	Chain            string
+	Fingerprint      string
+	DerivationPrefix string
 }
 
 // SsmPool
@@ -96,7 +98,11 @@ func SsmPool(ctx context.Context, epoch time.Time, infos []SsmInfo) {
 
 				// create new address for next path
 				// Todo: manage annual rotation for path
-				nextPath := fmt.Sprintf("84h/0h/%d", pathSequence)
+				derivationPrefix := info.DerivationPrefix
+				if len(derivationPrefix) == 0 {
+					derivationPrefix = DefaultDerivationPrefix
+				}
+				nextPath := fmt.Sprintf("%s/%d", derivationPrefix, pathSequence)
 
 				ssmAddress, err := ssm.NewAddress(ctx, commands.SsmPath{
 					Chain:       info.Chain,

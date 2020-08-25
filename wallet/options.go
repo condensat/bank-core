@@ -75,9 +75,10 @@ type SsmOption struct {
 }
 
 type SsmChain struct {
-	Device      string `json:"device"`
-	Chain       string `json:"chain"`
-	Fingerprint string `json:"fingerprint"`
+	Device           string `json:"device"`
+	Chain            string `json:"chain"`
+	Fingerprint      string `json:"fingerprint"`
+	DerivationPrefix string `json:"derivation_prefix"`
 }
 
 type SsmOptions struct {

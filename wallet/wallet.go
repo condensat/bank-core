@@ -147,9 +147,10 @@ func mainScheduler(ctx context.Context, chains []string, ssmOptions SsmOptions) 
 	var ssmInfo []tasks.SsmInfo
 	for _, chain := range ssmOptions.Ssm.Chains {
 		ssmInfo = append(ssmInfo, tasks.SsmInfo{
-			Device:      chain.Device,
-			Chain:       chain.Chain,
-			Fingerprint: chain.Fingerprint,
+			Device:           chain.Device,
+			Chain:            chain.Chain,
+			Fingerprint:      chain.Fingerprint,
+			DerivationPrefix: chain.DerivationPrefix,
 		})
 	}
 
