@@ -122,15 +122,47 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 		}
 
 		feeAmount := feeInfo.Compute(model.Float(amount))
+		feeUserAccount := withdraw.Source.AccountID
 		if feeCurrencyName != withdraw.Source.Currency {
 			// if fee is not in the same currency (ie asset without quote)
 			// take the minimum fee of the currency fee
 			feeAmount = feeInfo.Minimum
+
+			// get feeUserAccoiunt from user
+			userAccount, err := database.GetAccountByID(db, model.AccountID(withdraw.Source.AccountID))
+			if err != nil {
+				log.WithError(err).
+					Error("GetAccountByID failed")
+				return err
+			}
+			// get user account for currency fee
+			accounts, err := database.GetAccountsByUserAndCurrencyAndName(db, userAccount.UserID, model.CurrencyName(feeCurrencyName), database.AccountNameDefault)
+			if err != nil {
+				return errors.New("GetAccountsByUserAndCurrencyAndName failed")
+			}
+			if len(accounts) == 0 {
+				return database.ErrAccountNotFound
+			}
+			// use first default account
+			account := accounts[0]
+			feeUserAccount = uint64(account.ID)
 		}
 
 		// Transfert fees from account to bankAccount
+		timestamp := time.Now()
 		result, err = AccountTransferWithDatabase(ctx, db, common.AccountTransfer{
-			Source: withdraw.Source,
+			Source: common.AccountEntry{
+				AccountID: feeUserAccount,
+
+				OperationType:    string(model.OperationTypeTransferFee),
+				SynchroneousType: "sync",
+				ReferenceID:      referenceID,
+
+				Timestamp: timestamp,
+				Amount:    float64(-feeAmount),
+
+				Currency: feeCurrencyName,
+			},
 			Destination: common.AccountEntry{
 				AccountID: uint64(feeBankAccountID),
 
@@ -138,7 +170,7 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 				SynchroneousType: "sync",
 				ReferenceID:      referenceID,
 
-				Timestamp: time.Now(),
+				Timestamp: timestamp,
 				Amount:    float64(feeAmount),
 
 				Currency: feeCurrencyName,
