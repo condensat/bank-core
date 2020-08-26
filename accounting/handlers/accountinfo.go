@@ -166,3 +166,16 @@ func convertAssetAmount(amount float64, tickerPrecision int) float64 {
 
 	return utils.ToFixed(amount, tickerPrecision)
 }
+
+func convertAssetAmountToBitcoin(amount float64, tickerPrecision int) float64 {
+	if tickerPrecision < 0 {
+		return amount
+	}
+	const btcPrecision = 8
+	if tickerPrecision > btcPrecision {
+		tickerPrecision = btcPrecision
+	}
+	amount /= math.Pow(10.0, float64(btcPrecision-tickerPrecision))
+
+	return utils.ToFixed(amount, btcPrecision)
+}

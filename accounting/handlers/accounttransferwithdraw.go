@@ -29,6 +29,7 @@ const (
 
 func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransferWithdraw) (common.AccountTransfer, error) {
 	log := logger.Logger(ctx).WithField("Method", "accounting.AccountTransferWithdraw")
+	db := appcontext.Database(ctx)
 
 	bankAccountID, err := getBankWithdrawAccount(ctx, withdraw.Source.Currency)
 	if err != nil {
@@ -42,11 +43,44 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 		"Currency":      withdraw.Source.Currency,
 	})
 
-	amount := withdraw.Source.Amount
+	// get ticker precision to convert back in BTC precision (for RPC)
+	tickerPrecision := -1 // no ticker precison if not crypto
+	currency, err := database.GetCurrencyByName(db, model.CurrencyName(withdraw.Source.Currency))
+	if err != nil {
+		return common.AccountTransfer{}, err
+	}
+	asset, _ := database.GetAssetByCurrencyName(db, currency.Name)
 
+	isAsset := currency.IsCrypto() && currency.GetType() == 2 && asset.ID > 0
+	if currency.IsCrypto() {
+		tickerPrecision = 8 // BTC precision
+	}
+	if isAsset {
+		tickerPrecision = 0
+		if assetInfo, err := database.GetAssetInfo(db, asset.ID); err == nil {
+			tickerPrecision = int(assetInfo.Precision)
+		}
+
+		if currency.Name == "LBTC" {
+			tickerPrecision = 8 // BTC precision
+		}
+	}
+
+	// convert amount in BTC precision
+	amount := convertAssetAmountToBitcoin(withdraw.Source.Amount, tickerPrecision)
 	if amount <= 0.0 {
 		return common.AccountTransfer{}, database.ErrInvalidWithdrawAmount
 	}
+
+	log.WithFields(logrus.Fields{
+		"IsAsset":         isAsset,
+		"Asset":           asset,
+		"Currency":        withdraw.Source.Currency,
+		"CurrencyInfo":    currency,
+		"BitcoinAmount":   amount,
+		"TickerPrecision": tickerPrecision,
+		"AssetAmount":     withdraw.Source.Amount,
+	}).Debug("Asset to Bitcoin precision")
 
 	batchMode := model.BatchModeNormal
 	if len(withdraw.BatchMode) > 0 {
@@ -55,7 +89,6 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 
 	var result common.AccountTransfer
 	// Database Query
-	db := appcontext.Database(ctx)
 	err = db.Transaction(func(db bank.Database) error {
 
 		// Create Witdraw for batch
