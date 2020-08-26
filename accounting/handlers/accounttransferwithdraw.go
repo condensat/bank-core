@@ -102,9 +102,6 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 		// get fee informations
 		isAsset := currency.IsCrypto() && currency.GetType() == 2
 		feeCurrencyName := getFeeCurrency(string(currency.Name), isAsset)
-		if feeCurrencyName != withdraw.Source.Currency {
-			return errors.New("Not Implemented")
-		}
 
 		feeBankAccountID, err := getBankWithdrawAccount(ctx, feeCurrencyName)
 		if err != nil {
@@ -125,6 +122,11 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 		}
 
 		feeAmount := feeInfo.Compute(model.Float(amount))
+		if feeCurrencyName != withdraw.Source.Currency {
+			// if fee is not in the same currency (ie asset without quote)
+			// take the minimum fee of the currency fee
+			feeAmount = feeInfo.Minimum
+		}
 
 		// Transfert fees from account to bankAccount
 		result, err = AccountTransferWithDatabase(ctx, db, common.AccountTransfer{
