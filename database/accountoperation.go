@@ -50,6 +50,21 @@ func AppendAccountOperationSlice(db bank.Database, operations ...model.AccountOp
 		return nil, ErrInvalidDatabase
 	}
 
+	var result []model.AccountOperation
+	err := db.Transaction(func(db bank.Database) error {
+		var txErr error
+		result, txErr = TxAppendAccountOperationSlice(db, operations...)
+		return txErr
+	})
+
+	return result, err
+}
+
+func TxAppendAccountOperationSlice(db bank.Database, operations ...model.AccountOperation) ([]model.AccountOperation, error) {
+	if db == nil {
+		return nil, ErrInvalidDatabase
+	}
+
 	// pre-check all operations
 	for _, operation := range operations {
 		// check for valid accountID
@@ -67,9 +82,9 @@ func AppendAccountOperationSlice(db bank.Database, operations ...model.AccountOp
 		}
 	}
 
-	// within a db transaction
+	// already within a db transaction
 	var result []model.AccountOperation
-	err := db.Transaction(func(db bank.Database) error {
+	err := func(db bank.Database) error {
 
 		// append all operations in same transaction
 		// returning error will cause rollback
@@ -82,7 +97,7 @@ func AppendAccountOperationSlice(db bank.Database, operations ...model.AccountOp
 		}
 
 		return nil
-	})
+	}(db)
 
 	// return result with error
 	return result, err
