@@ -34,13 +34,17 @@ func RawTransaction(ctx context.Context) {
 
 	hex, err := commands.CreateRawTransaction(ctx, rpcClient, nil, []commands.SpendInfo{
 		{Address: "tb1qqjv0dec9vagycgwpchdkxsnapl9uy92dek4nau", Amount: 0.000003},
-	})
+	}, nil)
 	if err != nil {
 		panic(err)
 	}
 	log.Printf("CreateRawTransaction: %s\n", hex)
 
-	decoded, err := commands.DecodeRawTransaction(ctx, rpcClient, hex)
+	rawTx, err := commands.DecodeRawTransaction(ctx, rpcClient, hex)
+	if err != nil {
+		panic(err)
+	}
+	decoded, err := commands.ConvertToRawTransactionBitcoin(rawTx)
 	if err != nil {
 		panic(err)
 	}
@@ -52,7 +56,11 @@ func RawTransaction(ctx context.Context) {
 	}
 	log.Printf("FundRawTransaction: %+v\n", funded)
 
-	decoded, err = commands.DecodeRawTransaction(ctx, rpcClient, commands.Transaction(funded.Hex))
+	rawTx, err = commands.DecodeRawTransaction(ctx, rpcClient, commands.Transaction(funded.Hex))
+	if err != nil {
+		panic(err)
+	}
+	decoded, err = commands.ConvertToRawTransactionBitcoin(rawTx)
 	if err != nil {
 		panic(err)
 	}
@@ -61,7 +69,7 @@ func RawTransaction(ctx context.Context) {
 	addressMap := make(map[commands.Address]commands.Address)
 	for _, in := range decoded.Vin {
 
-		txInfo, err := commands.GetTransaction(ctx, rpcClient, in.Txid)
+		txInfo, err := commands.GetTransaction(ctx, rpcClient, in.Txid, true)
 		if err != nil {
 			panic(err)
 		}

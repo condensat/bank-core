@@ -278,12 +278,13 @@ func ScopeFirstBlockIDAfter(blockID model.BlockID) func(db *gorm.DB) *gorm.DB {
 }
 
 const (
-	colAccountID      = "account_id"
-	colPublicAddress  = "public_address"
-	colUnconfidential = "unconfidential"
-	colChain          = "chain"
-	colCreationDate   = "creation_date"
-	colFirstBlockID   = "first_block_id"
+	colAccountID        = "account_id"
+	colPublicAddress    = "public_address"
+	colUnconfidential   = "unconfidential"
+	colChain            = "chain"
+	colCreationDate     = "creation_date"
+	colFirstBlockID     = "first_block_id"
+	colIgnoreAccounting = "ignore_accounting"
 )
 
 func cryptoAddressColumnNames() []string {
@@ -295,6 +296,7 @@ func cryptoAddressColumnNames() []string {
 		colChain,
 		colCreationDate,
 		colFirstBlockID,
+		colIgnoreAccounting,
 	}
 }
 

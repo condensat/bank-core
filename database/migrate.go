@@ -47,6 +47,14 @@ func CryptoAddressModel() []model.Model {
 	}
 }
 
+func SsmAddressModel() []model.Model {
+	return []model.Model{
+		model.Model(new(model.SsmAddress)),
+		model.Model(new(model.SsmAddressInfo)),
+		model.Model(new(model.SsmAddressState)),
+	}
+}
+
 func OperationInfoModel() []model.Model {
 	return append(CryptoAddressModel(), []model.Model{
 		model.Model(new(model.OperationInfo)),

@@ -5,7 +5,10 @@
 package commands
 
 type Address string
+type PubKey string
+type BlindingKey string
 type Transaction string
+type TransactionID string
 
 type TransactionInfo struct {
 	// Bitcoin
@@ -70,10 +73,6 @@ type AddressInfo struct {
 	HdKeyPath           string `json:"hdkeypath"`
 	HdSeedID            string `json:"hdseedid"`
 	HdMasterfingerprint string `json:"hdmasterfingerprint"`
-	Labels              []struct {
-		Name    string `json:"name"`
-		Purpose string `json:"purpose"`
-	} `json:"labels"`
 
 	// Liquid Specific
 	Confidential    string `json:"confidential"`
@@ -91,7 +90,14 @@ type SpendInfo struct {
 	Amount  float64
 }
 
-type RawTransaction struct {
+type AssetInfo struct {
+	Address string
+	Asset   string
+}
+
+type RawTransaction map[string]interface{}
+
+type RawTransactionBitcoin struct {
 	Hash     string `json:"hash"`
 	Locktime int    `json:"locktime"`
 	Size     int    `json:"size"`
@@ -119,6 +125,57 @@ type RawTransaction struct {
 	} `json:"vout"`
 	Vsize  int `json:"vsize"`
 	Weight int `json:"weight"`
+}
+
+type RawTransactionLiquid struct {
+	Txid     string `json:"txid"`
+	Hash     string `json:"hash"`
+	Wtxid    string `json:"wtxid"`
+	Withash  string `json:"withash"`
+	Version  int    `json:"version"`
+	Size     int    `json:"size"`
+	Vsize    int    `json:"vsize"`
+	Weight   int    `json:"weight"`
+	Locktime int    `json:"locktime"`
+	Vin      []struct {
+		Txid      string `json:"txid"`
+		Vout      int    `json:"vout"`
+		ScriptSig struct {
+			Asm string `json:"asm"`
+			Hex string `json:"hex"`
+		} `json:"scriptSig"`
+		IsPegin     bool     `json:"is_pegin"`
+		Sequence    int64    `json:"sequence"`
+		Txinwitness []string `json:"txinwitness"`
+	} `json:"vin"`
+	Vout []struct {
+		ValueMinimum              float64 `json:"value-minimum,omitempty"`
+		ValueMaximum              float64 `json:"value-maximum,omitempty"`
+		CtExponent                int     `json:"ct-exponent,omitempty"`
+		CtBits                    int     `json:"ct-bits,omitempty"`
+		Surjectionproof           string  `json:"surjectionproof,omitempty"`
+		Valuecommitment           string  `json:"valuecommitment,omitempty"`
+		Assetcommitment           string  `json:"assetcommitment,omitempty"`
+		Commitmentnonce           string  `json:"commitmentnonce"`
+		CommitmentnonceFullyValid bool    `json:"commitmentnonce_fully_valid"`
+		N                         int     `json:"n"`
+		ScriptPubKey              struct {
+			Asm       string   `json:"asm"`
+			Hex       string   `json:"hex"`
+			ReqSigs   int      `json:"reqSigs"`
+			Type      string   `json:"type"`
+			Addresses []string `json:"addresses"`
+		} `json:"scriptPubKey,omitempty"`
+		Value float64 `json:"value,omitempty"`
+		Asset string  `json:"asset,omitempty"`
+	} `json:"vout"`
+}
+
+type FundRawTransactionOptions struct {
+	ChangeAddress          string `json:"changeAddress"`
+	IncludeWatching        bool   `json:"includeWatching,omitempty"`
+	ChangePosition         int    `json:"changePosition,omitempty"`
+	SubtractFeeFromOutputs []int  `json:"subtractFeeFromOutputs,omitempty"`
 }
 
 type FundedTransaction struct {

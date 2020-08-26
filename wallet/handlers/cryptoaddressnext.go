@@ -56,6 +56,11 @@ func CryptoAddressNextDeposit(ctx context.Context, address common.CryptoAddress)
 		return result, ErrInvalidAccountID
 	}
 
+	log = log.WithFields(logrus.Fields{
+		"Chain":     address.Chain,
+		"AccountID": address.AccountID,
+	})
+
 	// Database Query
 	db := appcontext.Database(ctx)
 	err := db.Transaction(func(db bank.Database) error {
@@ -70,36 +75,31 @@ func CryptoAddressNextDeposit(ctx context.Context, address common.CryptoAddress)
 			return err
 		}
 
-		// return last unised address
-		if len(addresses) > 0 {
-			addr := addresses[len(addresses)-1]
+		// reverse order
+		for left, right := 0, len(addresses)-1; left < right; left, right = left+1, right-1 {
+			addresses[left], addresses[right] = addresses[right], addresses[left]
+		}
+		// find last unused address without IgnoreAccounting
+		for _, addr := range addresses {
+			// skip IgnoreAccounting
+			if addr.IgnoreAccounting {
+				continue
+			}
 
 			log.Debug("Found unused deposit address")
 
-			result = common.CryptoAddress{
-				CryptoAddressID: uint64(addr.ID),
-				Chain:           string(addr.Chain),
-				AccountID:       uint64(addr.AccountID),
-				PublicAddress:   string(addr.PublicAddress),
-				Unconfidential:  string(addr.Unconfidential),
-			}
+			result = convertCryptoAddress(addr)
 			return nil
 		}
 
-		addr, err := txNewCryptoAddress(ctx, db, chainHandler, chain, accountID)
+		addr, err := txNewCryptoAddress(ctx, db, chainHandler, chain, accountID, false)
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to txNewCryptoAddress")
 			return err
 		}
 
-		result = common.CryptoAddress{
-			CryptoAddressID: uint64(addr.ID),
-			Chain:           string(addr.Chain),
-			AccountID:       uint64(addr.AccountID),
-			PublicAddress:   string(addr.PublicAddress),
-			Unconfidential:  string(addr.Unconfidential),
-		}
+		result = convertCryptoAddress(addr)
 
 		return nil
 	})
@@ -154,4 +154,14 @@ func genAccountLabelFromAccountID(accountID model.AccountID) string {
 	// create account label from accountID
 	accountHash := fmt.Sprintf("bank.account:%d", accountID)
 	return base58.Encode([]byte(accountHash), base58.BitcoinAlphabet)
+}
+
+func convertCryptoAddress(addr model.CryptoAddress) common.CryptoAddress {
+	return common.CryptoAddress{
+		CryptoAddressID: uint64(addr.ID),
+		Chain:           string(addr.Chain),
+		AccountID:       uint64(addr.AccountID),
+		PublicAddress:   string(addr.PublicAddress),
+		Unconfidential:  string(addr.Unconfidential),
+	}
 }

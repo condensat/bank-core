@@ -241,7 +241,12 @@ func (p *WalletService) SendFunds(r *http.Request, request *WalletSendFundsReque
 		return ErrInvalidPublicAddress
 	}
 
-	withdrawID, err := accounting.AccountTransferWithdrawCrypto(ctx, account.AccountID, account.Currency.Name, request.Amount, "normal", "Api SendFunds", chain, request.PublicAddress)
+	log.WithFields(logrus.Fields{
+		"Account": account,
+		"Address": addr,
+	}).Debug("Account and address infos")
+
+	withdrawID, err := accounting.AccountTransferWithdrawCrypto(ctx, account.AccountID, account.Currency.DatabaseName, request.Amount, "normal", "Api SendFunds", chain, request.PublicAddress)
 	if err != nil {
 		log.WithError(err).
 			Error("AccountTransferWithdrawCrypto Failed")

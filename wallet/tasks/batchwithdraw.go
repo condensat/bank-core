@@ -10,8 +10,12 @@ import (
 	"time"
 
 	accounting "github.com/condensat/bank-core/accounting/client"
+	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/database"
+	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/wallet/chain"
 	"github.com/condensat/bank-core/wallet/common"
+	"github.com/condensat/bank-core/wallet/handlers"
 
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
@@ -88,6 +92,10 @@ func processBatchWithdrawChain(ctx context.Context, network string) error {
 			log.Warn("Invalid Batch Network")
 			continue
 		}
+		if batch.BankAccountID == 0 {
+			log.Warn("Invalid BankAccountID")
+			continue
+		}
 		if len(batch.Withdraws) == 0 {
 			log.Warn("Empty Batch withdraws")
 			continue
@@ -97,26 +105,117 @@ func processBatchWithdrawChain(ctx context.Context, network string) error {
 				log.Warn("Batch status is not ready")
 				continue
 			}
-
 		}
 
-		log.
+		bankAddress, err := handlers.CryptoAddressNewDeposit(ctx, common.CryptoAddress{
+			Chain:            batch.Network,
+			AccountID:        batch.BankAccountID,
+			IgnoreAccounting: true,
+		})
+		if err != nil {
+			log.WithError(err).
+				Error("Failed to CryptoAddressNewDeposit")
+			return ErrProcessingBatchWithdraw
+		}
+		changeAddress := bankAddress.PublicAddress
+		if len(bankAddress.Unconfidential) != 0 {
+			changeAddress = bankAddress.Unconfidential
+		}
+		if len(changeAddress) == 0 {
+			log.Warn("Invalid batch changeAddress")
+			continue
+		}
+
+		log = log.
 			WithFields(logrus.Fields{
-				"BatchID": batch.BatchID,
-				"Network": batch.Network,
-				"Status":  batch.Status,
-				"Count":   len(batch.Withdraws),
-			}).Debug("Processing Batch")
+				"BatchID":       batch.BatchID,
+				"Network":       batch.Network,
+				"Status":        batch.Status,
+				"Count":         len(batch.Withdraws),
+				"BankAccountID": batch.BankAccountID,
+				"ChangeAddress": changeAddress,
+			})
+
+		log.Debug("Processing Batch")
 
 		// Resquest chain
 		var spendInfo []common.SpendInfo
+		assetMap := make(map[string]bool)
+		db := appcontext.Database(ctx)
 		for _, withdraw := range batch.Withdraws {
+			account, err := database.GetAccountByID(db, model.AccountID(withdraw.AccountID))
+			if err != nil {
+				log.WithError(err).
+					WithField("AccountID", withdraw.AccountID).
+					Error("GetAccountByID Failed")
+				continue
+			}
+
+			currency, _ := database.GetCurrencyByName(db, account.CurrencyName)
+			if err != nil {
+				log.WithError(err).
+					WithField("CurrencyName", account.CurrencyName).
+					Error("GetCurrencyByName Failed")
+				continue
+			}
+
+			// get asset hash for crypt assets only
+			assetHash := func() string {
+				asset, _ := database.GetAssetByCurrencyName(db, currency.Name)
+				isAsset := currency.IsCrypto() && currency.GetType() == 2 && asset.ID > 0
+				if !isAsset {
+					return ""
+				}
+				if asset.CurrencyName == "LBTC" {
+					return ""
+				}
+				return string(asset.Hash)
+			}()
+
+			var changeAddress string
+			if len(assetHash) > 0 {
+				err = func() error {
+					// keep only one change per asset
+					if _, exists := assetMap[assetHash]; exists {
+						return nil
+					}
+					assetMap[assetHash] = true
+
+					// create new deposit address for asset change
+					cryptoAddress, err := handlers.CryptoAddressNewDeposit(ctx, common.CryptoAddress{
+						Chain:            batch.Network,
+						AccountID:        withdraw.AccountID,
+						IgnoreAccounting: true,
+					})
+					if err != nil {
+						log.WithError(err).
+							Error("Failed to CryptoAddressNewDeposit for asset")
+						return ErrProcessingBatchWithdraw
+					}
+					// changeAddress must be confidential
+					changeAddress = cryptoAddress.PublicAddress
+					if len(changeAddress) == 0 {
+						log.Warn("Invalid withdraw asset changeAddress")
+						return ErrProcessingBatchWithdraw
+					}
+
+					return nil
+				}()
+				if err != nil {
+					return err
+				}
+			}
+
 			spendInfo = append(spendInfo, common.SpendInfo{
 				PublicAddress: withdraw.PublicKey,
 				Amount:        withdraw.Amount,
+				Asset: common.SpendAssetInfo{
+					Hash:          string(assetHash),
+					ChangeAddress: changeAddress,
+				},
 			})
 		}
-		spendTx, err := chain.SpendFunds(ctx, network, spendInfo)
+		spendTx, err := chain.SpendFunds(ctx, network, changeAddress, spendInfo)
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to SpendFunds")
@@ -131,11 +230,8 @@ func processBatchWithdrawChain(ctx context.Context, network string) error {
 			continue
 		}
 
-		log.WithFields(logrus.Fields{
-			"Network": network,
-			"BatchID": batch.BatchID,
-			"Status":  batchStatus.Status,
-		}).Info("Batch updated")
+		log.WithField("NewStatus", batchStatus.Status).
+			Info("Batch updated")
 	}
 	return nil
 }

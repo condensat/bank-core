@@ -52,10 +52,12 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 		batchMode = model.BatchMode(withdraw.BatchMode)
 	}
 
-	var referenceID uint64
+	var result common.AccountTransfer
 	// Database Query
 	db := appcontext.Database(ctx)
 	err = db.Transaction(func(db bank.Database) error {
+
+		// Create Witdraw for batch
 		w, err := database.AddWithdraw(db,
 			model.AccountID(withdraw.Source.AccountID),
 			model.AccountID(bankAccountID),
@@ -87,36 +89,39 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 			return err
 		}
 
-		referenceID = uint64(w.ID)
+		referenceID := uint64(w.ID)
+
+		// Transfert amount from account to bank account
+		result, err = AccountTransfer(ctx, common.AccountTransfer{
+			Source: withdraw.Source,
+			Destination: common.AccountEntry{
+				AccountID: uint64(bankAccountID),
+
+				OperationType:    withdraw.Source.OperationType,
+				SynchroneousType: "async-start",
+				ReferenceID:      referenceID,
+
+				Timestamp: time.Now(),
+				Amount:    amount,
+
+				Label: withdraw.Source.Label,
+
+				LockAmount: amount,
+				Currency:   withdraw.Source.Currency,
+			},
+		})
+		if err != nil {
+			log.WithError(err).
+				Error("AccountTransfer failed")
+			return err
+		}
+
+		log.Debug("AccountWithdraw created")
 
 		return nil
 	})
-
 	if err != nil {
 		return common.AccountTransfer{}, err
-	}
-
-	result, err := AccountTransfer(ctx, common.AccountTransfer{
-		Source: withdraw.Source,
-		Destination: common.AccountEntry{
-			AccountID: uint64(bankAccountID),
-
-			OperationType:    withdraw.Source.OperationType,
-			SynchroneousType: "async-start",
-			ReferenceID:      referenceID,
-
-			Timestamp: time.Now(),
-			Amount:    amount,
-
-			Label: withdraw.Source.Label,
-
-			LockAmount: amount,
-			Currency:   withdraw.Source.Currency,
-		},
-	})
-
-	if err == nil {
-		log.Debug("AccountWithdraw created")
 	}
 
 	return result, err

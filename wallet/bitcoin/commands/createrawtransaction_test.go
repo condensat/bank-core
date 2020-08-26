@@ -48,7 +48,7 @@ func TestCreateRawTransaction(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := CreateRawTransaction(tt.args.ctx, tt.args.rpcClient, tt.args.inputs, tt.args.outputs)
+			got, err := CreateRawTransaction(tt.args.ctx, tt.args.rpcClient, tt.args.inputs, tt.args.outputs, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateRawTransaction() error = %v, wantErr %v", err, tt.wantErr)
 				return

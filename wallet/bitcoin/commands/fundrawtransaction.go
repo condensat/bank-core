@@ -16,3 +16,12 @@ func FundRawTransaction(ctx context.Context, rpcClient RpcClient, hex Transactio
 	}
 	return result, nil
 }
+
+func FundRawTransactionWithOptions(ctx context.Context, rpcClient RpcClient, hex Transaction, options FundRawTransactionOptions) (FundedTransaction, error) {
+	var result FundedTransaction
+	err := callCommand(rpcClient, CmdFundRawTransaction, &result, hex, &options)
+	if err != nil {
+		return FundedTransaction{}, err
+	}
+	return result, nil
+}

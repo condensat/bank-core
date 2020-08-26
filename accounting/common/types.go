@@ -15,6 +15,7 @@ type CurrencyType int
 type CurrencyInfo struct {
 	Name             string
 	DisplayName      string
+	DatabaseName     string
 	Available        bool
 	AutoCreate       bool
 	Crypto           bool
@@ -110,11 +111,12 @@ type UserWithdraws struct {
 }
 
 type BatchWithdraw struct {
-	BatchID   uint64
-	Network   string
-	Status    string
-	TxID      string
-	Withdraws []WithdrawInfo
+	BatchID       uint64
+	BankAccountID uint64
+	Network       string
+	Status        string
+	TxID          string
+	Withdraws     []WithdrawInfo
 }
 
 type BatchWithdraws struct {
