@@ -14,11 +14,10 @@ type AccountOperationID ID
 // AccountOperation model
 type AccountOperation struct {
 	ID        AccountOperationID `gorm:"primary_key;unique_index:idx_id_previd;"` // [PK] AccountOperation
-	PrevID    AccountOperationID `gorm:"unique_index:idx_id_previd;not null"`     // [FK] Reference to previous AccountOperation (0 mean first operation)
 	AccountID AccountID          `gorm:"index;not null"`                          // [FK] Reference to Account table
 
 	SynchroneousType SynchroneousType `gorm:"index;not null;type:varchar(16)"` // [enum] Operation synchroneous type (sync, async-start, async-end)
-	OperationType    OperationType    `gorm:"index;not null;type:varchar(16)"` // [enum] Determine table for ReferenceID (deposit, withdraw, transfert, adjustment, none, other)
+	OperationType    OperationType    `gorm:"index;not null;type:varchar(16)"` // [enum] Determine table for ReferenceID (deposit, withdraw, transfer, adjustment, none, other)
 	ReferenceID      RefID            `gorm:"index;not null"`                  // [optional - FK] Reference to related table with OperationType
 
 	Timestamp time.Time `gorm:"index;not null;type:timestamp"` // Operation timestamp
@@ -29,10 +28,9 @@ type AccountOperation struct {
 	TotalLocked ZeroFloat `gorm:"default:0;not null"` // Total locked (strictly positive or zero and less or equal than Balance)
 }
 
-func NewAccountOperation(ID, prevID AccountOperationID, accountID AccountID, synchroneousType SynchroneousType, operationType OperationType, referenceID RefID, timestamp time.Time, amount, balance, lockAmount, totalLocked Float) AccountOperation {
+func NewAccountOperation(ID AccountOperationID, accountID AccountID, synchroneousType SynchroneousType, operationType OperationType, referenceID RefID, timestamp time.Time, amount, balance, lockAmount, totalLocked Float) AccountOperation {
 	return AccountOperation{
 		ID:        ID,
-		PrevID:    prevID,
 		AccountID: accountID,
 
 		SynchroneousType: synchroneousType,
@@ -49,7 +47,7 @@ func NewAccountOperation(ID, prevID AccountOperationID, accountID AccountID, syn
 }
 
 func NewInitOperation(accountID AccountID, referenceID RefID) AccountOperation {
-	return NewAccountOperation(0, 0,
+	return NewAccountOperation(0,
 		accountID,
 		SynchroneousTypeSync,
 		OperationTypeInit,
@@ -62,7 +60,6 @@ func NewInitOperation(accountID AccountID, referenceID RefID) AccountOperation {
 
 func (p *AccountOperation) IsValid() bool {
 	return p.ID > 0 &&
-		p.ID > p.PrevID &&
 		p.AccountID > 0 &&
 
 		// check enums
@@ -93,8 +90,7 @@ func (p *AccountOperation) PreCheck() bool {
 	// deepcopy
 	operation := *p
 	// overwite operation IDs
-	operation.ID = 2
-	operation.PrevID = 1
+	operation.ID = 1
 
 	// operation should be valid
 	return operation.IsValid()

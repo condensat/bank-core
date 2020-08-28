@@ -6,8 +6,6 @@ package commands
 
 import (
 	"context"
-
-	"github.com/condensat/bank-core/wallet/rpc"
 )
 
 const (
@@ -15,15 +13,24 @@ const (
 	AddressInfoMaxConfirmation = 6
 )
 
-func ListUnspent(ctx context.Context, rpcClient RpcClient, filter []Address) ([]TransactionInfo, error) {
-	return ListUnspentMinMaxAddresses(ctx, rpcClient, AddressInfoMinConfirmation, AddressInfoMaxConfirmation, filter)
+type ListUnspentOption struct {
+	MinimumAmount    float64 `json:"minimumAmount,omitempty"`
+	MaximumAmount    float64 `json:"maximumAmount,omitempty"`
+	MaximumCount     int     `json:"maximumCount,omitempty"`
+	MinimumSumAmount float64 `json:"minimumSumAmount,omitempty"`
+	Asset            string  `json:"asset,omitempty"`
 }
 
-func ListUnspentMinMaxAddresses(ctx context.Context, rpcClient RpcClient, minConf, maxConf int, filter []Address) ([]TransactionInfo, error) {
+func ListUnspent(ctx context.Context, rpcClient RpcClient, filter []Address) ([]TransactionInfo, error) {
+	return ListUnspentMinMaxAddressesAndOptions(ctx, rpcClient, AddressInfoMinConfirmation, AddressInfoMaxConfirmation, filter, ListUnspentOption{})
+}
+
+func ListUnspentMinMaxAddressesAndOptions(ctx context.Context, rpcClient RpcClient, minConf, maxConf int, filter []Address, option ListUnspentOption) ([]TransactionInfo, error) {
 	list := make([]TransactionInfo, 0)
-	err := callCommand(rpcClient, CmdListUnspent, &list, minConf, maxConf, filter)
+	const includeUnsafe = true
+	err := callCommand(rpcClient, CmdListUnspent, &list, minConf, maxConf, filter, includeUnsafe, option)
 	if err != nil {
-		return nil, rpc.ErrRpcError
+		return nil, err
 	}
 
 	return list, nil

@@ -15,7 +15,7 @@ import (
 	"github.com/go-redis/redis/v7"
 )
 
-const cstTestRemoteAddrSample = "127.0.0.1"
+const cstTestRemoteAddrSample = "redis"
 
 func TestNewSession(t *testing.T) {
 	t.Parallel()
@@ -470,7 +470,7 @@ func Test_fetchSession(t *testing.T) {
 
 func redisOptions() cache.RedisOptions {
 	var options cache.RedisOptions
-	options.HostName = "localhost"
+	options.HostName = "redis"
 	options.Port = 6379
 
 	return options

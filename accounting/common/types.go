@@ -15,6 +15,7 @@ type CurrencyType int
 type CurrencyInfo struct {
 	Name             string
 	DisplayName      string
+	DatabaseName     string
 	Available        bool
 	AutoCreate       bool
 	Crypto           bool
@@ -68,7 +69,7 @@ type AccountEntry struct {
 	TotalLocked float64
 }
 
-type AccountTransfert struct {
+type AccountTransfer struct {
 	Source      AccountEntry
 	Destination AccountEntry
 }
@@ -81,6 +82,57 @@ type AccountHistory struct {
 	To          time.Time
 
 	Entries []AccountEntry
+}
+
+type CryptoTransfert struct {
+	Chain     string
+	PublicKey string
+}
+
+type AccountTransferWithdraw struct {
+	BatchMode string
+	Source    AccountEntry
+	Crypto    CryptoTransfert
+}
+
+type WithdrawInfo struct {
+	WithdrawID uint64
+	Timestamp  time.Time
+	AccountID  uint64
+	Amount     float64
+	Chain      string
+	PublicKey  string
+	Status     string
+}
+
+type UserWithdraws struct {
+	UserID    uint64
+	Withdraws []WithdrawInfo
+}
+
+type BatchWithdraw struct {
+	BatchID       uint64
+	BankAccountID uint64
+	Network       string
+	Status        string
+	TxID          string
+	Withdraws     []WithdrawInfo
+}
+
+type BatchWithdraws struct {
+	Network string
+	Batches []BatchWithdraw
+}
+
+type BatchStatus struct {
+	BatchID uint64
+	Status  string
+}
+
+type BatchUpdate struct {
+	BatchStatus
+	TxID   string
+	Height int
 }
 
 func (p *CurrencyList) Encode() ([]byte, error) {
@@ -131,11 +183,11 @@ func (p *AccountEntry) Decode(data []byte) error {
 	return bank.DecodeObject(data, bank.BankObject(p))
 }
 
-func (p *AccountTransfert) Encode() ([]byte, error) {
+func (p *AccountTransfer) Encode() ([]byte, error) {
 	return bank.EncodeObject(p)
 }
 
-func (p *AccountTransfert) Decode(data []byte) error {
+func (p *AccountTransfer) Decode(data []byte) error {
 	return bank.DecodeObject(data, bank.BankObject(p))
 }
 
@@ -144,5 +196,61 @@ func (p *AccountHistory) Encode() ([]byte, error) {
 }
 
 func (p *AccountHistory) Decode(data []byte) error {
+	return bank.DecodeObject(data, bank.BankObject(p))
+}
+
+func (p *AccountTransferWithdraw) Encode() ([]byte, error) {
+	return bank.EncodeObject(p)
+}
+
+func (p *AccountTransferWithdraw) Decode(data []byte) error {
+	return bank.DecodeObject(data, bank.BankObject(p))
+}
+
+func (p *WithdrawInfo) Encode() ([]byte, error) {
+	return bank.EncodeObject(p)
+}
+
+func (p *WithdrawInfo) Decode(data []byte) error {
+	return bank.DecodeObject(data, bank.BankObject(p))
+}
+
+func (p *UserWithdraws) Encode() ([]byte, error) {
+	return bank.EncodeObject(p)
+}
+
+func (p *UserWithdraws) Decode(data []byte) error {
+	return bank.DecodeObject(data, bank.BankObject(p))
+}
+
+func (p *BatchWithdraw) Encode() ([]byte, error) {
+	return bank.EncodeObject(p)
+}
+
+func (p *BatchWithdraw) Decode(data []byte) error {
+	return bank.DecodeObject(data, bank.BankObject(p))
+}
+
+func (p *BatchWithdraws) Encode() ([]byte, error) {
+	return bank.EncodeObject(p)
+}
+
+func (p *BatchWithdraws) Decode(data []byte) error {
+	return bank.DecodeObject(data, bank.BankObject(p))
+}
+
+func (p *BatchStatus) Encode() ([]byte, error) {
+	return bank.EncodeObject(p)
+}
+
+func (p *BatchStatus) Decode(data []byte) error {
+	return bank.DecodeObject(data, bank.BankObject(p))
+}
+
+func (p *BatchUpdate) Encode() ([]byte, error) {
+	return bank.EncodeObject(p)
+}
+
+func (p *BatchUpdate) Decode(data []byte) error {
 	return bank.DecodeObject(data, bank.BankObject(p))
 }

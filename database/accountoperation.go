@@ -22,6 +22,12 @@ var (
 	ErrInvalidAccountOperation = errors.New("Invalid Account Operation")
 )
 
+type AccountOperationPrevNext struct {
+	model.AccountOperation
+	Previous model.AccountOperationID
+	Next     model.AccountOperationID
+}
+
 func AppendAccountOperation(db bank.Database, operation model.AccountOperation) (model.AccountOperation, error) {
 	result, err := AppendAccountOperationSlice(db, operation)
 	if err != nil {
@@ -33,7 +39,28 @@ func AppendAccountOperation(db bank.Database, operation model.AccountOperation) 
 	return result[0], nil
 }
 
+func TxAppendAccountOperation(db bank.Database, operation model.AccountOperation) (model.AccountOperation, error) {
+	operation.Timestamp = operation.Timestamp.UTC().Truncate(time.Second)
+
+	return txApppendAccountOperation(db, operation)
+}
+
 func AppendAccountOperationSlice(db bank.Database, operations ...model.AccountOperation) ([]model.AccountOperation, error) {
+	if db == nil {
+		return nil, ErrInvalidDatabase
+	}
+
+	var result []model.AccountOperation
+	err := db.Transaction(func(db bank.Database) error {
+		var txErr error
+		result, txErr = TxAppendAccountOperationSlice(db, operations...)
+		return txErr
+	})
+
+	return result, err
+}
+
+func TxAppendAccountOperationSlice(db bank.Database, operations ...model.AccountOperation) ([]model.AccountOperation, error) {
 	if db == nil {
 		return nil, ErrInvalidDatabase
 	}
@@ -55,9 +82,9 @@ func AppendAccountOperationSlice(db bank.Database, operations ...model.AccountOp
 		}
 	}
 
-	// within a db transaction
+	// already within a db transaction
 	var result []model.AccountOperation
-	err := db.Transaction(func(db bank.Database) error {
+	err := func(db bank.Database) error {
 
 		// append all operations in same transaction
 		// returning error will cause rollback
@@ -70,9 +97,67 @@ func AppendAccountOperationSlice(db bank.Database, operations ...model.AccountOp
 		}
 
 		return nil
-	})
+	}(db)
 
 	// return result with error
+	return result, err
+}
+
+func GetPreviousAccountOperation(db bank.Database, accountID model.AccountID, operationID model.AccountOperationID) (model.AccountOperation, error) {
+	gdb := getGormDB(db)
+	if gdb == nil {
+		return model.AccountOperation{}, ErrInvalidDatabase
+	}
+
+	if accountID == 0 {
+		return model.AccountOperation{}, ErrInvalidAccountID
+	}
+	if operationID == 0 {
+		return model.AccountOperation{}, ErrInvalidAccountOperation
+	}
+
+	var result model.AccountOperation
+	err := gdb.
+		Where(model.AccountOperation{
+			AccountID: accountID,
+		}).
+		Where("id < ?", operationID).
+		Order("id DESC", true).
+		Take(&result).Error
+
+	if err != nil {
+		return model.AccountOperation{}, err
+	}
+
+	return result, err
+}
+
+func GetNextAccountOperation(db bank.Database, accountID model.AccountID, operationID model.AccountOperationID) (model.AccountOperation, error) {
+	gdb := getGormDB(db)
+	if gdb == nil {
+		return model.AccountOperation{}, ErrInvalidDatabase
+	}
+
+	if accountID == 0 {
+		return model.AccountOperation{}, ErrInvalidAccountID
+	}
+	if operationID == 0 {
+		return model.AccountOperation{}, ErrInvalidAccountOperation
+	}
+
+	var result model.AccountOperation
+	err := gdb.
+		Where(model.AccountOperation{
+			AccountID: accountID,
+		}).
+		Where("id > ?", operationID).
+		Order("id ASC", true).
+		First(&result).Error
+
+	if err != nil {
+		return model.AccountOperation{}, err
+	}
+
 	return result, err
 }
 
@@ -126,6 +211,40 @@ func GeAccountHistory(db bank.Database, accountID model.AccountID) ([]model.Acco
 	return convertAccountOperationList(list), nil
 }
 
+func GeAccountHistoryWithPrevNext(db bank.Database, accountID model.AccountID) ([]AccountOperationPrevNext, error) {
+	gdb := getGormDB(db)
+	if gdb == nil {
+		return nil, ErrInvalidDatabase
+	}
+
+	if accountID == 0 {
+		return nil, ErrInvalidAccountID
+	}
+
+	var rows []*AccountOperationPrevNext
+	const query = `
+		SELECT *,
+			(SELECT id FROM account_operation AS sub
+					WHERE ops.account_id = sub.account_id AND sub.id < ops.id
+					ORDER BY sub.id DESC
+					LIMIT 1
+			) AS previous,
+			(SELECT id FROM account_operation AS sub
+					WHERE ops.account_id = sub.account_id AND sub.id > ops.id
+					ORDER BY sub.id ASC
+					LIMIT 1
+			) AS next
+		FROM account_operation as ops WHERE account_id = ? ORDER BY id asc;`
+	err := gdb.
+		Raw(query, accountID).
+		Find(&rows).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return convertAccountOperationPrevNextList(rows), nil
+}
+
 func GeAccountHistoryRange(db bank.Database, accountID model.AccountID, from, to time.Time) ([]model.AccountOperation, error) {
 	gdb := getGormDB(db)
 	if gdb == nil {
@@ -160,8 +279,51 @@ func GeAccountHistoryRange(db bank.Database, accountID model.AccountID, from, to
 	return convertAccountOperationList(list), nil
 }
 
+func FindAccountOperationByReference(db bank.Database, synchroneousType model.SynchroneousType, operationType model.OperationType, referenceID model.RefID) (model.AccountOperation, error) {
+	gdb := getGormDB(db)
+	if gdb == nil {
+		return model.AccountOperation{}, ErrInvalidDatabase
+	}
+
+	if len(synchroneousType) == 0 {
+		return model.AccountOperation{}, model.ErrSynchroneousTypeInvalid
+	}
+	if len(operationType) == 0 {
+		return model.AccountOperation{}, model.ErrOperationTypeInvalid
+	}
+	if referenceID == 0 {
+		return model.AccountOperation{}, ErrInvalidReferenceID
+	}
+
+	var result model.AccountOperation
+	err := gdb.
+		Where(model.AccountOperation{
+			SynchroneousType: synchroneousType,
+			OperationType:    operationType,
+			ReferenceID:      referenceID,
+		}).
+		Last(&result).Error
+
+	if err != nil {
+		return model.AccountOperation{}, err
+	}
+
+	return result, err
+}
+
 func convertAccountOperationList(list []*model.AccountOperation) []model.AccountOperation {
 	var result []model.AccountOperation
+	for _, curr := range list {
+		if curr != nil {
+			result = append(result, *curr)
+		}
+	}
+
+	return result[:]
+}
+
+func convertAccountOperationPrevNextList(list []*AccountOperationPrevNext) []AccountOperationPrevNext {
+	var result []AccountOperationPrevNext
 	for _, curr := range list {
 		if curr != nil {
 			result = append(result, *curr)
@@ -238,7 +400,7 @@ func fetchAccountInfo(db bank.Database, accountID model.AccountID) (AccountInfo,
 		return AccountInfo{}, ErrAccountIsDisabled
 	}
 
-	// update PrevID with last operation ID
+	// fetch last operation
 	lastOperation, err := GetLastAccountOperation(db, accountID)
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return AccountInfo{}, err
@@ -260,9 +422,6 @@ type AccountInfo struct {
 }
 
 func prepareNextOperation(info *AccountInfo, operation *model.AccountOperation) {
-	// update PrevID with last operation ID
-	operation.PrevID = info.Last.ID
-
 	// compute Balance with last operation and new Amount
 	*operation.Balance = *operation.Amount
 	if info.Last.Balance != nil {

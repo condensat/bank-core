@@ -47,6 +47,14 @@ func CryptoAddressModel() []model.Model {
 	}
 }
 
+func SsmAddressModel() []model.Model {
+	return []model.Model{
+		model.Model(new(model.SsmAddress)),
+		model.Model(new(model.SsmAddressInfo)),
+		model.Model(new(model.SsmAddressState)),
+	}
+}
+
 func OperationInfoModel() []model.Model {
 	return append(CryptoAddressModel(), []model.Model{
 		model.Model(new(model.OperationInfo)),
@@ -66,5 +74,25 @@ func SwapModel() []model.Model {
 	return []model.Model{
 		model.Model(new(model.Swap)),
 		model.Model(new(model.SwapInfo)),
+	}
+}
+
+func WithdrawModel() []model.Model {
+	return append(AccountOperationModel(), []model.Model{
+		model.Model(new(model.Withdraw)),
+		model.Model(new(model.WithdrawInfo)),
+		model.Model(new(model.WithdrawTarget)),
+		model.Model(new(model.Fee)),
+		model.Model(new(model.FeeInfo)),
+		model.Model(new(model.Batch)),
+		model.Model(new(model.BatchInfo)),
+		model.Model(new(model.BatchWithdraw)),
+	}...)
+}
+
+func FeeModel() []model.Model {
+	return []model.Model{
+		model.Model(new(model.Fee)),
+		model.Model(new(model.FeeInfo)),
 	}
 }

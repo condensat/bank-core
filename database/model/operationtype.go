@@ -11,11 +11,13 @@ type OperationType String
 const (
 	OperationTypeInvalid OperationType = ""
 
-	OperationTypeInit       OperationType = "init"
-	OperationTypeDeposit    OperationType = "deposit"
-	OperationTypeWithdraw   OperationType = "withdraw"
-	OperationTypeTransfert  OperationType = "transfert"
-	OperationTypeAdjustment OperationType = "adjustment"
+	OperationTypeInit        OperationType = "init"
+	OperationTypeDeposit     OperationType = "deposit"
+	OperationTypeWithdraw    OperationType = "withdraw"
+	OperationTypeTransfer    OperationType = "transfer"
+	OperationTypeTransferFee OperationType = "transfer_fee"
+	OperationTypeRefund      OperationType = "refund"
+	OperationTypeAdjustment  OperationType = "adjustment"
 
 	OperationTypeNone  OperationType = "none"
 	OperationTypeOther OperationType = "other"
@@ -33,7 +35,11 @@ func (p OperationType) Valid() bool {
 		fallthrough
 	case OperationTypeWithdraw:
 		fallthrough
-	case OperationTypeTransfert:
+	case OperationTypeTransfer:
+		fallthrough
+	case OperationTypeTransferFee:
+		fallthrough
+	case OperationTypeRefund:
 		fallthrough
 	case OperationTypeAdjustment:
 		fallthrough
@@ -70,7 +76,9 @@ func knownOperationType() []OperationType {
 		OperationTypeInit,
 		OperationTypeDeposit,
 		OperationTypeWithdraw,
-		OperationTypeTransfert,
+		OperationTypeTransfer,
+		OperationTypeTransferFee,
+		OperationTypeRefund,
 		OperationTypeAdjustment,
 
 		OperationTypeNone,

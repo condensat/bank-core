@@ -7,17 +7,15 @@ package commands
 import (
 	"context"
 	"encoding/json"
-
-	"github.com/condensat/bank-core/wallet/rpc"
 )
 
 type GenericJson map[string]interface{}
 
-func GetTransaction(ctx context.Context, rpcClient RpcClient, txID string) (TransactionInfo, error) {
+func GetTransaction(ctx context.Context, rpcClient RpcClient, txID string, watchOnly bool) (TransactionInfo, error) {
 	var obj GenericJson
-	err := callCommand(rpcClient, CmdGetTransaction, &obj, txID)
+	err := callCommand(rpcClient, CmdGetTransaction, &obj, txID, watchOnly)
 	if err != nil {
-		return TransactionInfo{}, rpc.ErrRpcError
+		return TransactionInfo{}, err
 	}
 
 	return parseTransactionData(obj)
@@ -31,7 +29,7 @@ func parseTransactionData(obj GenericJson) (TransactionInfo, error) {
 
 	result, err := parseTransactionInfo(data)
 	if err != nil {
-		return TransactionInfo{}, rpc.ErrRpcError
+		return TransactionInfo{}, err
 	}
 
 	return result, nil

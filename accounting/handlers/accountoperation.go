@@ -48,13 +48,16 @@ func AccountOperation(ctx context.Context, entry common.AccountEntry) (common.Ac
 	lockAmount := model.Float(entry.LockAmount)
 
 	// Balance & totalLocked ar computed by database later, must be valid for pre-check
+	var totalLocked model.Float
+	if totalLocked < lockAmount {
+		totalLocked = lockAmount
+	}
 	var balance model.Float
 	if balance < amount {
 		balance = amount
 	}
-	var totalLocked model.Float
-	if totalLocked < lockAmount {
-		totalLocked = lockAmount
+	if balance < lockAmount {
+		balance = lockAmount
 	}
 
 	op, err := database.AppendAccountOperation(db, model.AccountOperation{
@@ -77,12 +80,10 @@ func AccountOperation(ctx context.Context, entry common.AccountEntry) (common.Ac
 
 	log.
 		WithField("OperationID", op.ID).
-		WithField("OperationPrevID", op.PrevID).
 		Trace("Account operation")
 
 	return common.AccountEntry{
-		OperationID:     uint64(op.ID),
-		OperationPrevID: uint64(op.PrevID),
+		OperationID: uint64(op.ID),
 
 		AccountID:        uint64(op.AccountID),
 		ReferenceID:      uint64(op.ReferenceID),

@@ -20,7 +20,7 @@ type LogEntry struct {
 	// Optionals
 	UserID    uint64 `gorm:"index"`
 	SessionID string `gorm:"index;type:char(36)"` // UUID
-	Method    string `gorm:"index;type:varchar(32)"`
+	Method    string `gorm:"index;type:varchar(48)"`
 	Error     string `gorm:"index;type:varchar(256)"`
 
 	Message string `gorm:"type:varchar(256)"`
