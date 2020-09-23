@@ -46,6 +46,23 @@ func NewSession(ctx context.Context) *Session {
 	}
 }
 
+func (s *Session) Count(ctx context.Context) (int, error) {
+	log := logger.Logger(ctx).WithField("Method", "sessions.Session.Count")
+	rdb := s.rdb
+
+	keysWildcard := sessionKey("api", "sessions", "*")
+
+	// Todo: optimize session count
+	keys, err := rdb.Keys(keysWildcard).Result()
+	if err != nil {
+		log.WithError(err).
+			WithField("Wildcard", keysWildcard).
+			Error("Key count failed")
+		return -1, ErrCache
+	}
+	return len(keys), nil
+}
+
 func (s *Session) CreateSession(ctx context.Context, userID uint64, remoteAddr string, duration time.Duration) (SessionID, error) {
 	log := logger.Logger(ctx).WithField("Method", "sessions.Session.CreateSession")
 	rdb := s.rdb
