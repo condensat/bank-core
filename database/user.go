@@ -54,6 +54,22 @@ func UserExists(db bank.Database, userID model.UserID) bool {
 	return err == nil && entry.ID > 0
 }
 
+func UserCount(db bank.Database) (int, error) {
+	switch gdb := db.DB().(type) {
+	case *gorm.DB:
+
+		var result int64
+		err := gdb.
+			Model(&model.User{}).
+			Count(&result).Error
+
+		return int(result), err
+
+	default:
+		return 0, ErrInvalidDatabase
+	}
+}
+
 func FindUserById(db bank.Database, userID model.UserID) (model.User, error) {
 	switch gdb := db.DB().(type) {
 	case *gorm.DB:
