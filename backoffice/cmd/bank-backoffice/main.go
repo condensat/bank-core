@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"time"
 
 	"github.com/condensat/bank-core/appcontext"
@@ -21,6 +22,8 @@ import (
 )
 
 type BackOffice struct {
+	Port              int
+	CorsAllowedDomain string
 }
 
 type Args struct {
@@ -42,6 +45,9 @@ func parseArgs() Args {
 	messaging.OptionArgs(&args.Nats)
 	database.OptionArgs(&args.Database)
 
+	flag.IntVar(&args.BackOffice.Port, "port", 4242, "BankApi rpc port (default 4242)")
+	flag.StringVar(&args.BackOffice.CorsAllowedDomain, "corsAllowedDomain", "condensat.space", "Cors Allowed Domain (default condensat.space)")
+
 	flag.Parse()
 
 	return args
@@ -61,7 +67,12 @@ func main() {
 	migrateDatabase(ctx)
 
 	var backOffice backoffice.BackOffice
-	backOffice.Run(ctx)
+	backOffice.Run(ctx, args.BackOffice.Port, corsAllowedOrigins(args.BackOffice.CorsAllowedDomain))
+}
+
+func corsAllowedOrigins(corsAllowedDomain string) []string {
+	// sub-domains wildcard
+	return []string{fmt.Sprintf("https://%s.%s", "*", corsAllowedDomain)}
 }
 
 func migrateDatabase(ctx context.Context) {
