@@ -61,6 +61,7 @@ func UserCount(db bank.Database) (int, error) {
 		var result int64
 		err := gdb.
 			Model(&model.User{}).
+			Group("email").
 			Count(&result).Error
 
 		return int(result), err
