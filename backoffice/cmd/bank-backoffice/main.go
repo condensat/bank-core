@@ -52,7 +52,6 @@ func main() {
 
 	ctx := context.Background()
 	ctx = appcontext.WithOptions(ctx, args.App)
-	ctx = appcontext.WithHasherWorker(ctx, args.App.Hasher)
 	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, args.Redis))
 	ctx = appcontext.WithWriter(ctx, logger.NewRedisLogger(ctx))
 	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, args.Nats))
