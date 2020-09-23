@@ -81,7 +81,7 @@ func (p *AccountingService) List(r *http.Request, request *AccountRequest, reply
 	}
 
 	// Get userID from session
-	request.SessionID = getSessionCookie(r)
+	request.SessionID = GetSessionCookie(r)
 	sessionID := sessions.SessionID(request.SessionID)
 	userID := session.UserSession(ctx, sessionID)
 	if !sessions.IsUserValid(userID) {
@@ -273,7 +273,7 @@ func (p *AccountingService) History(r *http.Request, request *AccountHistoryRequ
 	}
 
 	// Get userID from session
-	request.SessionID = getSessionCookie(r)
+	request.SessionID = GetSessionCookie(r)
 	sessionID := sessions.SessionID(request.SessionID)
 	userID := session.UserSession(ctx, sessionID)
 	if !sessions.IsUserValid(userID) {
