@@ -173,6 +173,44 @@ func ListBatchNetworksByStatus(db bank.Database, status model.BatchStatus) ([]mo
 	return convertBatchNetworkList(list), nil
 }
 
+type BatchInfos struct {
+	Count  int
+	Active int
+}
+
+func BatchsInfos(db bank.Database) (BatchInfos, error) {
+	gdb := db.DB().(*gorm.DB)
+	if gdb == nil {
+		return BatchInfos{}, errors.New("Invalid appcontext.Database")
+	}
+
+	var totalBatchs int64
+	err := gdb.Model(&model.Batch{}).
+		Count(&totalBatchs).Error
+	if err != nil {
+		return BatchInfos{}, err
+	}
+
+	subQueryLast := gdb.Model(&model.BatchInfo{}).
+		Select("MAX(id)").
+		Group("batch_id").
+		SubQuery()
+
+	var activeBatchs int64
+	err = gdb.Model(&model.BatchInfo{}).
+		Where("id IN (?)", subQueryLast).
+		Where("status <> ?", model.BatchStatusSettled).
+		Count(&activeBatchs).Error
+	if err != nil {
+		return BatchInfos{}, err
+	}
+
+	return BatchInfos{
+		Count:  int(totalBatchs),
+		Active: int(activeBatchs),
+	}, nil
+}
+
 func convertBatchList(list []*model.Batch) []model.Batch {
 	var result []model.Batch
 	for _, curr := range list {
