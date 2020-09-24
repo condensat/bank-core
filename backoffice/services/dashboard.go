@@ -34,9 +34,22 @@ type UsersStatus struct {
 	Connected int `json:"connected"`
 }
 
+type CurrencyBalance struct {
+	Currency string  `json:"currency"`
+	Balance  float64 `json:"balance"`
+	Locked   float64 `json:"locked,omitempty"`
+}
+
+type AccountingStatus struct {
+	Count    int               `json:"count"`
+	Active   int               `json:"active"`
+	Balances []CurrencyBalance `json:"balances"`
+}
+
 // StatusResponse holds args for string requests
 type StatusResponse struct {
-	Users UsersStatus `json:"users"`
+	Users      UsersStatus      `json:"users"`
+	Accounting AccountingStatus `json:"accounting"`
 }
 
 func (p *DashboardService) Status(r *http.Request, request *StatusRequest, reply *StatusResponse) error {
@@ -86,10 +99,31 @@ func (p *DashboardService) Status(r *http.Request, request *StatusRequest, reply
 		return apiservice.ErrServiceInternalError
 	}
 
+	accountsInfo, err := database.AccountsInfos(db)
+	if err != nil {
+		log.WithError(err).
+			Error("AccountInfos failed")
+		return apiservice.ErrServiceInternalError
+	}
+
+	var balances []CurrencyBalance
+	for _, account := range accountsInfo.Accounts {
+		balances = append(balances, CurrencyBalance{
+			Currency: account.CurrencyName,
+			Balance:  account.Balance,
+			Locked:   account.TotalLocked,
+		})
+	}
+
 	*reply = StatusResponse{
 		Users: UsersStatus{
 			Count:     userCount,
 			Connected: sessionCount,
+		},
+		Accounting: AccountingStatus{
+			Count:    accountsInfo.Count,
+			Active:   accountsInfo.Active,
+			Balances: balances,
 		},
 	}
 
