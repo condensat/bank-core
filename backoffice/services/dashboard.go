@@ -16,6 +16,9 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/condensat/bank-core/logger"
+	logmodel "github.com/condensat/bank-core/logger/model"
+
+	"github.com/jinzhu/gorm"
 )
 
 var (
@@ -27,6 +30,12 @@ type DashboardService int
 // StatusRequest holds args for status requests
 type StatusRequest struct {
 	apiservice.SessionArgs
+}
+
+type LogStatus struct {
+	Warnings int `json:"warning"`
+	Errors   int `json:"errors"`
+	Panics   int `json:"panics"`
 }
 
 type UsersStatus struct {
@@ -58,6 +67,7 @@ type WithdrawStatus struct {
 
 // StatusResponse holds args for string requests
 type StatusResponse struct {
+	Logs       LogStatus        `json:"logs"`
 	Users      UsersStatus      `json:"users"`
 	Accounting AccountingStatus `json:"accounting"`
 	Batch      BatchStatus      `json:"batch"`
@@ -102,6 +112,13 @@ func (p *DashboardService) Status(r *http.Request, request *StatusRequest, reply
 		return ErrPermissionDenied
 	}
 
+	logsInfo, err := logmodel.LogsInfo(db.DB().(*gorm.DB))
+	if err != nil {
+		log.WithError(err).
+			Error("LogsInfo failed")
+		return apiservice.ErrServiceInternalError
+	}
+
 	userCount, err := database.UserCount(db)
 	if err != nil {
 		return apiservice.ErrServiceInternalError
@@ -142,6 +159,11 @@ func (p *DashboardService) Status(r *http.Request, request *StatusRequest, reply
 	}
 
 	*reply = StatusResponse{
+		Logs: LogStatus{
+			Warnings: logsInfo.Warnings,
+			Errors:   logsInfo.Errors,
+			Panics:   logsInfo.Panics,
+		},
 		Users: UsersStatus{
 			Count:     userCount,
 			Connected: sessionCount,
