@@ -97,6 +97,79 @@ func GetAccountsByUserAndCurrencyAndName(db bank.Database, userID model.UserID, 
 	return QueryAccountList(db, userID, currency, name)
 }
 
+type AccountSummary struct {
+	CurrencyName string
+	Balance      float64
+	TotalLocked  float64
+}
+
+type AccountInfos struct {
+	Count    int
+	Active   int
+	Accounts []AccountSummary
+}
+
+func AccountsInfos(db bank.Database) (AccountInfos, error) {
+	gdb := db.DB().(*gorm.DB)
+	if gdb == nil {
+		return AccountInfos{}, errors.New("Invalid appcontext.Database")
+	}
+
+	var totalAccounts int64
+	err := gdb.Model(&model.Account{}).
+		Count(&totalAccounts).Error
+	if err != nil {
+		return AccountInfos{}, err
+	}
+
+	var activeAccounts int64
+	err = gdb.Model(&model.AccountState{}).
+		Where(&model.AccountState{
+			State: model.AccountStatusNormal,
+		}).Count(&activeAccounts).Error
+	if err != nil {
+		return AccountInfos{}, err
+	}
+
+	subQueryLast := gdb.Model(&model.AccountOperation{}).
+		Select("MAX(id)").
+		Group("account_id").
+		SubQuery()
+
+	subQueryAccount := gdb.Model(&model.Account{}).
+		Select("id as aid, currency_name").
+		SubQuery()
+
+	var list []*AccountSummary
+	err = gdb.Table("account_operation").
+		Joins("JOIN (?) AS a ON a.aid = account_id", subQueryAccount).
+		Where("id IN (?)", subQueryLast).
+		Group("currency_name").
+		Select("currency_name, SUM(balance) as balance, SUM(total_locked) as total_locked").
+		Find(&list).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return AccountInfos{}, err
+	}
+
+	return AccountInfos{
+		Count:    int(totalAccounts),
+		Active:   int(activeAccounts),
+		Accounts: convertAccountSummaryList(list),
+	}, nil
+}
+
+func convertAccountSummaryList(list []*AccountSummary) []AccountSummary {
+	var result []AccountSummary
+	for _, curr := range list {
+		if curr != nil {
+			result = append(result, *curr)
+		}
+	}
+
+	return result[:]
+}
+
 // QueryAccountList
 func QueryAccountList(db bank.Database, userID model.UserID, currency model.CurrencyName, name model.AccountName) ([]model.Account, error) {
 	gdb := db.DB().(*gorm.DB)
