@@ -18,12 +18,18 @@ func (p *Database) Migrate(models []model.Model) error {
 	).Error
 }
 
-func AccountModel() []model.Model {
+func UserModel() []model.Model {
 	return []model.Model{
 		model.Model(new(model.User)),
+		model.Model(new(model.UserRole)),
+	}
+}
+
+func AccountModel() []model.Model {
+	return append(UserModel(), []model.Model{
 		model.Model(new(model.Currency)),
 		model.Model(new(model.Account)),
-	}
+	}...)
 }
 
 func AccountStateModel() []model.Model {
