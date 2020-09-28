@@ -7,6 +7,7 @@ package chain
 import (
 	"context"
 	"errors"
+	"math"
 	"math/rand"
 	"sort"
 
@@ -125,6 +126,67 @@ func GetAddressInfo(ctx context.Context, chain, address string) (common.AddressI
 	info.Chain = chain
 
 	return info, nil
+}
+
+func WalletInfo(ctx context.Context, chain string) (common.WalletInfo, error) {
+	log := logger.Logger(ctx).WithField("Method", "wallet.WalletInfo")
+
+	log = log.WithField("Chain", chain)
+
+	client := common.ChainClientFromContext(ctx, chain)
+	if client == nil {
+		return common.WalletInfo{}, ErrChainClientNotFound
+	}
+
+	// Acquire Lock
+	lock, err := cache.LockChain(ctx, chain)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to lock chain")
+		return common.WalletInfo{}, cache.ErrLockError
+	}
+	defer lock.Unlock()
+
+	unspent, err := client.ListUnspent(ctx, 0, math.MaxInt64)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to ListUnspent")
+		return common.WalletInfo{}, err
+	}
+
+	var utxos []common.UTXOInfo
+
+	// Available utxos
+	for _, utxo := range unspent {
+		utxos = append(utxos, common.UTXOInfo{
+			TxID:   utxo.TxID,
+			Vout:   int(utxo.Vout),
+			Amount: utxo.Amount,
+			Locked: false,
+		})
+	}
+
+	// Locked utxos
+	locked, err := client.ListLockUnspent(ctx)
+	if err != nil {
+		log.WithError(err).
+			Error("Failed to ListLockUnspent")
+		return common.WalletInfo{}, err
+	}
+	for _, utxo := range locked {
+		utxos = append(utxos, common.UTXOInfo{
+			TxID:   utxo.TxID,
+			Vout:   int(utxo.Vout),
+			Amount: utxo.Amount,
+			Locked: true,
+		})
+	}
+
+	// create & return result
+	return common.WalletInfo{
+		Chain: chain,
+		UTXOs: utxos,
+	}, nil
 }
 
 func LockUnspent(ctx context.Context, chain string, unlock bool, utxos ...common.TransactionInfo) error {
