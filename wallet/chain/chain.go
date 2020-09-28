@@ -162,6 +162,7 @@ func WalletInfo(ctx context.Context, chain string) (common.WalletInfo, error) {
 		utxos = append(utxos, common.UTXOInfo{
 			TxID:   utxo.TxID,
 			Vout:   int(utxo.Vout),
+			Asset:  utxo.Asset,
 			Amount: utxo.Amount,
 			Locked: false,
 		})

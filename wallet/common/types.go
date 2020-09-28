@@ -53,6 +53,7 @@ type AddressInfo struct {
 type UTXOInfo struct {
 	TxID   string
 	Vout   int
+	Asset  string
 	Amount float64
 	Locked bool
 }
