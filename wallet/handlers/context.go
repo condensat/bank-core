@@ -24,6 +24,8 @@ type ChainHandler interface {
 	GetNewAddress(ctx context.Context, chain, account string) (string, error)
 	ImportAddress(ctx context.Context, chain, account, address, pubkey, blindingkey string) error
 	GetAddressInfo(ctx context.Context, chain, address string) (common.AddressInfo, error)
+
+	WalletInfo(ctx context.Context, chain string) (common.WalletInfo, error)
 }
 
 func ChainHandlerContext(ctx context.Context, chain ChainHandler) context.Context {
