@@ -7,6 +7,7 @@ package services
 import (
 	"errors"
 	"net/http"
+	"sort"
 
 	apiservice "github.com/condensat/bank-core/api/services"
 	"github.com/condensat/bank-core/api/sessions"
@@ -75,6 +76,7 @@ type WalletInfo struct {
 
 type WalletStatus struct {
 	Chain  string     `json:"chain"`
+	Asset  string     `json:"asset"`
 	Total  WalletInfo `json:"total"`
 	Locked WalletInfo `json:"locked"`
 }
@@ -185,29 +187,44 @@ func (p *DashboardService) Status(r *http.Request, request *StatusRequest, reply
 	}
 
 	var wallets []WalletStatus
+	assetMap := make(map[string]*WalletStatus)
 	for _, wallet := range walletStatus.Wallets {
-		var total float64
-		var locked float64
-		var lockedCount int
 		for _, utxo := range wallet.UTXOs {
-			total += utxo.Amount
+
+			// get or create WalletStatus from assetMap
+			key := wallet.Chain + utxo.Asset
+			ws, ok := assetMap[key]
+			if !ok {
+				ws = &WalletStatus{
+					Chain: wallet.Chain,
+					Asset: utxo.Asset,
+				}
+				assetMap[key] = ws
+			}
+
+			ws.Total.Amount += utxo.Amount
+			ws.Total.UTXOs++
 			if utxo.Locked {
-				locked += utxo.Amount
-				lockedCount++
+				ws.Locked.Amount += utxo.Amount
+				ws.Locked.UTXOs++
 			}
 		}
-		wallets = append(wallets, WalletStatus{
-			Chain: wallet.Chain,
-			Total: WalletInfo{
-				UTXOs:  len(wallet.UTXOs),
-				Amount: utils.ToFixed(total, 8),
-			},
-			Locked: WalletInfo{
-				UTXOs:  lockedCount,
-				Amount: utils.ToFixed(locked, 8),
-			},
-		})
 	}
+
+	for _, ws := range assetMap {
+		ws.Total.Amount = utils.ToFixed(ws.Total.Amount, 8)
+		ws.Locked.Amount = utils.ToFixed(ws.Locked.Amount, 8)
+
+		wallets = append(wallets, *ws)
+	}
+
+	sort.Slice(wallets, func(i, j int) bool {
+		if wallets[i].Chain != wallets[j].Chain {
+			return wallets[i].Chain < wallets[j].Chain
+		}
+
+		return wallets[i].Asset < wallets[j].Asset
+	})
 
 	*reply = StatusResponse{
 		Logs: LogStatus{
