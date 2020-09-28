@@ -7,7 +7,6 @@ package chain
 import (
 	"context"
 	"errors"
-	"math"
 	"math/rand"
 	"sort"
 
@@ -27,6 +26,8 @@ import (
 
 const (
 	AddressBatchSize = 16 // maximum address count for RPC requests
+
+	MaxConf = 9999999
 )
 
 var (
@@ -147,7 +148,7 @@ func WalletInfo(ctx context.Context, chain string) (common.WalletInfo, error) {
 	}
 	defer lock.Unlock()
 
-	unspent, err := client.ListUnspent(ctx, 0, math.MaxInt64)
+	unspent, err := client.ListUnspent(ctx, 0, MaxConf)
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to ListUnspent")
