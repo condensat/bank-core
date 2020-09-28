@@ -13,12 +13,15 @@ import (
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
-	"github.com/sirupsen/logrus"
+	"github.com/condensat/bank-core/utils"
+
+	wallet "github.com/condensat/bank-core/wallet/client"
 
 	"github.com/condensat/bank-core/logger"
 	logmodel "github.com/condensat/bank-core/logger/model"
 
 	"github.com/jinzhu/gorm"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -65,6 +68,21 @@ type WithdrawStatus struct {
 	Processing int `json:"processing"`
 }
 
+type WalletInfo struct {
+	UTXOs  int     `json:"utxos"`
+	Amount float64 `json:"amount"`
+}
+
+type WalletStatus struct {
+	Chain  string     `json:"chain"`
+	Total  WalletInfo `json:"total"`
+	Locked WalletInfo `json:"locked"`
+}
+
+type ReserveStatus struct {
+	Wallets []WalletStatus `json:"wallets"`
+}
+
 // StatusResponse holds args for string requests
 type StatusResponse struct {
 	Logs       LogStatus        `json:"logs"`
@@ -72,6 +90,7 @@ type StatusResponse struct {
 	Accounting AccountingStatus `json:"accounting"`
 	Batch      BatchStatus      `json:"batch"`
 	Withdraw   WithdrawStatus   `json:"withdraw"`
+	Reserve    ReserveStatus    `json:"reserve"`
 }
 
 func (p *DashboardService) Status(r *http.Request, request *StatusRequest, reply *StatusResponse) error {
@@ -158,6 +177,38 @@ func (p *DashboardService) Status(r *http.Request, request *StatusRequest, reply
 		return apiservice.ErrServiceInternalError
 	}
 
+	walletStatus, err := wallet.WalletStatus(ctx)
+	if err != nil {
+		log.WithError(err).
+			Error("WalletStatus failed")
+		return apiservice.ErrServiceInternalError
+	}
+
+	var wallets []WalletStatus
+	for _, wallet := range walletStatus.Wallets {
+		var total float64
+		var locked float64
+		var lockedCount int
+		for _, utxo := range wallet.UTXOs {
+			total += utxo.Amount
+			if utxo.Locked {
+				locked += utxo.Amount
+				lockedCount++
+			}
+		}
+		wallets = append(wallets, WalletStatus{
+			Chain: wallet.Chain,
+			Total: WalletInfo{
+				UTXOs:  len(wallet.UTXOs),
+				Amount: utils.ToFixed(total, 8),
+			},
+			Locked: WalletInfo{
+				UTXOs:  lockedCount,
+				Amount: utils.ToFixed(locked, 8),
+			},
+		})
+	}
+
 	*reply = StatusResponse{
 		Logs: LogStatus{
 			Warnings: logsInfo.Warnings,
@@ -180,6 +231,9 @@ func (p *DashboardService) Status(r *http.Request, request *StatusRequest, reply
 		Withdraw: WithdrawStatus{
 			Count:      witdthdraws.Count,
 			Processing: witdthdraws.Active,
+		},
+		Reserve: ReserveStatus{
+			Wallets: wallets,
 		},
 	}
 
