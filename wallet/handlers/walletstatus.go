@@ -28,8 +28,7 @@ func WalletStatus(ctx context.Context, status common.WalletStatus) (common.Walle
 		return result, ErrInternalError
 	}
 
-	// Todo: list all available chains
-	var chains []string
+	chains := chainHandler.ListChains(ctx)
 	for _, chain := range chains {
 		walletInfo, err := chainHandler.WalletInfo(ctx, chain)
 		if err != nil {
