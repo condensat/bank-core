@@ -47,7 +47,45 @@ func AddSwapInfo(db bank.Database, swapID model.SwapID, status model.SwapStatus,
 	}
 
 	return result, nil
+}
 
+type SwapInfos struct {
+	Count  int
+	Active int
+}
+
+func SwapssInfos(db bank.Database) (SwapInfos, error) {
+	gdb := db.DB().(*gorm.DB)
+	if gdb == nil {
+		return SwapInfos{}, errors.New("Invalid appcontext.Database")
+	}
+
+	subQueryLast := gdb.Model(&model.SwapInfo{}).
+		Select("MAX(id)").
+		Group("swap_id").
+		SubQuery()
+
+	var totalSwaps int64
+	err := gdb.Model(&model.SwapInfo{}).
+		Where("id IN (?)", subQueryLast).
+		Count(&totalSwaps).Error
+	if err != nil {
+		return SwapInfos{}, err
+	}
+
+	var activeSwaps int64
+	err = gdb.Model(&model.SwapInfo{}).
+		Where("swap_info.id IN (?)", subQueryLast).
+		Where("status <> ?", "finalized").
+		Count(&activeSwaps).Error
+	if err != nil {
+		return SwapInfos{}, err
+	}
+
+	return SwapInfos{
+		Count:  int(totalSwaps),
+		Active: int(activeSwaps),
+	}, nil
 }
 
 func GetSwapInfo(db bank.Database, swapInfoID model.SwapInfoID) (model.SwapInfo, error) {
