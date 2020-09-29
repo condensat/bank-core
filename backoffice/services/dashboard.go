@@ -59,6 +59,11 @@ type AccountingStatus struct {
 	Balances []CurrencyBalance `json:"balances"`
 }
 
+type DepositStatus struct {
+	Count      int `json:"count"`
+	Processing int `json:"processing"`
+}
+
 type BatchStatus struct {
 	Count      int `json:"count"`
 	Processing int `json:"processing"`
@@ -90,6 +95,7 @@ type StatusResponse struct {
 	Logs       LogStatus        `json:"logs"`
 	Users      UsersStatus      `json:"users"`
 	Accounting AccountingStatus `json:"accounting"`
+	Deposit    DepositStatus    `json:"deposit"`
 	Batch      BatchStatus      `json:"batch"`
 	Withdraw   WithdrawStatus   `json:"withdraw"`
 	Reserve    ReserveStatus    `json:"reserve"`
@@ -172,6 +178,13 @@ func (p *DashboardService) Status(r *http.Request, request *StatusRequest, reply
 		return apiservice.ErrServiceInternalError
 	}
 
+	deposits, err := database.DepositsInfos(db)
+	if err != nil {
+		log.WithError(err).
+			Error("DepositsInfos failed")
+		return apiservice.ErrServiceInternalError
+	}
+
 	witdthdraws, err := database.WithdrawsInfos(db)
 	if err != nil {
 		log.WithError(err).
@@ -240,6 +253,10 @@ func (p *DashboardService) Status(r *http.Request, request *StatusRequest, reply
 			Count:    accountsInfo.Count,
 			Active:   accountsInfo.Active,
 			Balances: balances,
+		},
+		Deposit: DepositStatus{
+			Count:      deposits.Count,
+			Processing: deposits.Active,
 		},
 		Batch: BatchStatus{
 			Count:      batchs.Count,

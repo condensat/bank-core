@@ -46,6 +46,38 @@ func AddOrUpdateOperationStatus(db bank.Database, operation model.OperationStatu
 	return result, err
 }
 
+type DepositInfos struct {
+	Count  int
+	Active int
+}
+
+func DepositsInfos(db bank.Database) (DepositInfos, error) {
+	gdb := db.DB().(*gorm.DB)
+	if gdb == nil {
+		return DepositInfos{}, errors.New("Invalid appcontext.Database")
+	}
+
+	var totalOperations int64
+	err := gdb.Model(&model.OperationStatus{}).
+		Count(&totalOperations).Error
+	if err != nil {
+		return DepositInfos{}, err
+	}
+
+	var activeOperations int64
+	err = gdb.Model(&model.OperationStatus{}).
+		Where("state <> ?", "settled").
+		Count(&activeOperations).Error
+	if err != nil {
+		return DepositInfos{}, err
+	}
+
+	return DepositInfos{
+		Count:  int(totalOperations),
+		Active: int(activeOperations),
+	}, nil
+}
+
 // GetOperationStatus
 func GetOperationStatus(db bank.Database, operationInfoID model.OperationInfoID) (model.OperationStatus, error) {
 	gdb := db.DB().(*gorm.DB)
