@@ -6,8 +6,10 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
+	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
@@ -35,6 +37,7 @@ type UserListResponse struct {
 
 func (p *DashboardService) UserList(r *http.Request, request *UserListRequest, reply *UserListResponse) error {
 	ctx := r.Context()
+	db := appcontext.Database(ctx)
 	log := logger.Logger(ctx).WithField("Method", "services.DashboardService.UserList")
 	log = apiservice.GetServiceRequestLog(log, r, "Dashboard", "UserList")
 
@@ -55,8 +58,41 @@ func (p *DashboardService) UserList(r *http.Request, request *UserListRequest, r
 		return ErrPermissionDenied
 	}
 
+	var pagesCount int
+	var ids []model.UserID
+	const DefaultUserCountByPage = 100
+	err = db.Transaction(func(db bank.Database) error {
+		var err error
+		pagesCount, err = database.UserPagingCount(db, DefaultUserCountByPage)
+		if err != nil {
+			pagesCount = 0
+			return err
+		}
+
+		ids, err = database.UserPage(db, request.Page, DefaultUserCountByPage)
+		if err != nil {
+			ids = nil
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		log.WithError(err).
+			Error("UserPaging failed")
+		return apiservice.ErrServiceInternalError
+	}
+
+	var users []UserInfo
+	for _, id := range ids {
+		users = append(users, UserInfo{
+			UserID: fmt.Sprintf("%d", id),
+		})
+	}
+
 	*reply = UserListResponse{
-		RequestPaging: RequestPaging{Page: request.Page, PageCount: 42},
+		RequestPaging: RequestPaging{Page: request.Page, PageCount: pagesCount},
+		Users:         users[:],
 	}
 
 	return nil

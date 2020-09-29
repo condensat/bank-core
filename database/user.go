@@ -71,6 +71,55 @@ func UserCount(db bank.Database) (int, error) {
 	}
 }
 
+func UserPagingCount(db bank.Database, countByPage int) (int, error) {
+	if countByPage <= 0 {
+		countByPage = 1
+	}
+
+	switch gdb := db.DB().(type) {
+	case *gorm.DB:
+
+		var result int
+		err := gdb.
+			Model(&model.User{}).
+			Count(&result).Error
+		var partialPage int
+		if result%countByPage > 0 {
+			partialPage = 1
+		}
+		return result/countByPage + partialPage, err
+
+	default:
+		return 0, ErrInvalidDatabase
+	}
+}
+
+func UserPage(db bank.Database, page, countByPage int) ([]model.UserID, error) {
+	switch gdb := db.DB().(type) {
+	case *gorm.DB:
+
+		if page < 0 {
+			page = 0
+		}
+		if countByPage <= 0 {
+			countByPage = 1
+		}
+
+		first := page * countByPage
+		last := first + countByPage
+		var list []*model.User
+		err := gdb.Model(&model.User{}).
+			Select("id").
+			Where("id >= ? AND id < ?", first, last).
+			Order("id ASC").
+			Find(&list).Error
+		return convertUserIDs(list), err
+
+	default:
+		return nil, ErrInvalidDatabase
+	}
+}
+
 func FindUserById(db bank.Database, userID model.UserID) (model.User, error) {
 	switch gdb := db.DB().(type) {
 	case *gorm.DB:
@@ -113,4 +162,15 @@ func FindUserByEmail(db bank.Database, email model.UserEmail) (model.User, error
 	default:
 		return model.User{}, ErrInvalidDatabase
 	}
+}
+
+func convertUserIDs(list []*model.User) []model.UserID {
+	var result []model.UserID
+	for _, curr := range list {
+		if curr != nil {
+			result = append(result, curr.ID)
+		}
+	}
+
+	return result[:]
 }
