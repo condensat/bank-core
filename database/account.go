@@ -92,6 +92,37 @@ func GetAccountByID(db bank.Database, accountID model.AccountID) (model.Account,
 	return result, err
 }
 
+func GetUserAccounts(db bank.Database, userID model.UserID) ([]model.AccountID, error) {
+	var result []model.AccountID
+
+	gdb := db.DB().(*gorm.DB)
+	if gdb == nil {
+		return result, errors.New("Invalid appcontext.Database")
+	}
+
+	var list []*model.Account
+	err := gdb.Model(&model.Account{}).
+		Scopes(ScopeUserID(userID)).
+		Find(&list).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return convertAccountIds(list), err
+}
+
+func convertAccountIds(list []*model.Account) []model.AccountID {
+	var result []model.AccountID
+	for _, curr := range list {
+		if curr != nil {
+			result = append(result, curr.ID)
+		}
+	}
+
+	return result[:]
+}
+
 // GetAccountsByNameAndCurrency
 func GetAccountsByUserAndCurrencyAndName(db bank.Database, userID model.UserID, currency model.CurrencyName, name model.AccountName) ([]model.Account, error) {
 	return QueryAccountList(db, userID, currency, name)
@@ -110,6 +141,10 @@ type AccountInfos struct {
 }
 
 func AccountsInfos(db bank.Database) (AccountInfos, error) {
+	return AccountsInfosByUser(db, 0)
+}
+
+func AccountsInfosByUser(db bank.Database, userID model.UserID) (AccountInfos, error) {
 	gdb := db.DB().(*gorm.DB)
 	if gdb == nil {
 		return AccountInfos{}, errors.New("Invalid appcontext.Database")
@@ -139,6 +174,13 @@ func AccountsInfos(db bank.Database) (AccountInfos, error) {
 	subQueryAccount := gdb.Model(&model.Account{}).
 		Select("id as aid, currency_name").
 		SubQuery()
+
+	if userID != 0 {
+		subQueryAccount = gdb.Model(&model.Account{}).
+			Select("id as aid, currency_name").
+			Where(model.Account{UserID: userID}).
+			SubQuery()
+	}
 
 	var list []*AccountSummary
 	err = gdb.Table("account_operation").
