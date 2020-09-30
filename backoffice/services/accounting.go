@@ -162,3 +162,89 @@ func (p *DashboardService) UserAccountList(r *http.Request, request *UserAccount
 
 	return nil
 }
+
+// AccountDetailRequest holds args for accountdetail requests
+type AccountDetailRequest struct {
+	apiservice.SessionArgs
+	AccountID string `json:"accountId"`
+}
+
+// AccountDetailResponse holds response for accountdetail request
+type AccountDetailResponse struct {
+	AccountID     string `json:"accountId"`
+	UserID        string `json:"userId"`
+	CurrencyName  string `json:"currencyName"`
+	AccountName   string `json:"accountName"`
+	AccountStatus string `json:"accountStatus"`
+}
+
+func (p *DashboardService) AccountDetail(r *http.Request, request *AccountDetailRequest, reply *AccountDetailResponse) error {
+	ctx := r.Context()
+	db := appcontext.Database(ctx)
+	log := logger.Logger(ctx).WithField("Method", "services.DashboardService.UserAccountListRequest")
+	log = apiservice.GetServiceRequestLog(log, r, "Dashboard", "UserAccountListRequest")
+
+	// Get userID from session
+	request.SessionID = apiservice.GetSessionCookie(r)
+	sessionID := sessions.SessionID(request.SessionID)
+
+	isAdmin, log, err := isUserAdmin(ctx, log, sessionID)
+	if err != nil {
+		log.WithError(err).
+			WithField("RoleName", model.RoleNameAdmin).
+			Error("UserHasRole failed")
+		return ErrPermissionDenied
+	}
+	if !isAdmin {
+		log.WithError(err).
+			Error("User is not Admin")
+		return ErrPermissionDenied
+	}
+
+	sID := appcontext.SecureID(ctx)
+
+	accountID, err := sID.FromSecureID("account", sID.Parse(request.AccountID))
+	if err != nil {
+		log.WithError(err).
+			WithField("AccountID", request.AccountID).
+			Error("accountID FromSecureID failed")
+		return apiservice.ErrServiceInternalError
+	}
+
+	var account model.Account
+	var accountState model.AccountState
+	err = db.Transaction(func(db bank.Database) error {
+		var err error
+
+		account, err = database.GetAccountByID(db, model.AccountID(accountID))
+		if err != nil {
+			return err
+		}
+		accountState, err = database.GetAccountStatusByAccountID(db, model.AccountID(accountID))
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		log.WithError(err).
+			Error("AccountDetail failed")
+		return apiservice.ErrServiceInternalError
+	}
+
+	secureID, err := sID.ToSecureID("user", secureid.Value(uint64(account.UserID)))
+	if err != nil {
+		return err
+	}
+
+	*reply = AccountDetailResponse{
+		AccountID:     request.AccountID,
+		UserID:        sID.ToString(secureID),
+		CurrencyName:  string(account.CurrencyName),
+		AccountName:   string(account.Name),
+		AccountStatus: string(accountState.State),
+	}
+
+	return nil
+}
