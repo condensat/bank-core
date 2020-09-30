@@ -25,12 +25,15 @@ const (
 
 // UserListRequest holds args for userlist requests
 type UserListRequest struct {
-	RequestPaging
 	apiservice.SessionArgs
+	RequestPaging
 }
 
 type UserInfo struct {
-	UserID string `json:"userId"`
+	UserID string   `json:"userId"`
+	Name   string   `json:"name,omitempty"`
+	Email  string   `json:"email,omitempty"`
+	Roles  []string `json:"roles,omitempty"`
 }
 
 // UserListResponse holds response for userlist request
@@ -128,6 +131,87 @@ func (p *DashboardService) UserList(r *http.Request, request *UserListRequest, r
 			Next:         next,
 		},
 		Users: users[:],
+	}
+
+	return nil
+}
+
+// UserListRequest holds args for userdetail requests
+type UserDetailRequest struct {
+	apiservice.SessionArgs
+	UserID string `json:"userId"`
+}
+
+// UserDetailResponse holds response for userdetail request
+type UserDetailResponse struct {
+	Info UserInfo `json:"userInfo"`
+}
+
+func (p *DashboardService) UserDetail(r *http.Request, request *UserDetailRequest, reply *UserDetailResponse) error {
+	ctx := r.Context()
+	db := appcontext.Database(ctx)
+	log := logger.Logger(ctx).WithField("Method", "services.DashboardService.UserDetail")
+	log = apiservice.GetServiceRequestLog(log, r, "Dashboard", "UserDetail")
+
+	// Get userID from session
+	request.SessionID = apiservice.GetSessionCookie(r)
+	sessionID := sessions.SessionID(request.SessionID)
+
+	isAdmin, log, err := isUserAdmin(ctx, log, sessionID)
+	if err != nil {
+		log.WithError(err).
+			WithField("RoleName", model.RoleNameAdmin).
+			Error("UserHasRole failed")
+		return ErrPermissionDenied
+	}
+	if !isAdmin {
+		log.WithError(err).
+			Error("User is not Admin")
+		return ErrPermissionDenied
+	}
+
+	sID := appcontext.SecureID(ctx)
+
+	userID, err := sID.FromSecureID("user", sID.Parse(request.UserID))
+	if err != nil {
+		log.WithError(err).
+			WithField("UserID", request.UserID).
+			Error("userID FromSecureID failed")
+		return ErrPermissionDenied
+	}
+
+	var user model.User
+	var roles []string
+	err = db.Transaction(func(db bank.Database) error {
+		var err error
+
+		user, err = database.FindUserById(db, model.UserID(userID))
+		if err != nil {
+			return err
+		}
+
+		roleNames, err := database.UserRoles(db, user.ID)
+		if err != nil {
+			return err
+		}
+		for _, roleName := range roleNames {
+			roles = append(roles, string(roleName))
+
+		}
+		return nil
+	})
+	if err != nil {
+		log.WithError(err).
+			Error("UserDetails failed")
+		return apiservice.ErrServiceInternalError
+	}
+
+	*reply = UserDetailResponse{
+		Info: UserInfo{
+			UserID: request.UserID,
+			Name:   string(user.Name),
+			Roles:  roles,
+		},
 	}
 
 	return nil
