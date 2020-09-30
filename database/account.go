@@ -152,24 +152,11 @@ func AccountsInfosByUser(db bank.Database, userID model.UserID) (AccountInfos, e
 
 	var totalAccounts int64
 	err := gdb.Model(&model.Account{}).
+		Where(model.Account{UserID: userID}).
 		Count(&totalAccounts).Error
 	if err != nil {
 		return AccountInfos{}, err
 	}
-
-	var activeAccounts int64
-	err = gdb.Model(&model.AccountState{}).
-		Where(&model.AccountState{
-			State: model.AccountStatusNormal,
-		}).Count(&activeAccounts).Error
-	if err != nil {
-		return AccountInfos{}, err
-	}
-
-	subQueryLast := gdb.Model(&model.AccountOperation{}).
-		Select("MAX(id)").
-		Group("account_id").
-		SubQuery()
 
 	subQueryAccount := gdb.Model(&model.Account{}).
 		Select("id as aid, currency_name").
@@ -181,6 +168,21 @@ func AccountsInfosByUser(db bank.Database, userID model.UserID) (AccountInfos, e
 			Where(model.Account{UserID: userID}).
 			SubQuery()
 	}
+
+	var activeAccounts int64
+	err = gdb.Model(&model.AccountState{}).
+		Joins("JOIN (?) AS a ON a.aid = account_id", subQueryAccount).
+		Where(&model.AccountState{
+			State: model.AccountStatusNormal,
+		}).Count(&activeAccounts).Error
+	if err != nil {
+		return AccountInfos{}, err
+	}
+
+	subQueryLast := gdb.Model(&model.AccountOperation{}).
+		Select("MAX(id)").
+		Group("account_id").
+		SubQuery()
 
 	var list []*AccountSummary
 	err = gdb.Table("account_operation").
