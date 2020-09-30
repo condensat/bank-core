@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/condensat/bank-core/api/secureid"
 	"github.com/condensat/bank-core/appcontext"
 
 	"github.com/condensat/bank-core/backoffice"
@@ -24,6 +25,8 @@ import (
 type BackOffice struct {
 	Port              int
 	CorsAllowedDomain string
+
+	SecureID string
 }
 
 type Args struct {
@@ -48,6 +51,8 @@ func parseArgs() Args {
 	flag.IntVar(&args.BackOffice.Port, "port", 4242, "BankApi rpc port (default 4242)")
 	flag.StringVar(&args.BackOffice.CorsAllowedDomain, "corsAllowedDomain", "condensat.space", "Cors Allowed Domain (default condensat.space)")
 
+	flag.StringVar(&args.BackOffice.SecureID, "secureId", "secureid.json", "SecureID json file")
+
 	flag.Parse()
 
 	return args
@@ -63,6 +68,7 @@ func main() {
 	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, args.Nats))
 	ctx = appcontext.WithDatabase(ctx, database.NewDatabase(args.Database))
 	ctx = appcontext.WithProcessusGrabber(ctx, processus.NewGrabber(ctx, 15*time.Second))
+	ctx = appcontext.WithSecureID(ctx, secureid.FromFile(args.BackOffice.SecureID))
 
 	migrateDatabase(ctx)
 
