@@ -94,26 +94,30 @@ func UserPagingCount(db bank.Database, countByPage int) (int, error) {
 	}
 }
 
-func UserPage(db bank.Database, page, countByPage int) ([]model.UserID, error) {
+func UserPage(db bank.Database, userID model.UserID, countByPage int) ([]model.UserID, error) {
 	switch gdb := db.DB().(type) {
 	case *gorm.DB:
 
-		if page < 0 {
-			page = 0
+		if userID < 1 {
+			userID = 1
 		}
 		if countByPage <= 0 {
 			countByPage = 1
 		}
 
-		first := page * countByPage
-		last := first + countByPage
 		var list []*model.User
 		err := gdb.Model(&model.User{}).
 			Select("id").
-			Where("id >= ? AND id < ?", first, last).
+			Where("id >= ?", userID).
 			Order("id ASC").
+			Limit(countByPage).
 			Find(&list).Error
-		return convertUserIDs(list), err
+
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return nil, err
+		}
+
+		return convertUserIDs(list), nil
 
 	default:
 		return nil, ErrInvalidDatabase
