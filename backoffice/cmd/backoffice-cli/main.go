@@ -55,6 +55,7 @@ func main() {
 
 	AccountsInfo(ctx)
 	UsersInfo(ctx)
+	DepositList(ctx)
 }
 
 func migrateDatabase(ctx context.Context) {
@@ -130,4 +131,14 @@ func UsersInfo(ctx context.Context) {
 		}
 		start = fmt.Sprintf("%d", int(userPage[len(userPage)-1].ID)+1)
 	}
+}
+
+func DepositList(ctx context.Context) {
+	db := appcontext.Database(ctx)
+
+	page, err := database.DepositPage(db, 0, 10)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Deposit Page: %d\n", page)
 }

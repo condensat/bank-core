@@ -204,6 +204,67 @@ func FindCryptoAddressesByOperationInfoState(db bank.Database, chain model.Strin
 	return converCryptoAddressList(list), nil
 }
 
+func DepositPagingCount(db bank.Database, countByPage int) (int, error) {
+	if countByPage <= 0 {
+		countByPage = 1
+	}
+
+	switch gdb := db.DB().(type) {
+	case *gorm.DB:
+
+		var result int
+		err := gdb.
+			Model(&model.OperationInfo{}).
+			Count(&result).Error
+		var partialPage int
+		if result%countByPage > 0 {
+			partialPage = 1
+		}
+		return result/countByPage + partialPage, err
+
+	default:
+		return 0, ErrInvalidDatabase
+	}
+}
+
+func DepositPage(db bank.Database, operationInfoID model.OperationInfoID, countByPage int) ([]model.OperationInfoID, error) {
+	switch gdb := db.DB().(type) {
+	case *gorm.DB:
+
+		if countByPage <= 0 {
+			countByPage = 1
+		}
+
+		var list []*model.OperationInfo
+		err := gdb.Model(&model.User{}).
+			Select("id").
+			Where("id >= ?", operationInfoID).
+			Order("id ASC").
+			Limit(countByPage).
+			Find(&list).Error
+
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return nil, err
+		}
+
+		return convertOperationInfoIDs(list), nil
+
+	default:
+		return nil, ErrInvalidDatabase
+	}
+}
+
+func convertOperationInfoIDs(list []*model.OperationInfo) []model.OperationInfoID {
+	var result []model.OperationInfoID
+	for _, curr := range list {
+		if curr != nil {
+			result = append(result, curr.ID)
+		}
+	}
+
+	return result[:]
+}
+
 func convertOperationInfoList(list []*model.OperationInfo) []model.OperationInfo {
 	var result []model.OperationInfo
 	for _, curr := range list {
