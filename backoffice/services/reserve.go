@@ -19,6 +19,19 @@ type WalletInfo struct {
 	Amount float64 `json:"amount"`
 }
 
+type WalletUTXO struct {
+	TxID   string  `json:"txid"`
+	Vout   int     `json:"vout"`
+	Asset  string  `json:"asset"`
+	Amount float64 `json:"amount"`
+	Locked bool    `json:"locked"`
+}
+
+type WalletDetail struct {
+	Chain string       `json:"chain"`
+	UTXOs []WalletUTXO `json:"utxos"`
+}
+
 type WalletStatus struct {
 	Chain  string     `json:"chain"`
 	Asset  string     `json:"asset"`
@@ -31,7 +44,7 @@ type ReserveStatus struct {
 }
 
 func FetchReserveStatus(ctx context.Context) (ReserveStatus, error) {
-	walletStatus, err := wallet.WalletStatus(ctx)
+	walletStatus, err := wallet.WalletStatus(ctx, wallet.WalletStatusWildcard)
 	if err != nil {
 		return ReserveStatus{}, err
 	}
@@ -84,4 +97,36 @@ func FetchReserveStatus(ctx context.Context) (ReserveStatus, error) {
 
 func FetchWalletList(ctx context.Context) ([]string, error) {
 	return wallet.WalletList(ctx)
+}
+
+func FetchWalletDetail(ctx context.Context, chain string) ([]WalletDetail, error) {
+	status, err := wallet.WalletStatus(ctx, chain)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []WalletDetail
+	for _, wallet := range status.Wallets {
+		// skip non requested wallet
+		if wallet.Chain != chain {
+			continue
+		}
+
+		var utxos []WalletUTXO
+		for _, utxo := range wallet.UTXOs {
+			utxos = append(utxos, WalletUTXO{
+				TxID:   utxo.TxID,
+				Vout:   utxo.Vout,
+				Asset:  utxo.Asset,
+				Amount: utxo.Amount,
+				Locked: utxo.Locked,
+			})
+		}
+		result = append(result, WalletDetail{
+			Chain: wallet.Chain,
+			UTXOs: utxos,
+		})
+	}
+
+	return result, nil
 }
