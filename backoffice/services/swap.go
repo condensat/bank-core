@@ -150,3 +150,89 @@ func (p *DashboardService) SwapList(r *http.Request, request *SwapListRequest, r
 
 	return nil
 }
+
+// SwapDetailRequest holds args for swapdetail requests
+type SwapDetailRequest struct {
+	apiservice.SessionArgs
+	SwapID string `json:"swapId"`
+}
+
+// SwapDetailResponse holds response for swapdetail request
+type SwapDetailResponse struct {
+	SwapID     string `json:"swapId"`
+	Timestamp  int64  `json:"timestamp"`
+	ValidUntil int64  `json:"validUntil"`
+	Status     string `json:"status"`
+}
+
+func (p *DashboardService) SwapDetail(r *http.Request, request *SwapDetailRequest, reply *SwapDetailResponse) error {
+	ctx := r.Context()
+	db := appcontext.Database(ctx)
+	log := logger.Logger(ctx).WithField("Method", "services.DashboardService.SwapDetail")
+	log = apiservice.GetServiceRequestLog(log, r, "Dashboard", "SwapList")
+
+	// Get userID from session
+	request.SessionID = apiservice.GetSessionCookie(r)
+	sessionID := sessions.SessionID(request.SessionID)
+
+	isAdmin, log, err := isUserAdmin(ctx, log, sessionID)
+	if err != nil {
+		log.WithError(err).
+			WithField("RoleName", model.RoleNameAdmin).
+			Error("UserHasRole failed")
+		return ErrPermissionDenied
+	}
+	if !isAdmin {
+		log.WithError(err).
+			Error("User is not Admin")
+		return ErrPermissionDenied
+	}
+
+	sID := appcontext.SecureID(ctx)
+
+	swapID, err := sID.FromSecureID("swap", sID.Parse(request.SwapID))
+	if err != nil {
+		log.WithError(err).
+			WithField("SwapID", request.SwapID).
+			Error("swapID FromSecureID failed")
+		return apiservice.ErrServiceInternalError
+	}
+
+	var swap model.Swap
+	var swapStatus model.SwapStatus
+	err = db.Transaction(func(db bank.Database) error {
+		var err error
+
+		swap, err = database.GetSwap(db, model.SwapID(swapID))
+		if err != nil {
+			return err
+		}
+
+		swapInfo, err := database.GetSwapInfoBySwapID(db, swap.ID)
+		if err != nil {
+			return err
+		}
+		swapStatus = swapInfo.Status
+
+		return nil
+	})
+	if err != nil {
+		log.WithError(err).
+			Error("SwapDetail failed")
+		return apiservice.ErrServiceInternalError
+	}
+
+	secureID, err := sID.ToSecureID("swap", secureid.Value(uint64(swap.ID)))
+	if err != nil {
+		return err
+	}
+
+	*reply = SwapDetailResponse{
+		SwapID:     sID.ToString(secureID),
+		Timestamp:  makeTimestampMillis(swap.Timestamp),
+		ValidUntil: makeTimestampMillis(swap.ValidUntil),
+		Status:     string(swapStatus),
+	}
+
+	return nil
+}

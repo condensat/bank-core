@@ -122,7 +122,7 @@ func GetSwapInfoBySwapID(db bank.Database, swapID model.SwapID) (model.SwapInfo,
 	var result model.SwapInfo
 	err := gdb.
 		Where(&model.SwapInfo{SwapID: swapID}).
-		First(&result).Error
+		Last(&result).Error
 	if err != nil {
 		return model.SwapInfo{}, err
 	}
