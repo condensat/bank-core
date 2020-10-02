@@ -21,6 +21,7 @@ import (
 
 const (
 	DefaulDepositCountByPage = 50
+	DefaulBatchCountByPage   = 50
 )
 
 type DepositStatus struct {
@@ -183,6 +184,116 @@ func (p *DashboardService) DepositList(r *http.Request, request *DepositListRequ
 			Next:         next,
 		},
 		Deposits: deposits,
+	}
+
+	return nil
+}
+
+// BatchListRequest holds args for batchlist requests
+type BatchListRequest struct {
+	apiservice.SessionArgs
+	RequestPaging
+}
+
+type BatchInfo struct {
+	BatchID string `json:"batchId"`
+}
+
+// BatchListResponse holds response for batchlist request
+type BatchListResponse struct {
+	RequestPaging
+	Batchs []BatchInfo `json:"batchs"`
+}
+
+func (p *DashboardService) BatchList(r *http.Request, request *BatchListRequest, reply *BatchListResponse) error {
+	ctx := r.Context()
+	db := appcontext.Database(ctx)
+	log := logger.Logger(ctx).WithField("Method", "services.DashboardService.BatchList")
+	log = apiservice.GetServiceRequestLog(log, r, "Dashboard", "BatchList")
+
+	// Get userID from session
+	request.SessionID = apiservice.GetSessionCookie(r)
+	sessionID := sessions.SessionID(request.SessionID)
+
+	isAdmin, log, err := isUserAdmin(ctx, log, sessionID)
+	if err != nil {
+		log.WithError(err).
+			WithField("RoleName", model.RoleNameAdmin).
+			Error("UserHasRole failed")
+		return ErrPermissionDenied
+	}
+	if !isAdmin {
+		log.WithError(err).
+			Error("User is not Admin")
+		return ErrPermissionDenied
+	}
+
+	sID := appcontext.SecureID(ctx)
+
+	var startID secureid.Value
+	if len(request.Start) > 0 {
+		startID, err = sID.FromSecureID("batch", sID.Parse(request.Start))
+		if err != nil {
+			log.WithError(err).
+				WithField("Start", request.Start).
+				Error("startID FromSecureID failed")
+			return ErrPermissionDenied
+		}
+	}
+	var pagesCount int
+	var ids []model.BatchID
+	err = db.Transaction(func(db bank.Database) error {
+		var err error
+		pagesCount, err = database.BatchPagingCount(db, DefaulBatchCountByPage)
+		if err != nil {
+			pagesCount = 0
+			return err
+		}
+
+		ids, err = database.BatchPage(db, model.BatchID(startID), DefaulBatchCountByPage)
+		if err != nil {
+			ids = nil
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		log.WithError(err).
+			Error("BatchPage failed")
+		return apiservice.ErrServiceInternalError
+	}
+
+	var next string
+	if len(ids) > 0 {
+		nextID := int(ids[len(ids)-1]) + 1
+		secureID, err := sID.ToSecureID("batch", secureid.Value(uint64(nextID)))
+		if err != nil {
+			return err
+		}
+		next = sID.ToString(secureID)
+	}
+
+	var batchs []BatchInfo
+	for _, id := range ids {
+		secureID, err := sID.ToSecureID("batch", secureid.Value(uint64(id)))
+		if err != nil {
+			return err
+		}
+
+		batchs = append(batchs, BatchInfo{
+			BatchID: sID.ToString(secureID),
+		})
+	}
+
+	*reply = BatchListResponse{
+		RequestPaging: RequestPaging{
+			Page:         request.Page,
+			PageCount:    pagesCount,
+			CountPerPage: DefaulBatchCountByPage,
+			Start:        request.Start,
+			Next:         next,
+		},
+		Batchs: batchs,
 	}
 
 	return nil

@@ -56,6 +56,7 @@ func main() {
 	AccountsInfo(ctx)
 	UsersInfo(ctx)
 	DepositList(ctx)
+	BatchList(ctx)
 }
 
 func migrateDatabase(ctx context.Context) {
@@ -141,4 +142,14 @@ func DepositList(ctx context.Context) {
 		panic(err)
 	}
 	fmt.Printf("Deposit Page: %d\n", page)
+}
+
+func BatchList(ctx context.Context) {
+	db := appcontext.Database(ctx)
+
+	page, err := database.BatchPage(db, 0, 10)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Batch Page: %d\n", page)
 }
