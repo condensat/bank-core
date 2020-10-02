@@ -57,6 +57,7 @@ func main() {
 	UsersInfo(ctx)
 	DepositList(ctx)
 	BatchList(ctx)
+	WithdrawList(ctx)
 }
 
 func migrateDatabase(ctx context.Context) {
@@ -152,4 +153,14 @@ func BatchList(ctx context.Context) {
 		panic(err)
 	}
 	fmt.Printf("Batch Page: %d\n", page)
+}
+
+func WithdrawList(ctx context.Context) {
+	db := appcontext.Database(ctx)
+
+	page, err := database.WithdrawPage(db, 0, 10)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Withdraw Page: %d\n", page)
 }

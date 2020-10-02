@@ -20,8 +20,9 @@ import (
 )
 
 const (
-	DefaulDepositCountByPage = 50
-	DefaulBatchCountByPage   = 50
+	DefaulDepositCountByPage  = 50
+	DefaulBatchCountByPage    = 50
+	DefaulWithdrawCountByPage = 50
 )
 
 type DepositStatus struct {
@@ -294,6 +295,116 @@ func (p *DashboardService) BatchList(r *http.Request, request *BatchListRequest,
 			Next:         next,
 		},
 		Batchs: batchs,
+	}
+
+	return nil
+}
+
+// WithdrawListRequest holds args for withdrawlist requests
+type WithdrawListRequest struct {
+	apiservice.SessionArgs
+	RequestPaging
+}
+
+type WithdrawInfo struct {
+	WithdrawID string `json:"withdrawId"`
+}
+
+// BatchListResponse holds response for withdrawlist request
+type WithdrawListResponse struct {
+	RequestPaging
+	Withdraws []WithdrawInfo `json:"withdraws"`
+}
+
+func (p *DashboardService) WithdrawList(r *http.Request, request *WithdrawListRequest, reply *WithdrawListResponse) error {
+	ctx := r.Context()
+	db := appcontext.Database(ctx)
+	log := logger.Logger(ctx).WithField("Method", "services.DashboardService.WithdrawList")
+	log = apiservice.GetServiceRequestLog(log, r, "Dashboard", "WithdrawList")
+
+	// Get userID from session
+	request.SessionID = apiservice.GetSessionCookie(r)
+	sessionID := sessions.SessionID(request.SessionID)
+
+	isAdmin, log, err := isUserAdmin(ctx, log, sessionID)
+	if err != nil {
+		log.WithError(err).
+			WithField("RoleName", model.RoleNameAdmin).
+			Error("UserHasRole failed")
+		return ErrPermissionDenied
+	}
+	if !isAdmin {
+		log.WithError(err).
+			Error("User is not Admin")
+		return ErrPermissionDenied
+	}
+
+	sID := appcontext.SecureID(ctx)
+
+	var startID secureid.Value
+	if len(request.Start) > 0 {
+		startID, err = sID.FromSecureID("withdraw", sID.Parse(request.Start))
+		if err != nil {
+			log.WithError(err).
+				WithField("Start", request.Start).
+				Error("startID FromSecureID failed")
+			return ErrPermissionDenied
+		}
+	}
+	var pagesCount int
+	var ids []model.WithdrawID
+	err = db.Transaction(func(db bank.Database) error {
+		var err error
+		pagesCount, err = database.WithdrawPagingCount(db, DefaulWithdrawCountByPage)
+		if err != nil {
+			pagesCount = 0
+			return err
+		}
+
+		ids, err = database.WithdrawPage(db, model.WithdrawID(startID), DefaulWithdrawCountByPage)
+		if err != nil {
+			ids = nil
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		log.WithError(err).
+			Error("WithdrawPage failed")
+		return apiservice.ErrServiceInternalError
+	}
+
+	var next string
+	if len(ids) > 0 {
+		nextID := int(ids[len(ids)-1]) + 1
+		secureID, err := sID.ToSecureID("withdraw", secureid.Value(uint64(nextID)))
+		if err != nil {
+			return err
+		}
+		next = sID.ToString(secureID)
+	}
+
+	var withdraws []WithdrawInfo
+	for _, id := range ids {
+		secureID, err := sID.ToSecureID("withdraw", secureid.Value(uint64(id)))
+		if err != nil {
+			return err
+		}
+
+		withdraws = append(withdraws, WithdrawInfo{
+			WithdrawID: sID.ToString(secureID),
+		})
+	}
+
+	*reply = WithdrawListResponse{
+		RequestPaging: RequestPaging{
+			Page:         request.Page,
+			PageCount:    pagesCount,
+			CountPerPage: DefaulWithdrawCountByPage,
+			Start:        request.Start,
+			Next:         next,
+		},
+		Withdraws: withdraws,
 	}
 
 	return nil
