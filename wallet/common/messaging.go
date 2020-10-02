@@ -10,5 +10,7 @@ const (
 	CryptoAddressNextDepositSubject = chanPrefix + "CryptoAddress.NextDeposit"
 	CryptoAddressNewDepositSubject  = chanPrefix + "CryptoAddress.NewDeposit"
 	AddressInfoSubject              = chanPrefix + "CryptoAddress.AddressInfo"
-	WalletStatusSubject             = chanPrefix + "WalletStatus"
+
+	WalletStatusSubject = chanPrefix + "WalletStatus"
+	WalletListSubject   = chanPrefix + "WalletList"
 )

@@ -14,6 +14,7 @@ import (
 )
 
 type WalletInfo struct {
+	Chain  string  `json:"chain"`
 	UTXOs  int     `json:"utxos"`
 	Amount float64 `json:"amount"`
 }
@@ -79,4 +80,8 @@ func FetchReserveStatus(ctx context.Context) (ReserveStatus, error) {
 	return ReserveStatus{
 		Wallets: wallets,
 	}, nil
+}
+
+func FetchWalletList(ctx context.Context) ([]string, error) {
+	return wallet.WalletList(ctx)
 }
