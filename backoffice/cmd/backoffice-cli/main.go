@@ -119,15 +119,15 @@ func UsersInfo(ctx context.Context) {
 	var start string
 	for page := 0; page < pages; page++ {
 		startID, _ := strconv.Atoi(start)
-		userIDs, err := database.UserPage(db, model.UserID(startID), 5)
+		userPage, err := database.UserPage(db, model.UserID(startID), 5)
 		if err != nil {
 			panic(err)
 		}
 
-		fmt.Printf("Page %d: Users %+v\n", page, userIDs)
-		if len(userIDs) == 0 {
+		fmt.Printf("Page %d: Users %+v\n", page, userPage)
+		if len(userPage) == 0 {
 			break
 		}
-		start = fmt.Sprintf("%d", int(userIDs[len(userIDs)-1])+1)
+		start = fmt.Sprintf("%d", int(userPage[len(userPage)-1].ID)+1)
 	}
 }
