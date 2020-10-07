@@ -214,6 +214,69 @@ func convertAccountSummaryList(list []*AccountSummary) []AccountSummary {
 	return result[:]
 }
 
+func AccountPagingCount(db bank.Database, countByPage int) (int, error) {
+	if countByPage <= 0 {
+		countByPage = 1
+	}
+
+	switch gdb := db.DB().(type) {
+	case *gorm.DB:
+
+		var result int
+		err := gdb.
+			Model(&model.Account{}).
+			Count(&result).Error
+		var partialPage int
+		if result%countByPage > 0 {
+			partialPage = 1
+		}
+		return result/countByPage + partialPage, err
+
+	default:
+		return 0, ErrInvalidDatabase
+	}
+}
+
+func AccountPage(db bank.Database, accountID model.AccountID, countByPage int) ([]model.Account, error) {
+	switch gdb := db.DB().(type) {
+	case *gorm.DB:
+
+		if accountID < 1 {
+			accountID = 1
+		}
+		if countByPage <= 0 {
+			countByPage = 1
+		}
+
+		var list []*model.Account
+		err := gdb.Model(&model.Account{}).
+			Where("id >= ?", accountID).
+			Order("id ASC").
+			Limit(countByPage).
+			Find(&list).Error
+
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return nil, err
+		}
+
+		return convertAccount(list), nil
+
+	default:
+		return nil, ErrInvalidDatabase
+	}
+}
+
+func convertAccount(list []*model.Account) []model.Account {
+	var result []model.Account
+	for _, curr := range list {
+		if curr != nil {
+			result = append(result, *curr)
+		}
+	}
+
+	return result[:]
+}
+
 // QueryAccountList
 func QueryAccountList(db bank.Database, userID model.UserID, currency model.CurrencyName, name model.AccountName) ([]model.Account, error) {
 	gdb := db.DB().(*gorm.DB)

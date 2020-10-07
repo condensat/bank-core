@@ -21,6 +21,10 @@ import (
 	"github.com/condensat/bank-core/database/model"
 )
 
+const (
+	DefaultAccountCountByPage = 10
+)
+
 type CurrencyBalance struct {
 	Currency string  `json:"currency"`
 	Balance  float64 `json:"balance"`
@@ -55,6 +59,128 @@ func FetchAccountingStatus(ctx context.Context) (AccountingStatus, error) {
 		Active:   accountsInfo.Active,
 		Balances: balances,
 	}, nil
+}
+
+// AccountListRequest holds args for accountlist requests
+type AccountListRequest struct {
+	apiservice.SessionArgs
+	RequestPaging
+}
+
+type AccountInfo struct {
+	AccountID string `json:"accountId"`
+	UserID    string `json:"userId"`
+	Currency  string `json:"currency"`
+	Name      string `json:"name"`
+}
+
+// AccountListResponse holds response for accountlist request
+type AccountListResponse struct {
+	RequestPaging
+	Accounts []AccountInfo `json:"accounts"`
+}
+
+func (p *DashboardService) AccountList(r *http.Request, request *AccountListRequest, reply *AccountListResponse) error {
+	ctx := r.Context()
+	db := appcontext.Database(ctx)
+	log := logger.Logger(ctx).WithField("Method", "services.DashboardService.AccountList")
+	log = apiservice.GetServiceRequestLog(log, r, "Dashboard", "AccountList")
+
+	// Get userID from session
+	request.SessionID = apiservice.GetSessionCookie(r)
+	sessionID := sessions.SessionID(request.SessionID)
+
+	isAdmin, log, err := isUserAdmin(ctx, log, sessionID)
+	if err != nil {
+		log.WithError(err).
+			WithField("RoleName", model.RoleNameAdmin).
+			Error("UserHasRole failed")
+		return ErrPermissionDenied
+	}
+	if !isAdmin {
+		log.WithError(err).
+			Error("User is not Admin")
+		return ErrPermissionDenied
+	}
+
+	sID := appcontext.SecureID(ctx)
+
+	var startID secureid.Value
+	if len(request.Start) > 0 {
+		startID, err = sID.FromSecureID("account", sID.Parse(request.Start))
+		if err != nil {
+			log.WithError(err).
+				WithField("Start", request.Start).
+				Error("startID FromSecureID failed")
+			return ErrPermissionDenied
+		}
+	}
+	var pagesCount int
+	var accountPage []model.Account
+	err = db.Transaction(func(db bank.Database) error {
+		var err error
+		pagesCount, err = database.AccountPagingCount(db, DefaultAccountCountByPage)
+		if err != nil {
+			pagesCount = 0
+			return err
+		}
+
+		accountPage, err = database.AccountPage(db, model.AccountID(startID), DefaultUserCountByPage)
+		if err != nil {
+			accountPage = nil
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		log.WithError(err).
+			Error("UserPaging failed")
+		return apiservice.ErrServiceInternalError
+	}
+
+	var next string
+	if len(accountPage) > 0 {
+		nextID := int(accountPage[len(accountPage)-1].ID) + 1
+		secureID, err := sID.ToSecureID("account", secureid.Value(uint64(nextID)))
+		if err != nil {
+			return err
+		}
+		next = sID.ToString(secureID)
+	}
+
+	var accounts []AccountInfo
+	for _, account := range accountPage {
+		// create secureID
+		secureID, err := sID.ToSecureID("account", secureid.Value(uint64(account.ID)))
+		if err != nil {
+			return err
+		}
+		// create user secureID
+		userSecureID, err := sID.ToSecureID("user", secureid.Value(uint64(account.UserID)))
+		if err != nil {
+			return err
+		}
+
+		accounts = append(accounts, AccountInfo{
+			AccountID: sID.ToString(secureID),
+			UserID:    sID.ToString(userSecureID),
+			Currency:  string(account.CurrencyName),
+			Name:      string(account.Name),
+		})
+	}
+
+	*reply = AccountListResponse{
+		RequestPaging: RequestPaging{
+			Page:         request.Page,
+			PageCount:    pagesCount,
+			CountPerPage: DefaultUserCountByPage,
+			Start:        request.Start,
+			Next:         next,
+		},
+		Accounts: accounts[:],
+	}
+
+	return nil
 }
 
 // UserAccountListRequest holds args for useraccountlist requests
