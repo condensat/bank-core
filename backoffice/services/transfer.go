@@ -243,7 +243,11 @@ type BatchListRequest struct {
 }
 
 type BatchInfo struct {
-	BatchID string `json:"batchId"`
+	BatchID      string `json:"batchId"`
+	Timestamp    int64  `json:"timestamp"`
+	ExecuteAfter int64  `json:"executeAfter"`
+	Withdraws    int    `json:"withdraws"`
+	Status       string `json:"status"`
 }
 
 // BatchListResponse holds response for batchlist request
@@ -289,6 +293,7 @@ func (p *DashboardService) BatchList(r *http.Request, request *BatchListRequest,
 	}
 	var pagesCount int
 	var ids []model.BatchID
+	infos := make(map[model.BatchID]BatchInfo)
 	err = db.Transaction(func(db bank.Database) error {
 		var err error
 		pagesCount, err = database.BatchPagingCount(db, DefaulBatchCountByPage)
@@ -301,6 +306,33 @@ func (p *DashboardService) BatchList(r *http.Request, request *BatchListRequest,
 		if err != nil {
 			ids = nil
 			return err
+		}
+		for _, id := range ids {
+			var info BatchInfo
+
+			batch, err := database.GetBatch(db, id)
+			if err != nil {
+				ids = nil
+				return err
+			}
+			status, err := database.GetLastBatchInfo(db, id)
+			if err != nil {
+				ids = nil
+				return err
+			}
+
+			wids, err := database.GetBatchWithdraws(db, id)
+			if err != nil {
+				ids = nil
+				return err
+			}
+
+			info.Timestamp = makeTimestampMillis(batch.Timestamp)
+			info.ExecuteAfter = makeTimestampMillis(batch.ExecuteAfter)
+			info.Withdraws = len(wids)
+			info.Status = string(status.Status)
+
+			infos[id] = info
 		}
 		return nil
 	})
@@ -327,9 +359,13 @@ func (p *DashboardService) BatchList(r *http.Request, request *BatchListRequest,
 			return err
 		}
 
-		batchs = append(batchs, BatchInfo{
-			BatchID: sID.ToString(secureID),
-		})
+		var batchInfo BatchInfo
+		if info, ok := infos[id]; ok {
+			batchInfo = info
+		}
+		batchInfo.BatchID = sID.ToString(secureID)
+
+		batchs = append(batchs, batchInfo)
 	}
 
 	*reply = BatchListResponse{
