@@ -87,7 +87,11 @@ type DepositListRequest struct {
 }
 
 type DepositInfo struct {
-	DepositID string `json:"depositId"`
+	DepositID string  `json:"depositId"`
+	Timestamp int64   `json:"timestamp"`
+	Amount    float64 `json:"amount"`
+	Currency  string  `json:"currency"`
+	Status    string  `json:"status"`
 }
 
 // DepositListResponse holds response for depositlist request
@@ -133,6 +137,7 @@ func (p *DashboardService) DepositList(r *http.Request, request *DepositListRequ
 	}
 	var pagesCount int
 	var ids []model.OperationInfoID
+	infos := make(map[model.OperationInfoID]DepositInfo)
 	err = db.Transaction(func(db bank.Database) error {
 		var err error
 		pagesCount, err = database.DepositPagingCount(db, DefaulDepositCountByPage)
@@ -145,6 +150,43 @@ func (p *DashboardService) DepositList(r *http.Request, request *DepositListRequ
 		if err != nil {
 			ids = nil
 			return err
+		}
+
+		for _, id := range ids {
+			var info DepositInfo
+			op, err := database.GetOperationInfo(db, id)
+			if err != nil {
+				ids = nil
+				return err
+			}
+			status, err := database.GetOperationStatus(db, id)
+			if err != nil {
+				ids = nil
+				return err
+			}
+
+			info.Timestamp = makeTimestampMillis(op.Timestamp)
+			info.Status = status.Accounted
+			info.Amount = float64(op.Amount)
+			info.Currency = func() string {
+
+				if op.AssetID == 0 {
+					addr, err := database.GetCryptoAddress(db, op.CryptoAddressID)
+					if err != nil {
+						return ""
+					}
+					return getChainMainCurrency(ctx, string(addr.Chain))
+
+				} else {
+					asset, err := database.GetAsset(db, op.AssetID)
+					if err != nil {
+						return ""
+					}
+					return string(asset.CurrencyName)
+				}
+			}()
+
+			infos[id] = info
 		}
 		return nil
 	})
@@ -171,9 +213,13 @@ func (p *DashboardService) DepositList(r *http.Request, request *DepositListRequ
 			return err
 		}
 
-		deposits = append(deposits, DepositInfo{
-			DepositID: sID.ToString(secureID),
-		})
+		var depositInfo DepositInfo
+		if info, ok := infos[id]; ok {
+			depositInfo = info
+		}
+		depositInfo.DepositID = sID.ToString(secureID)
+
+		deposits = append(deposits, depositInfo)
 	}
 
 	*reply = DepositListResponse{
@@ -408,4 +454,20 @@ func (p *DashboardService) WithdrawList(r *http.Request, request *WithdrawListRe
 	}
 
 	return nil
+}
+
+func getChainMainCurrency(ctx context.Context, chain string) string {
+	switch chain {
+	case "bitcoin-mainnet":
+		return "BTC"
+
+	case "bitcoin-testnet":
+		return "TBTC"
+
+	case "liquid-mainnet":
+		return "LBTC"
+
+	default:
+		return ""
+	}
 }
