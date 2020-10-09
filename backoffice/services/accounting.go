@@ -323,11 +323,12 @@ type AccountDetailRequest struct {
 
 // AccountDetailResponse holds response for accountdetail request
 type AccountDetailResponse struct {
-	AccountID     string `json:"accountId"`
-	UserID        string `json:"userId"`
-	CurrencyName  string `json:"currencyName"`
-	AccountName   string `json:"accountName"`
-	AccountStatus string `json:"accountStatus"`
+	AccountID string  `json:"accountId"`
+	UserID    string  `json:"userId"`
+	Name      string  `json:"name"`
+	Balance   float64 `json:"balance"`
+	Currency  string  `json:"currency"`
+	Status    string  `json:"status"`
 }
 
 func (p *DashboardService) AccountDetail(r *http.Request, request *AccountDetailRequest, reply *AccountDetailResponse) error {
@@ -365,6 +366,7 @@ func (p *DashboardService) AccountDetail(r *http.Request, request *AccountDetail
 
 	var account model.Account
 	var accountState model.AccountState
+	var last model.AccountOperation
 	err = db.Transaction(func(db bank.Database) error {
 		var err error
 
@@ -373,6 +375,11 @@ func (p *DashboardService) AccountDetail(r *http.Request, request *AccountDetail
 			return err
 		}
 		accountState, err = database.GetAccountStatusByAccountID(db, model.AccountID(accountID))
+		if err != nil {
+			return err
+		}
+
+		last, err = database.GetLastAccountOperation(db, model.AccountID(accountID))
 		if err != nil {
 			return err
 		}
@@ -391,11 +398,12 @@ func (p *DashboardService) AccountDetail(r *http.Request, request *AccountDetail
 	}
 
 	*reply = AccountDetailResponse{
-		AccountID:     request.AccountID,
-		UserID:        sID.ToString(secureID),
-		CurrencyName:  string(account.CurrencyName),
-		AccountName:   string(account.Name),
-		AccountStatus: string(accountState.State),
+		AccountID: request.AccountID,
+		UserID:    sID.ToString(secureID),
+		Currency:  string(account.CurrencyName),
+		Balance:   float64(*last.Balance),
+		Name:      string(account.Name),
+		Status:    string(accountState.State),
 	}
 
 	return nil
