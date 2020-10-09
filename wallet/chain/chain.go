@@ -148,6 +148,12 @@ func WalletInfo(ctx context.Context, chain string) (common.WalletInfo, error) {
 	}
 	defer lock.Unlock()
 
+	blockCount, err := client.GetBlockCount(ctx)
+	if err != nil {
+		log.WithError(err).
+			Warning("Failed to GetBlockCount")
+	}
+
 	unspent, err := client.ListUnspent(ctx, 0, MaxConf)
 	if err != nil {
 		log.WithError(err).
@@ -186,8 +192,9 @@ func WalletInfo(ctx context.Context, chain string) (common.WalletInfo, error) {
 
 	// create & return result
 	return common.WalletInfo{
-		Chain: chain,
-		UTXOs: utxos,
+		Chain:  chain,
+		Height: int(blockCount),
+		UTXOs:  utxos,
 	}, nil
 }
 

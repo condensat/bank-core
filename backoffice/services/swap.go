@@ -48,7 +48,9 @@ type SwapListRequest struct {
 }
 
 type SwapInfo struct {
-	SwapID string `json:"swapId"`
+	SwapID    string `json:"swapId"`
+	Timestamp int64  `json:"timestamp"`
+	Status    string `json:"status"`
 }
 
 // SwapListResponse holds response for swaplist request
@@ -94,6 +96,7 @@ func (p *DashboardService) SwapList(r *http.Request, request *SwapListRequest, r
 	}
 	var pagesCount int
 	var ids []model.SwapID
+	infos := make(map[model.SwapID]SwapInfo)
 	err = db.Transaction(func(db bank.Database) error {
 		var err error
 		pagesCount, err = database.SwapPagingCount(db, DefaulSwapCountByPage)
@@ -107,6 +110,27 @@ func (p *DashboardService) SwapList(r *http.Request, request *SwapListRequest, r
 			ids = nil
 			return err
 		}
+		for _, id := range ids {
+			var info SwapInfo
+
+			swap, err := database.GetSwap(db, id)
+			if err != nil {
+				ids = nil
+				return err
+			}
+
+			swapInfo, err := database.GetSwapInfoBySwapID(db, id)
+			if err != nil {
+				ids = nil
+				return err
+			}
+
+			info.Timestamp = makeTimestampMillis(swap.Timestamp)
+			info.Status = string(swapInfo.Status)
+
+			infos[id] = info
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -132,9 +156,13 @@ func (p *DashboardService) SwapList(r *http.Request, request *SwapListRequest, r
 			return err
 		}
 
-		swaps = append(swaps, SwapInfo{
-			SwapID: sID.ToString(secureID),
-		})
+		var swapInfo SwapInfo
+		if info, ok := infos[id]; ok {
+			swapInfo = info
+		}
+		swapInfo.SwapID = sID.ToString(secureID)
+
+		swaps = append(swaps, swapInfo)
 	}
 
 	*reply = SwapListResponse{
