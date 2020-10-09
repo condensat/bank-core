@@ -40,7 +40,9 @@ const (
 	AddressInfoMaxConfirmation = 9999
 )
 
-type Wallet int
+type Wallet struct {
+	chains []string
+}
 
 func (p *Wallet) Run(ctx context.Context, options WalletOptions) {
 	log := logger.Logger(ctx).WithField("Method", "Wallet.Run")
@@ -58,6 +60,9 @@ func (p *Wallet) Run(ctx context.Context, options WalletOptions) {
 	for _, chainOption := range chainsOptions.Chains {
 		log.WithField("Chain", chainOption.Chain).
 			Info("Adding rpc client")
+
+		p.chains = append(p.chains, chainOption.Chain)
+
 		ctx = common.ChainClientContext(ctx, chainOption.Chain, bitcoin.New(ctx, bitcoin.BitcoinOptions{
 			ServerOptions: bank.ServerOptions{
 				Protocol: "http",
@@ -127,6 +132,9 @@ func (p *Wallet) registerHandlers(ctx context.Context) context.Context {
 	nats.SubscribeWorkers(ctx, common.CryptoAddressNextDepositSubject, concurencyLevel, handlers.OnCryptoAddressNextDeposit)
 	nats.SubscribeWorkers(ctx, common.CryptoAddressNewDepositSubject, concurencyLevel, handlers.OnCryptoAddressNewDeposit)
 	nats.SubscribeWorkers(ctx, common.AddressInfoSubject, concurencyLevel, handlers.OnAddressInfo)
+
+	nats.SubscribeWorkers(ctx, common.WalletStatusSubject, concurencyLevel, handlers.OnWalletStatus)
+	nats.SubscribeWorkers(ctx, common.WalletListSubject, concurencyLevel, handlers.OnWalletList)
 
 	log.Debug("Bank Wallet registered")
 	return ctx
@@ -221,6 +229,10 @@ func mainScheduler(ctx context.Context, chains []string, ssmOptions SsmOptions) 
 }
 
 // common.Chain interface
+func (p *Wallet) ListChains(ctx context.Context) []string {
+	return p.chains
+}
+
 func (p *Wallet) GetNewAddress(ctx context.Context, chainName, account string) (string, error) {
 	return chain.GetNewAddress(ctx, chainName, account)
 }
@@ -231,4 +243,8 @@ func (p *Wallet) ImportAddress(ctx context.Context, chainName, account, address,
 
 func (p *Wallet) GetAddressInfo(ctx context.Context, chainName, address string) (common.AddressInfo, error) {
 	return chain.GetAddressInfo(ctx, chainName, address)
+}
+
+func (p *Wallet) WalletInfo(ctx context.Context, chainName string) (common.WalletInfo, error) {
+	return chain.WalletInfo(ctx, chainName)
 }

@@ -78,7 +78,7 @@ func setSessionCookie(domain string, w http.ResponseWriter, reply *SessionReply)
 	})
 }
 
-func getSessionCookie(r *http.Request) string {
+func GetSessionCookie(r *http.Request) string {
 	cookie, err := r.Cookie("sessionId")
 	if err != nil {
 		return ""
@@ -142,7 +142,7 @@ func (p *SessionService) Renew(r *http.Request, request *SessionArgs, reply *Ses
 	}
 
 	// Extend session
-	request.SessionID = getSessionCookie(r)
+	request.SessionID = GetSessionCookie(r)
 	sessionID := sessions.SessionID(request.SessionID)
 	remoteAddr := RequesterIP(r)
 	userID, err := session.ExtendSession(ctx, remoteAddr, sessionID, SessionDuration)
@@ -216,7 +216,7 @@ func (p *SessionService) Close(r *http.Request, request *SessionArgs, reply *Ses
 	}
 
 	// Invalidate session
-	request.SessionID = getSessionCookie(r)
+	request.SessionID = GetSessionCookie(r)
 	sessionID := sessions.SessionID(request.SessionID)
 	userID := session.UserSession(ctx, sessionID)
 	log = log.WithFields(logrus.Fields{

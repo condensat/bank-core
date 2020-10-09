@@ -145,6 +145,44 @@ func FindWithdrawByUser(db bank.Database, userID model.UserID) ([]model.Withdraw
 	return convertWithdraws(list), nil
 }
 
+type WithdrawInfos struct {
+	Count  int
+	Active int
+}
+
+func WithdrawsInfos(db bank.Database) (WithdrawInfos, error) {
+	gdb := db.DB().(*gorm.DB)
+	if gdb == nil {
+		return WithdrawInfos{}, errors.New("Invalid appcontext.Database")
+	}
+
+	var totalWithdraws int64
+	err := gdb.Model(&model.Withdraw{}).
+		Count(&totalWithdraws).Error
+	if err != nil {
+		return WithdrawInfos{}, err
+	}
+
+	subQueryLast := gdb.Model(&model.WithdrawInfo{}).
+		Select("MAX(id)").
+		Group("withdraw_id").
+		SubQuery()
+
+	var activeWithdraws int64
+	err = gdb.Model(&model.WithdrawInfo{}).
+		Where("id IN (?)", subQueryLast).
+		Where("status <> ?", model.WithdrawStatusSettled).
+		Count(&activeWithdraws).Error
+	if err != nil {
+		return WithdrawInfos{}, err
+	}
+
+	return WithdrawInfos{
+		Count:  int(totalWithdraws),
+		Active: int(activeWithdraws),
+	}, nil
+}
+
 func convertWithdraws(list []*model.Withdraw) []model.Withdraw {
 	var result []model.Withdraw
 	for _, curr := range list {

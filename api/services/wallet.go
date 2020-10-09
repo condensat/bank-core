@@ -57,7 +57,7 @@ func (p *WalletService) NextDeposit(r *http.Request, request *WalletNextDepositR
 	}
 
 	// Get userID from session
-	request.SessionID = getSessionCookie(r)
+	request.SessionID = GetSessionCookie(r)
 	sessionID := sessions.SessionID(request.SessionID)
 	userID := session.UserSession(ctx, sessionID)
 	if !sessions.IsUserValid(userID) {
@@ -177,7 +177,7 @@ func (p *WalletService) SendFunds(r *http.Request, request *WalletSendFundsReque
 	}
 
 	// Get userID from session
-	request.SessionID = getSessionCookie(r)
+	request.SessionID = GetSessionCookie(r)
 	sessionID := sessions.SessionID(request.SessionID)
 	userID := session.UserSession(ctx, sessionID)
 	if !sessions.IsUserValid(userID) {
@@ -293,7 +293,7 @@ func (p *WalletService) CancelWithdraw(r *http.Request, request *WalletCancelWit
 	}
 
 	// Get userID from session
-	request.SessionID = getSessionCookie(r)
+	request.SessionID = GetSessionCookie(r)
 	sessionID := sessions.SessionID(request.SessionID)
 	userID := session.UserSession(ctx, sessionID)
 	if !sessions.IsUserValid(userID) {
@@ -364,7 +364,7 @@ func (p *WalletService) SendHistory(r *http.Request, request *WalletSendHistoryR
 	}
 
 	// Get userID from session
-	request.SessionID = getSessionCookie(r)
+	request.SessionID = GetSessionCookie(r)
 	sessionID := sessions.SessionID(request.SessionID)
 	userID := session.UserSession(ctx, sessionID)
 	if !sessions.IsUserValid(userID) {

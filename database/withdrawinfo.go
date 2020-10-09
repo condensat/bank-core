@@ -153,3 +153,70 @@ func convertWithdrawInfoList(list []*model.WithdrawInfo) []model.WithdrawInfo {
 
 	return result[:]
 }
+
+func WithdrawPagingCount(db bank.Database, countByPage int) (int, error) {
+	if countByPage <= 0 {
+		countByPage = 1
+	}
+
+	switch gdb := db.DB().(type) {
+	case *gorm.DB:
+
+		var result int
+		err := gdb.
+			Model(&model.WithdrawInfo{}).
+			Group("withdraw_id").
+			Count(&result).Error
+		var partialPage int
+		if result%countByPage > 0 {
+			partialPage = 1
+		}
+		return result/countByPage + partialPage, err
+
+	default:
+		return 0, ErrInvalidDatabase
+	}
+}
+
+func WithdrawPage(db bank.Database, withdrawID model.WithdrawID, countByPage int) ([]model.WithdrawID, error) {
+	switch gdb := db.DB().(type) {
+	case *gorm.DB:
+
+		if countByPage <= 0 {
+			countByPage = 1
+		}
+
+		subQueryLast := gdb.Model(&model.WithdrawInfo{}).
+			Select("MAX(id)").
+			Group("withdraw_id").
+			SubQuery()
+
+		var list []*model.WithdrawInfo
+		err := gdb.Model(&model.WithdrawInfo{}).
+			Where("withdraw_info.id IN (?)", subQueryLast).
+			Where("id >= ?", withdrawID).
+			Order("withdraw_id ASC").
+			Limit(countByPage).
+			Find(&list).Error
+
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return nil, err
+		}
+
+		return convertWithdrawInfoIDs(list), nil
+
+	default:
+		return nil, ErrInvalidDatabase
+	}
+}
+
+func convertWithdrawInfoIDs(list []*model.WithdrawInfo) []model.WithdrawID {
+	var result []model.WithdrawID
+	for _, curr := range list {
+		if curr != nil {
+			result = append(result, curr.WithdrawID)
+		}
+	}
+
+	return result[:]
+}
