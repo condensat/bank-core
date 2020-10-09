@@ -47,3 +47,38 @@ func UserHasRole(db bank.Database, userID model.UserID, role model.RoleName) (bo
 
 	return result, nil
 }
+
+func UserRoles(db bank.Database, userID model.UserID) ([]model.RoleName, error) {
+	gdb := db.DB().(*gorm.DB)
+	if db == nil {
+		return nil, errors.New("Invalid appcontext.Database")
+	}
+
+	if userID == 0 {
+		return nil, ErrInvalidUserID
+	}
+
+	var list []*model.UserRole
+	err := gdb.Model(&model.UserRole{}).
+		Select("role").
+		Where(model.UserRole{
+			UserID: userID,
+		}).Find(&list).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return convertRoleNames(list), nil
+}
+
+func convertRoleNames(list []*model.UserRole) []model.RoleName {
+	var result []model.RoleName
+	for _, curr := range list {
+		if curr != nil {
+			result = append(result, curr.Role)
+		}
+	}
+
+	return result[:]
+}
