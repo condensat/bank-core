@@ -68,10 +68,12 @@ type AccountListRequest struct {
 }
 
 type AccountInfo struct {
-	AccountID string `json:"accountId"`
-	UserID    string `json:"userId"`
-	Currency  string `json:"currency"`
-	Name      string `json:"name"`
+	AccountID string  `json:"accountId"`
+	UserID    string  `json:"userId"`
+	Name      string  `json:"name"`
+	Currency  string  `json:"currency"`
+	Balance   float64 `json:"balance"`
+	Status    string  `json:"status"`
 }
 
 // AccountListResponse holds response for accountlist request
@@ -117,6 +119,7 @@ func (p *DashboardService) AccountList(r *http.Request, request *AccountListRequ
 	}
 	var pagesCount int
 	var accountPage []model.Account
+	infos := make(map[model.AccountID]AccountInfo)
 	err = db.Transaction(func(db bank.Database) error {
 		var err error
 		pagesCount, err = database.AccountPagingCount(db, DefaultAccountCountByPage)
@@ -129,6 +132,27 @@ func (p *DashboardService) AccountList(r *http.Request, request *AccountListRequ
 		if err != nil {
 			accountPage = nil
 			return err
+		}
+		for _, account := range accountPage {
+			var info AccountInfo
+
+			status, err := database.GetAccountStatusByAccountID(db, account.ID)
+			if err != nil {
+				accountPage = nil
+				return err
+			}
+			last, err := database.GetLastAccountOperation(db, account.ID)
+			if err != nil {
+				accountPage = nil
+				return err
+			}
+
+			info.Name = string(account.Name)
+			info.Balance = float64(*last.Balance)
+			info.Currency = string(account.CurrencyName)
+			info.Status = string(status.State)
+
+			infos[account.ID] = info
 		}
 		return nil
 	})
@@ -161,12 +185,14 @@ func (p *DashboardService) AccountList(r *http.Request, request *AccountListRequ
 			return err
 		}
 
-		accounts = append(accounts, AccountInfo{
-			AccountID: sID.ToString(secureID),
-			UserID:    sID.ToString(userSecureID),
-			Currency:  string(account.CurrencyName),
-			Name:      string(account.Name),
-		})
+		var accountInfo AccountInfo
+		if info, ok := infos[account.ID]; ok {
+			accountInfo = info
+		}
+		accountInfo.AccountID = sID.ToString(secureID)
+		accountInfo.UserID = sID.ToString(userSecureID)
+
+		accounts = append(accounts, accountInfo)
 	}
 
 	*reply = AccountListResponse{
