@@ -20,9 +20,16 @@ type WalletListRequest struct {
 	apiservice.SessionArgs
 }
 
+type WalletListStatus struct {
+	Wallet string `json:"wallet"`
+	UTXOs  int    `json:"utxos"`
+	Height int    `json:"height"`
+	Status string `json:"status"`
+}
+
 // BatchListResponse holds response for walletlist request
 type WalletListResponse struct {
-	Wallets []string `json:"wallets"`
+	Wallets []WalletListStatus `json:"wallets"`
 }
 
 func (p *DashboardService) WalletList(r *http.Request, request *WalletListRequest, reply *WalletListResponse) error {
@@ -54,8 +61,33 @@ func (p *DashboardService) WalletList(r *http.Request, request *WalletListReques
 		return sessions.ErrInternalError
 	}
 
+	var walletsStatus []WalletListStatus
+	for _, wallet := range wallets {
+
+		// request wallet detail
+		var height int
+		var utxos int
+		walletDetail, err := FetchWalletDetail(ctx, wallet)
+		if err != nil {
+			log.WithError(err).
+				Error("FetchWalletDetail failed")
+			return sessions.ErrInternalError
+		}
+		if len(walletDetail) == 1 {
+			height = walletDetail[0].Height
+			utxos = len(walletDetail[0].UTXOs)
+		}
+
+		walletsStatus = append(walletsStatus, WalletListStatus{
+			Wallet: wallet,
+			UTXOs:  utxos,
+			Height: height,
+			Status: "sync",
+		})
+	}
+
 	*reply = WalletListResponse{
-		Wallets: wallets,
+		Wallets: walletsStatus,
 	}
 
 	return nil
