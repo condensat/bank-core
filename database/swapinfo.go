@@ -122,10 +122,77 @@ func GetSwapInfoBySwapID(db bank.Database, swapID model.SwapID) (model.SwapInfo,
 	var result model.SwapInfo
 	err := gdb.
 		Where(&model.SwapInfo{SwapID: swapID}).
-		First(&result).Error
+		Last(&result).Error
 	if err != nil {
 		return model.SwapInfo{}, err
 	}
 
 	return result, nil
+}
+
+func SwapPagingCount(db bank.Database, countByPage int) (int, error) {
+	if countByPage <= 0 {
+		countByPage = 1
+	}
+
+	switch gdb := db.DB().(type) {
+	case *gorm.DB:
+
+		var result int
+		err := gdb.
+			Model(&model.SwapInfo{}).
+			Group("swap_id").
+			Count(&result).Error
+		var partialPage int
+		if result%countByPage > 0 {
+			partialPage = 1
+		}
+		return result/countByPage + partialPage, err
+
+	default:
+		return 0, ErrInvalidDatabase
+	}
+}
+
+func SwapPage(db bank.Database, swapID model.SwapID, countByPage int) ([]model.SwapID, error) {
+	switch gdb := db.DB().(type) {
+	case *gorm.DB:
+
+		if countByPage <= 0 {
+			countByPage = 1
+		}
+
+		subQueryLast := gdb.Model(&model.SwapInfo{}).
+			Select("MAX(id)").
+			Group("swap_id").
+			SubQuery()
+
+		var list []*model.SwapInfo
+		err := gdb.Model(&model.SwapInfo{}).
+			Where("swap_info.id IN (?)", subQueryLast).
+			Where("id >= ?", swapID).
+			Order("swap_id ASC").
+			Limit(countByPage).
+			Find(&list).Error
+
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return nil, err
+		}
+
+		return convertSwapInfoIDs(list), nil
+
+	default:
+		return nil, ErrInvalidDatabase
+	}
+}
+
+func convertSwapInfoIDs(list []*model.SwapInfo) []model.SwapID {
+	var result []model.SwapID
+	for _, curr := range list {
+		if curr != nil {
+			result = append(result, curr.SwapID)
+		}
+	}
+
+	return result[:]
 }

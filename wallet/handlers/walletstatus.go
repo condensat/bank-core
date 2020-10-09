@@ -30,6 +30,22 @@ func WalletStatus(ctx context.Context, status common.WalletStatus) (common.Walle
 
 	chains := chainHandler.ListChains(ctx)
 	for _, chain := range chains {
+		// check for specific wallet if requested
+		if len(status.Wallets) > 0 {
+			var wallet common.WalletInfo
+			for _, w := range status.Wallets {
+				// select requested wallet
+				if w.Chain == chain {
+					wallet = w
+					break
+				}
+			}
+			// skip wallet
+			if wallet.Chain != chain {
+				continue
+			}
+		}
+
 		walletInfo, err := chainHandler.WalletInfo(ctx, chain)
 		if err != nil {
 			log.WithError(err).
