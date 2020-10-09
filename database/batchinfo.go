@@ -208,3 +208,70 @@ func convertBatchInfoList(list []*model.BatchInfo) []model.BatchInfo {
 
 	return result[:]
 }
+
+func BatchPagingCount(db bank.Database, countByPage int) (int, error) {
+	if countByPage <= 0 {
+		countByPage = 1
+	}
+
+	switch gdb := db.DB().(type) {
+	case *gorm.DB:
+
+		var result int
+		err := gdb.
+			Model(&model.BatchInfo{}).
+			Group("batch_id").
+			Count(&result).Error
+		var partialPage int
+		if result%countByPage > 0 {
+			partialPage = 1
+		}
+		return result/countByPage + partialPage, err
+
+	default:
+		return 0, ErrInvalidDatabase
+	}
+}
+
+func BatchPage(db bank.Database, batchID model.BatchID, countByPage int) ([]model.BatchID, error) {
+	switch gdb := db.DB().(type) {
+	case *gorm.DB:
+
+		if countByPage <= 0 {
+			countByPage = 1
+		}
+
+		subQueryLast := gdb.Model(&model.BatchInfo{}).
+			Select("MAX(id)").
+			Group("batch_id").
+			SubQuery()
+
+		var list []*model.BatchInfo
+		err := gdb.Model(&model.BatchInfo{}).
+			Where("batch_info.id IN (?)", subQueryLast).
+			Where("id >= ?", batchID).
+			Order("batch_id ASC").
+			Limit(countByPage).
+			Find(&list).Error
+
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return nil, err
+		}
+
+		return convertBatchInfoIDs(list), nil
+
+	default:
+		return nil, ErrInvalidDatabase
+	}
+}
+
+func convertBatchInfoIDs(list []*model.BatchInfo) []model.BatchID {
+	var result []model.BatchID
+	for _, curr := range list {
+		if curr != nil {
+			result = append(result, curr.BatchID)
+		}
+	}
+
+	return result[:]
+}

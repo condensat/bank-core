@@ -55,6 +55,9 @@ func main() {
 
 	AccountsInfo(ctx)
 	UsersInfo(ctx)
+	DepositList(ctx)
+	BatchList(ctx)
+	WithdrawList(ctx)
 }
 
 func migrateDatabase(ctx context.Context) {
@@ -130,4 +133,34 @@ func UsersInfo(ctx context.Context) {
 		}
 		start = fmt.Sprintf("%d", int(userPage[len(userPage)-1].ID)+1)
 	}
+}
+
+func DepositList(ctx context.Context) {
+	db := appcontext.Database(ctx)
+
+	page, err := database.DepositPage(db, 0, 10)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Deposit Page: %d\n", page)
+}
+
+func BatchList(ctx context.Context) {
+	db := appcontext.Database(ctx)
+
+	page, err := database.BatchPage(db, 0, 10)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Batch Page: %d\n", page)
+}
+
+func WithdrawList(ctx context.Context) {
+	db := appcontext.Database(ctx)
+
+	page, err := database.WithdrawPage(db, 0, 10)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Withdraw Page: %d\n", page)
 }
