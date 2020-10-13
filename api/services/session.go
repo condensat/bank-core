@@ -10,12 +10,11 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"time"
 
-	"github.com/condensat/bank-core/database"
-	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/networking"
 	"github.com/condensat/bank-core/networking/sessions"
@@ -38,7 +37,17 @@ var (
 )
 
 // SessionService receiver
-type SessionService int
+type SessionService struct {
+	checkCredential CheckCredentialHandler
+}
+
+type CheckCredentialHandler func(ctx context.Context, login, password string) (uint64, bool, error)
+
+func NewSessionService(checkCredential CheckCredentialHandler) SessionService {
+	return SessionService{
+		checkCredential: checkCredential,
+	}
+}
 
 // SessionArgs holds SessionID for operation requests and repls
 type SessionArgs struct {
@@ -95,16 +104,20 @@ func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, repl
 	log := logger.Logger(ctx).WithField("Method", "services.SessionService.Open")
 	log = networking.GetServiceRequestLog(log, r, "Session", "Open")
 
-	// Retrieve context values
-	db, session, err := ContextValues(ctx)
+	_, session, err := ContextValues(ctx)
 	if err != nil {
 		log.WithError(err).
 			Warning("Session open failed")
 		return ErrServiceInternalError
 	}
+	if p.checkCredential == nil {
+		log.WithError(err).
+			Error("checkCredential")
+		return ErrServiceInternalError
+	}
 
 	// Check credentials
-	userID, valid, err := database.CheckCredential(ctx, db, model.Base58(request.Login), model.Base58(request.Password))
+	userID, valid, err := p.checkCredential(ctx, request.Login, request.Password)
 	if err != nil {
 		log.WithError(err).
 			Warning("Session open failed")
@@ -117,7 +130,7 @@ func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, repl
 		return ErrInvalidCrendential
 	}
 
-	sessionReply, err := openUserSession(ctx, session, r, uint64(userID))
+	sessionReply, err := openUserSession(ctx, session, r, userID)
 	if err != nil {
 		log.WithError(err).
 			Warning("openSession failed")
