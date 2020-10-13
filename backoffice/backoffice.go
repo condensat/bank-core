@@ -11,8 +11,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/condensat/bank-core/api/sessions"
 	"github.com/condensat/bank-core/backoffice/services"
+	"github.com/condensat/bank-core/networking/sessions"
 
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/utils"

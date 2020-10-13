@@ -18,7 +18,7 @@ import (
 	"github.com/condensat/secureid"
 
 	"github.com/condensat/bank-core/accounting/client"
-	"github.com/condensat/bank-core/api/sessions"
+	"github.com/condensat/bank-core/networking/sessions"
 
 	"github.com/sirupsen/logrus"
 )

@@ -9,9 +9,9 @@ import (
 
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/api/services"
-	"github.com/condensat/bank-core/api/sessions"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/networking/sessions"
 )
 
 func verifySessionId(ctx context.Context, sessionID sessions.SessionID) (bool, error) {

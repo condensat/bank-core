@@ -18,7 +18,7 @@ import (
 	"github.com/condensat/bank-core/networking"
 
 	coreService "github.com/condensat/bank-core/api/services"
-	"github.com/condensat/bank-core/api/sessions"
+	"github.com/condensat/bank-core/networking/sessions"
 
 	"github.com/sirupsen/logrus"
 )

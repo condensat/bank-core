@@ -13,7 +13,7 @@ import (
 	"github.com/condensat/bank-core/networking"
 
 	apiservice "github.com/condensat/bank-core/api/services"
-	"github.com/condensat/bank-core/api/sessions"
+	"github.com/condensat/bank-core/networking/sessions"
 
 	"github.com/condensat/secureid"
 

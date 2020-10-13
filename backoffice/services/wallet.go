@@ -10,7 +10,7 @@ import (
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/networking"
 
-	"github.com/condensat/bank-core/api/sessions"
+	"github.com/condensat/bank-core/networking/sessions"
 
 	apiservice "github.com/condensat/bank-core/api/services"
 	"github.com/condensat/bank-core/database/model"

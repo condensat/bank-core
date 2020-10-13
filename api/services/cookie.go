@@ -13,7 +13,7 @@ import (
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/networking"
 
-	"github.com/condensat/bank-core/api/sessions"
+	"github.com/condensat/bank-core/networking/sessions"
 
 	"github.com/gorilla/rpc/v2"
 	"github.com/gorilla/rpc/v2/json"

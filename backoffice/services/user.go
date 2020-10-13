@@ -17,7 +17,7 @@ import (
 	"github.com/condensat/secureid"
 
 	apiservice "github.com/condensat/bank-core/api/services"
-	"github.com/condensat/bank-core/api/sessions"
+	"github.com/condensat/bank-core/networking/sessions"
 )
 
 const (

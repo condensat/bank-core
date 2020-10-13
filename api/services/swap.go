@@ -10,12 +10,12 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/condensat/bank-core/api/sessions"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/networking"
+	"github.com/condensat/bank-core/networking/sessions"
 	"github.com/condensat/secureid"
 
 	accounting "github.com/condensat/bank-core/accounting/client"

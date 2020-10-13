@@ -9,7 +9,7 @@ import (
 
 	"github.com/condensat/bank-core/appcontext"
 
-	"github.com/condensat/bank-core/api/sessions"
+	"github.com/condensat/bank-core/networking/sessions"
 
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
