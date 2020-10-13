@@ -9,21 +9,26 @@ require (
 	github.com/go-redis/redis/v8 v8.3.1
 	github.com/go-redis/redis_rate/v9 v9.0.2
 	github.com/go-sql-driver/mysql v1.5.0
-	github.com/google/uuid v1.1.1
-	github.com/gorilla/mux v1.7.4
+	github.com/google/uuid v1.1.2
+	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/rpc v1.2.0
-	github.com/gorilla/sessions v1.2.0
-	github.com/jinzhu/gorm v1.9.12
+	github.com/gorilla/sessions v1.2.1
+	github.com/jinzhu/gorm v1.9.16
 	github.com/joho/godotenv v1.3.0
-	github.com/markbates/goth v1.64.0
-	github.com/nats-io/nats-server/v2 v2.1.2 // indirect
-	github.com/nats-io/nats.go v1.9.1
+	github.com/markbates/goth v1.65.0
+	github.com/mattn/go-sqlite3 v2.0.3+incompatible // indirect
+	github.com/nats-io/jwt v1.0.1 // indirect
+	github.com/nats-io/nats-server/v2 v2.1.8 // indirect
+	github.com/nats-io/nats.go v1.10.0
+	github.com/nats-io/nkeys v0.2.0 // indirect
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/rs/cors v1.7.0
 	github.com/shengdoushi/base58 v1.0.0
-	github.com/sirupsen/logrus v1.4.2
+	github.com/sirupsen/logrus v1.7.0
 	github.com/thoas/stats v0.0.0-20190407194641-965cb2de1678
 	github.com/urfave/negroni v1.0.0
 	github.com/ybbus/jsonrpc v2.1.2+incompatible
-	golang.org/x/crypto v0.0.0-20200323165209-0ec3e9974c59
+	golang.org/x/crypto v0.0.0-20201012173705-84dcc777aaee
+	golang.org/x/net v0.0.0-20201010224723-4f7140c49acb // indirect
+	golang.org/x/sys v0.0.0-20201013064817-56aa3af1a10a // indirect
 )
