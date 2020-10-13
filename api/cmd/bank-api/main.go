@@ -19,8 +19,8 @@ import (
 
 	"github.com/condensat/bank-core/api"
 	"github.com/condensat/bank-core/api/oauth"
-	"github.com/condensat/bank-core/api/secureid"
 	"github.com/condensat/bank-core/networking/ratelimiter"
+	"github.com/condensat/bank-core/security/secureid"
 
 	"github.com/condensat/bank-core/database"
 )

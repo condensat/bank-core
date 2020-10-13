@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/condensat/bank-core/api/secureid"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/security/secureid"
 
 	"github.com/condensat/bank-core/backoffice"
 
