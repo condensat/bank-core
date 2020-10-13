@@ -15,6 +15,7 @@ import (
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/networking"
 	"github.com/condensat/secureid"
 )
 
@@ -63,7 +64,7 @@ func (p *DashboardService) SwapList(r *http.Request, request *SwapListRequest, r
 	ctx := r.Context()
 	db := appcontext.Database(ctx)
 	log := logger.Logger(ctx).WithField("Method", "services.DashboardService.SwapList")
-	log = apiservice.GetServiceRequestLog(log, r, "Dashboard", "SwapList")
+	log = networking.GetServiceRequestLog(log, r, "Dashboard", "SwapList")
 
 	// Get userID from session
 	request.SessionID = apiservice.GetSessionCookie(r)
@@ -197,7 +198,7 @@ func (p *DashboardService) SwapDetail(r *http.Request, request *SwapDetailReques
 	ctx := r.Context()
 	db := appcontext.Database(ctx)
 	log := logger.Logger(ctx).WithField("Method", "services.DashboardService.SwapDetail")
-	log = apiservice.GetServiceRequestLog(log, r, "Dashboard", "SwapList")
+	log = networking.GetServiceRequestLog(log, r, "Dashboard", "SwapList")
 
 	// Get userID from session
 	request.SessionID = apiservice.GetSessionCookie(r)

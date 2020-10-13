@@ -15,6 +15,7 @@ import (
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/networking"
 	"github.com/condensat/secureid"
 
 	accounting "github.com/condensat/bank-core/accounting/client"
@@ -73,7 +74,7 @@ type SwapResponse struct {
 func (p *SwapService) Propose(r *http.Request, request *SwapProposeRequest, reply *SwapResponse) error {
 	ctx := r.Context()
 	log := logger.Logger(ctx).WithField("Method", "SwapService.Propose")
-	log = GetServiceRequestLog(log, r, "swap", "Propose")
+	log = networking.GetServiceRequestLog(log, r, "swap", "Propose")
 
 	proposal := request.Proposal
 
@@ -264,7 +265,7 @@ func (p *SwapService) Propose(r *http.Request, request *SwapProposeRequest, repl
 func (p *SwapService) Info(r *http.Request, request *SwapRequest, reply *SwapResponse) error {
 	ctx := r.Context()
 	log := logger.Logger(ctx).WithField("Method", "SwapService.Info")
-	log = GetServiceRequestLog(log, r, "swap", "Info")
+	log = networking.GetServiceRequestLog(log, r, "swap", "Info")
 
 	if len(request.Payload) == 0 {
 		return ErrInvalidPayload
@@ -361,7 +362,7 @@ func (p *SwapService) Info(r *http.Request, request *SwapRequest, reply *SwapRes
 func (p *SwapService) Finalize(r *http.Request, request *SwapRequest, reply *SwapResponse) error {
 	ctx := r.Context()
 	log := logger.Logger(ctx).WithField("Method", "SwapService.Finalize")
-	log = GetServiceRequestLog(log, r, "swap", "Finalize")
+	log = networking.GetServiceRequestLog(log, r, "swap", "Finalize")
 
 	if len(request.SwapID) == 0 {
 		return ErrInvalidSwapID
@@ -506,7 +507,7 @@ func (p *SwapService) Finalize(r *http.Request, request *SwapRequest, reply *Swa
 func (p *SwapService) Accept(r *http.Request, request *SwapRequest, reply *SwapResponse) error {
 	ctx := r.Context()
 	log := logger.Logger(ctx).WithField("Method", "SwapService.Accept")
-	log = GetServiceRequestLog(log, r, "swap", "Accept")
+	log = networking.GetServiceRequestLog(log, r, "swap", "Accept")
 
 	if len(request.Payload) == 0 {
 		return ErrInvalidPayload

@@ -12,6 +12,7 @@ import (
 	apiservice "github.com/condensat/bank-core/api/services"
 	"github.com/condensat/bank-core/api/sessions"
 	"github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/networking"
 
 	"github.com/condensat/bank-core/logger"
 )
@@ -36,7 +37,7 @@ type StatusResponse struct {
 func (p *DashboardService) Status(r *http.Request, request *StatusRequest, reply *StatusResponse) error {
 	ctx := r.Context()
 	log := logger.Logger(ctx).WithField("Method", "services.DashboardService.Status")
-	log = apiservice.GetServiceRequestLog(log, r, "Dashboard", "Status")
+	log = networking.GetServiceRequestLog(log, r, "Dashboard", "Status")
 
 	// Get userID from session
 	request.SessionID = apiservice.GetSessionCookie(r)

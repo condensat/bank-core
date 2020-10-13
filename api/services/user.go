@@ -12,6 +12,7 @@ import (
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/networking"
 
 	"github.com/sirupsen/logrus"
 )
@@ -34,7 +35,7 @@ func (p *UserService) Info(r *http.Request, request *UserInfoRequest, reply *Use
 	ctx := r.Context()
 	db := appcontext.Database(ctx)
 	log := logger.Logger(ctx).WithField("Method", "services.UserService.Info")
-	log = GetServiceRequestLog(log, r, "User", "Info")
+	log = networking.GetServiceRequestLog(log, r, "User", "Info")
 
 	// Retrieve context values
 	_, session, err := ContextValues(ctx)

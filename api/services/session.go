@@ -18,6 +18,7 @@ import (
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/networking"
 
 	"github.com/sirupsen/logrus"
 )
@@ -92,7 +93,7 @@ func GetSessionCookie(r *http.Request) string {
 func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, reply *SessionReply) error {
 	ctx := r.Context()
 	log := logger.Logger(ctx).WithField("Method", "services.SessionService.Open")
-	log = GetServiceRequestLog(log, r, "Session", "Open")
+	log = networking.GetServiceRequestLog(log, r, "Session", "Open")
 
 	// Retrieve context values
 	db, session, err := ContextValues(ctx)
@@ -131,7 +132,7 @@ func (p *SessionService) Open(r *http.Request, request *SessionOpenRequest, repl
 func (p *SessionService) Renew(r *http.Request, request *SessionArgs, reply *SessionReply) error {
 	ctx := r.Context()
 	log := logger.Logger(ctx).WithField("Method", "services.SessionService.Renew")
-	log = GetServiceRequestLog(log, r, "Session", "Renew")
+	log = networking.GetServiceRequestLog(log, r, "Session", "Renew")
 
 	// Retrieve context values
 	_, session, err := ContextValues(ctx)
@@ -144,7 +145,7 @@ func (p *SessionService) Renew(r *http.Request, request *SessionArgs, reply *Ses
 	// Extend session
 	request.SessionID = GetSessionCookie(r)
 	sessionID := sessions.SessionID(request.SessionID)
-	remoteAddr := RequesterIP(r)
+	remoteAddr := networking.RequesterIP(r)
 	userID, err := session.ExtendSession(ctx, remoteAddr, sessionID, SessionDuration)
 
 	log = log.WithFields(logrus.Fields{
@@ -205,7 +206,7 @@ func (p *SessionService) Renew(r *http.Request, request *SessionArgs, reply *Ses
 func (p *SessionService) Close(r *http.Request, request *SessionArgs, reply *SessionReply) error {
 	ctx := r.Context()
 	log := logger.Logger(ctx).WithField("Method", "services.SessionService.Close")
-	log = GetServiceRequestLog(log, r, "Session", "Close")
+	log = networking.GetServiceRequestLog(log, r, "Session", "Close")
 
 	// Retrieve context values
 	_, session, err := ContextValues(ctx)

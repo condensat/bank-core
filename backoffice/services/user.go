@@ -13,6 +13,7 @@ import (
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/networking"
 	"github.com/condensat/secureid"
 
 	apiservice "github.com/condensat/bank-core/api/services"
@@ -46,7 +47,7 @@ func (p *DashboardService) UserList(r *http.Request, request *UserListRequest, r
 	ctx := r.Context()
 	db := appcontext.Database(ctx)
 	log := logger.Logger(ctx).WithField("Method", "services.DashboardService.UserList")
-	log = apiservice.GetServiceRequestLog(log, r, "Dashboard", "UserList")
+	log = networking.GetServiceRequestLog(log, r, "Dashboard", "UserList")
 
 	// Get userID from session
 	request.SessionID = apiservice.GetSessionCookie(r)
@@ -152,7 +153,7 @@ func (p *DashboardService) UserDetail(r *http.Request, request *UserDetailReques
 	ctx := r.Context()
 	db := appcontext.Database(ctx)
 	log := logger.Logger(ctx).WithField("Method", "services.DashboardService.UserDetail")
-	log = apiservice.GetServiceRequestLog(log, r, "Dashboard", "UserDetail")
+	log = networking.GetServiceRequestLog(log, r, "Dashboard", "UserDetail")
 
 	// Get userID from session
 	request.SessionID = apiservice.GetSessionCookie(r)

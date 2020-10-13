@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	coreService "github.com/condensat/bank-core/api/services"
+	"github.com/condensat/bank-core/networking"
 
 	"github.com/gorilla/rpc/v2"
 )
@@ -19,7 +20,7 @@ var (
 )
 
 func RegisterServices(ctx context.Context, mux *http.ServeMux, corsAllowedOrigins []string) {
-	corsHandler := coreService.CreateCorsOptions(corsAllowedOrigins)
+	corsHandler := networking.CreateCorsOptions(corsAllowedOrigins)
 
 	mux.Handle("/api/v1/stack", corsHandler.Handler(NewStackHandler(ctx)))
 }

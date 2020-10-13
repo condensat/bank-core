@@ -13,6 +13,7 @@ import (
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/networking"
 	"github.com/condensat/bank-core/utils"
 	"github.com/condensat/secureid"
 
@@ -70,7 +71,7 @@ type AccountResponse struct {
 func (p *AccountingService) List(r *http.Request, request *AccountRequest, reply *AccountResponse) error {
 	ctx := r.Context()
 	log := logger.Logger(ctx).WithField("Method", "AccountingService.List")
-	log = GetServiceRequestLog(log, r, "Accounting", "List")
+	log = networking.GetServiceRequestLog(log, r, "Accounting", "List")
 
 	// Retrieve context values
 	_, session, err := ContextValues(ctx)
@@ -262,7 +263,7 @@ type AccountHistoryResponse struct {
 func (p *AccountingService) History(r *http.Request, request *AccountHistoryRequest, reply *AccountHistoryResponse) error {
 	ctx := r.Context()
 	log := logger.Logger(ctx).WithField("Method", "AccountingService.History")
-	log = GetServiceRequestLog(log, r, "Accounting", "History")
+	log = networking.GetServiceRequestLog(log, r, "Accounting", "History")
 
 	// Retrieve context values
 	_, session, err := ContextValues(ctx)

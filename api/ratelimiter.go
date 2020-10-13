@@ -13,6 +13,7 @@ import (
 	"github.com/condensat/bank-core/api/ratelimiter"
 	"github.com/condensat/bank-core/api/services"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/networking"
 
 	"github.com/go-redis/redis_rate/v9"
 )
@@ -58,10 +59,10 @@ func MiddlewarePeerRateLimiter(rw http.ResponseWriter, r *http.Request, next htt
 	switch limiter := ctx.Value(ratelimiter.MiddlewarePeerRequestPerSecondKey).(type) {
 	case *ratelimiter.RateLimiter:
 
-		if !limiter.Allowed(ctx, services.RequesterIP(r)) {
+		if !limiter.Allowed(ctx, networking.RequesterIP(r)) {
 			log := logger.Logger(ctx).WithField("Method", "api.MiddlewarePeerRateLimiter")
 
-			services.AppendRequestLog(log, r).
+			networking.AppendRequestLog(log, r).
 				WithError(ErrRateLimit).
 				Warning("Too many requests")
 
@@ -73,7 +74,7 @@ func MiddlewarePeerRateLimiter(rw http.ResponseWriter, r *http.Request, next htt
 	default:
 		log := logger.Logger(ctx).WithField("Method", "api.MiddlewarePeerRateLimiter")
 
-		services.AppendRequestLog(log, r).
+		networking.AppendRequestLog(log, r).
 			WithError(services.ErrServiceInternalError).
 			Error("No limiter found")
 
