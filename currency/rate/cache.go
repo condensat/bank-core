@@ -45,7 +45,7 @@ func CurrencyInfo(ctx context.Context, name string) (common.CurrencyInfo, error)
 
 	key := formatCurrencyKey(name)
 	// fetch from catch
-	data, err := rdb.Get(key).Bytes()
+	data, err := rdb.Get(ctx, key).Bytes()
 	if err != nil {
 		// if not present in cache
 		// grab from database via RPC
@@ -64,7 +64,7 @@ func CurrencyInfo(ctx context.Context, name string) (common.CurrencyInfo, error)
 		}
 
 		// store in redis with 30s TTL
-		err = rdb.Set(key, data, 30*time.Second).Err()
+		err = rdb.Set(ctx, key, data, 30*time.Second).Err()
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to store rate to redis")
@@ -107,7 +107,7 @@ func UpdateRedisRate(ctx context.Context, currencyRates []model.CurrencyRate) {
 			continue
 		}
 
-		err = rdb.Set(key, data, 0).Err()
+		err = rdb.Set(ctx, key, data, 0).Err()
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to store rate to redis")
@@ -146,7 +146,7 @@ func FetchRedisRate(ctx context.Context, name, base string) (Rate, error) {
 
 	key := formatRateKey(alias, base)
 
-	data, err := rdb.Get(key).Bytes()
+	data, err := rdb.Get(ctx, key).Bytes()
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to fetch rate from redis")

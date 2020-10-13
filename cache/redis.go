@@ -10,7 +10,7 @@ import (
 
 	"github.com/condensat/bank-core"
 
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis/v8"
 )
 
 type Redis struct {

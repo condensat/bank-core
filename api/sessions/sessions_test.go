@@ -12,7 +12,7 @@ import (
 
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis/v8"
 )
 
 const cstTestRemoteAddrSample = "redis"
@@ -408,7 +408,7 @@ func Test_pushSession(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := pushSession(tt.args.rdb, tt.args.userID, tt.args.cstTestRemoteAddrSample, tt.args.sessionID, tt.args.duration)
+			got, err := pushSession(ctx, tt.args.rdb, tt.args.userID, tt.args.cstTestRemoteAddrSample, tt.args.sessionID, tt.args.duration)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("pushSession() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -456,7 +456,7 @@ func Test_fetchSession(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := fetchSession(tt.args.rdb, tt.args.sessionID)
+			got, err := fetchSession(ctx, tt.args.rdb, tt.args.sessionID)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("fetchSession() error = %v, wantErr %v", err, tt.wantErr)
 				return

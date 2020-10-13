@@ -3,11 +3,11 @@ module github.com/condensat/bank-core
 go 1.14
 
 require (
-	github.com/bsm/redislock v0.5.0
+	github.com/bsm/redislock v0.6.0
 	github.com/condensat/secureid v0.1.0
 	github.com/emef/bitfield v0.0.0-20170503144143-7d3f8f823065
-	github.com/go-redis/redis/v7 v7.2.0
-	github.com/go-redis/redis_rate/v8 v8.0.0
+	github.com/go-redis/redis/v8 v8.3.1
+	github.com/go-redis/redis_rate/v9 v9.0.2
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4
@@ -19,8 +19,6 @@ require (
 	github.com/nats-io/nats-server/v2 v2.1.2 // indirect
 	github.com/nats-io/nats.go v1.9.1
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
-	github.com/onsi/ginkgo v1.11.0 // indirect
-	github.com/onsi/gomega v1.8.1 // indirect
 	github.com/rs/cors v1.7.0
 	github.com/shengdoushi/base58 v1.0.0
 	github.com/sirupsen/logrus v1.4.2

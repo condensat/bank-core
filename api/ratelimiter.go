@@ -14,7 +14,7 @@ import (
 	"github.com/condensat/bank-core/api/services"
 	"github.com/condensat/bank-core/logger"
 
-	"github.com/go-redis/redis_rate/v8"
+	"github.com/go-redis/redis_rate/v9"
 )
 
 var (

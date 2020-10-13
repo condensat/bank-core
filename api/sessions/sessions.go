@@ -15,7 +15,7 @@ import (
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
 
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis/v8"
 	"github.com/sirupsen/logrus"
 )
 
@@ -53,7 +53,7 @@ func (s *Session) Count(ctx context.Context) (int, error) {
 	keysWildcard := sessionKey("api", "sessions", "*")
 
 	// Todo: optimize session count
-	keys, err := rdb.Keys(keysWildcard).Result()
+	keys, err := rdb.Keys(ctx, keysWildcard).Result()
 	if err != nil {
 		log.WithError(err).
 			WithField("Wildcard", keysWildcard).
@@ -91,7 +91,7 @@ func (s *Session) CreateSession(ctx context.Context, userID uint64, remoteAddr s
 	sessionID := NewSessionID()
 	log = log.WithField("SessionID", sessionID)
 
-	si, err := pushSession(rdb, userID, remoteAddr, sessionID, duration)
+	si, err := pushSession(ctx, rdb, userID, remoteAddr, sessionID, duration)
 	if err != nil {
 		log.Trace("Failed to push session to cache")
 		return cstInvalidSessionID, err
@@ -113,7 +113,7 @@ func (s *Session) sessionInfo(ctx context.Context, sessionID SessionID) SessionI
 	log = log.WithField("SessionID", sessionID)
 
 	// get session from cache
-	si, err := fetchSession(rdb, sessionID)
+	si, err := fetchSession(ctx, rdb, sessionID)
 	if err != nil {
 		log.WithError(err).
 			Trace("fetchSession failed")
@@ -139,7 +139,7 @@ func (s *Session) UserSession(ctx context.Context, sessionID SessionID) uint64 {
 	log = log.WithField("SessionID", sessionID)
 
 	// get session from cache
-	si, err := fetchSession(rdb, sessionID)
+	si, err := fetchSession(ctx, rdb, sessionID)
 	if err != nil {
 		log.WithError(err).
 			Trace("fetchSession failed")
@@ -176,7 +176,7 @@ func (s *Session) ExtendSession(ctx context.Context, remoteAddr string, sessionI
 	}
 
 	// get session from cache
-	si, err := fetchSession(rdb, sessionID)
+	si, err := fetchSession(ctx, rdb, sessionID)
 	if err != nil {
 		log.WithError(err).
 			Trace("fetchSession failed")
@@ -202,7 +202,7 @@ func (s *Session) ExtendSession(ctx context.Context, remoteAddr string, sessionI
 		return cstInvalidUserID, ErrSessionExpired
 	}
 
-	si, err = pushSession(rdb, si.UserID, si.RemoteAddr, sessionID, duration)
+	si, err = pushSession(ctx, rdb, si.UserID, si.RemoteAddr, sessionID, duration)
 	if err != nil {
 		log.WithError(err).
 			Trace("Failed to push session to cache")
@@ -225,7 +225,7 @@ func (s *Session) InvalidateSession(ctx context.Context, sessionID SessionID) er
 	log = log.WithField("SessionID", sessionID)
 
 	// get session from cache
-	si, err := fetchSession(rdb, sessionID)
+	si, err := fetchSession(ctx, rdb, sessionID)
 	if err != nil {
 		log.WithError(err).
 			Trace("fetchSession failed")
@@ -239,7 +239,7 @@ func (s *Session) InvalidateSession(ctx context.Context, sessionID SessionID) er
 	}
 
 	duration := time.Duration(0)
-	si, err = pushSession(rdb, cstInvalidUserID, cstInvalidRemoteAddr, sessionID, duration)
+	si, err = pushSession(ctx, rdb, cstInvalidUserID, cstInvalidRemoteAddr, sessionID, duration)
 	if err != nil {
 		log.WithError(err).
 			WithField("Duration", duration).
@@ -264,7 +264,7 @@ func sessionKey(prefix, key string, sessionID SessionID) string {
 
 }
 
-func pushSession(rdb *redis.Client, userID uint64, remoteAddr string, sessionID SessionID, duration time.Duration) (SessionInfo, error) {
+func pushSession(ctx context.Context, rdb *redis.Client, userID uint64, remoteAddr string, sessionID SessionID, duration time.Duration) (SessionInfo, error) {
 	now := time.Now().UTC()
 	expired := now.Add(-time.Nanosecond)
 	si := SessionInfo{SessionID: cstInvalidSessionID, Expiration: expired}
@@ -298,7 +298,7 @@ func pushSession(rdb *redis.Client, userID uint64, remoteAddr string, sessionID 
 
 	key := sessionKey("api", "sessions", si.SessionID)
 	if si.Expired() {
-		_, err := rdb.Del(key).Result()
+		_, err := rdb.Del(ctx, key).Result()
 		if err != nil {
 			si.SessionID = cstInvalidSessionID
 			si.Expiration = expired
@@ -308,7 +308,7 @@ func pushSession(rdb *redis.Client, userID uint64, remoteAddr string, sessionID 
 	}
 
 	// add 500ms to expiration key
-	err = rdb.Set(key, data, duration+500*time.Millisecond).Err()
+	err = rdb.Set(ctx, key, data, duration+500*time.Millisecond).Err()
 	if err != nil {
 		si.SessionID = cstInvalidSessionID
 		si.Expiration = expired
@@ -318,12 +318,12 @@ func pushSession(rdb *redis.Client, userID uint64, remoteAddr string, sessionID 
 	return si, nil
 }
 
-func fetchSession(rdb *redis.Client, sessionID SessionID) (SessionInfo, error) {
+func fetchSession(ctx context.Context, rdb *redis.Client, sessionID SessionID) (SessionInfo, error) {
 	if sessionID == cstInvalidSessionID {
 		return SessionInfo{SessionID: cstInvalidSessionID}, ErrInvalidSessionID
 	}
 	key := sessionKey("api", "sessions", sessionID)
-	data, err := rdb.Get(key).Bytes()
+	data, err := rdb.Get(ctx, key).Bytes()
 	if err != nil {
 		return SessionInfo{SessionID: cstInvalidSessionID}, ErrCache
 	}
