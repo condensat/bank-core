@@ -9,8 +9,8 @@ import (
 	"errors"
 	"net/http"
 
-	coreService "github.com/condensat/bank-core/api/services"
 	"github.com/condensat/bank-core/networking"
+	"github.com/condensat/bank-core/networking/sessions"
 
 	"github.com/gorilla/rpc/v2"
 )
@@ -28,7 +28,7 @@ func RegisterServices(ctx context.Context, mux *http.ServeMux, corsAllowedOrigin
 func NewStackHandler(ctx context.Context) http.Handler {
 	server := rpc.NewServer()
 
-	jsonCodec := coreService.NewCookieCodec(ctx)
+	jsonCodec := sessions.NewCookieCodec(ctx)
 	server.RegisterCodec(jsonCodec, "application/json")
 	server.RegisterCodec(jsonCodec, "application/json; charset=UTF-8") // For firefox 11 and other browsers which append the charset=UTF-8
 

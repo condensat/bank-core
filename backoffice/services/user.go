@@ -13,10 +13,9 @@ import (
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/logger"
-	"github.com/condensat/bank-core/networking"
 	"github.com/condensat/secureid"
 
-	apiservice "github.com/condensat/bank-core/api/services"
+	"github.com/condensat/bank-core/networking"
 	"github.com/condensat/bank-core/networking/sessions"
 )
 
@@ -26,7 +25,7 @@ const (
 
 // UserListRequest holds args for userlist requests
 type UserListRequest struct {
-	apiservice.SessionArgs
+	sessions.SessionArgs
 	RequestPaging
 }
 
@@ -50,7 +49,7 @@ func (p *DashboardService) UserList(r *http.Request, request *UserListRequest, r
 	log = networking.GetServiceRequestLog(log, r, "Dashboard", "UserList")
 
 	// Get userID from session
-	request.SessionID = apiservice.GetSessionCookie(r)
+	request.SessionID = sessions.GetSessionCookie(r)
 	sessionID := sessions.SessionID(request.SessionID)
 
 	isAdmin, log, err := isUserAdmin(ctx, log, sessionID)
@@ -98,7 +97,7 @@ func (p *DashboardService) UserList(r *http.Request, request *UserListRequest, r
 	if err != nil {
 		log.WithError(err).
 			Error("UserPaging failed")
-		return apiservice.ErrServiceInternalError
+		return sessions.ErrInternalError
 	}
 
 	var next string
@@ -140,7 +139,7 @@ func (p *DashboardService) UserList(r *http.Request, request *UserListRequest, r
 
 // UserListRequest holds args for userdetail requests
 type UserDetailRequest struct {
-	apiservice.SessionArgs
+	sessions.SessionArgs
 	UserID string `json:"userId"`
 }
 
@@ -156,7 +155,7 @@ func (p *DashboardService) UserDetail(r *http.Request, request *UserDetailReques
 	log = networking.GetServiceRequestLog(log, r, "Dashboard", "UserDetail")
 
 	// Get userID from session
-	request.SessionID = apiservice.GetSessionCookie(r)
+	request.SessionID = sessions.GetSessionCookie(r)
 	sessionID := sessions.SessionID(request.SessionID)
 
 	isAdmin, log, err := isUserAdmin(ctx, log, sessionID)
@@ -205,7 +204,7 @@ func (p *DashboardService) UserDetail(r *http.Request, request *UserDetailReques
 	if err != nil {
 		log.WithError(err).
 			Error("UserDetails failed")
-		return apiservice.ErrServiceInternalError
+		return sessions.ErrInternalError
 	}
 
 	*reply = UserDetailResponse{

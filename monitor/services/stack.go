@@ -15,9 +15,8 @@ import (
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/monitor/common"
 	"github.com/condensat/bank-core/monitor/messaging"
-	"github.com/condensat/bank-core/networking"
 
-	coreService "github.com/condensat/bank-core/api/services"
+	"github.com/condensat/bank-core/networking"
 	"github.com/condensat/bank-core/networking/sessions"
 
 	"github.com/sirupsen/logrus"
@@ -28,7 +27,7 @@ type StackService int
 
 // StackInfoRequest holds args for info requests
 type StackInfoRequest struct {
-	coreService.SessionArgs
+	sessions.SessionArgs
 }
 
 // ServiceInfo holds service status
@@ -48,7 +47,7 @@ type StackInfoResponse struct {
 
 // StackHistoryRequest holds args for history requests
 type StackHistoryRequest struct {
-	coreService.SessionArgs
+	sessions.SessionArgs
 	AppName string `json:"appName"`
 	From    int64  `json:"from"`
 	To      int64  `json:"to"`

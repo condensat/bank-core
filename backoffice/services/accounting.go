@@ -10,9 +10,8 @@ import (
 
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/logger"
-	"github.com/condensat/bank-core/networking"
 
-	apiservice "github.com/condensat/bank-core/api/services"
+	"github.com/condensat/bank-core/networking"
 	"github.com/condensat/bank-core/networking/sessions"
 
 	"github.com/condensat/secureid"
@@ -64,7 +63,7 @@ func FetchAccountingStatus(ctx context.Context) (AccountingStatus, error) {
 
 // AccountListRequest holds args for accountlist requests
 type AccountListRequest struct {
-	apiservice.SessionArgs
+	sessions.SessionArgs
 	RequestPaging
 }
 
@@ -90,7 +89,7 @@ func (p *DashboardService) AccountList(r *http.Request, request *AccountListRequ
 	log = networking.GetServiceRequestLog(log, r, "Dashboard", "AccountList")
 
 	// Get userID from session
-	request.SessionID = apiservice.GetSessionCookie(r)
+	request.SessionID = sessions.GetSessionCookie(r)
 	sessionID := sessions.SessionID(request.SessionID)
 
 	isAdmin, log, err := isUserAdmin(ctx, log, sessionID)
@@ -160,7 +159,7 @@ func (p *DashboardService) AccountList(r *http.Request, request *AccountListRequ
 	if err != nil {
 		log.WithError(err).
 			Error("UserPaging failed")
-		return apiservice.ErrServiceInternalError
+		return sessions.ErrInternalError
 	}
 
 	var next string
@@ -212,7 +211,7 @@ func (p *DashboardService) AccountList(r *http.Request, request *AccountListRequ
 
 // UserAccountListRequest holds args for useraccountlist requests
 type UserAccountListRequest struct {
-	apiservice.SessionArgs
+	sessions.SessionArgs
 	UserID string `json:"userId"`
 }
 
@@ -230,7 +229,7 @@ func (p *DashboardService) UserAccountList(r *http.Request, request *UserAccount
 	log = networking.GetServiceRequestLog(log, r, "Dashboard", "UserAccountListRequest")
 
 	// Get userID from session
-	request.SessionID = apiservice.GetSessionCookie(r)
+	request.SessionID = sessions.GetSessionCookie(r)
 	sessionID := sessions.SessionID(request.SessionID)
 
 	isAdmin, log, err := isUserAdmin(ctx, log, sessionID)
@@ -304,7 +303,7 @@ func (p *DashboardService) UserAccountList(r *http.Request, request *UserAccount
 	if err != nil {
 		log.WithError(err).
 			Error("UserAccountList failed")
-		return apiservice.ErrServiceInternalError
+		return sessions.ErrInternalError
 	}
 
 	*reply = UserAccountListResponse{
@@ -318,7 +317,7 @@ func (p *DashboardService) UserAccountList(r *http.Request, request *UserAccount
 
 // AccountDetailRequest holds args for accountdetail requests
 type AccountDetailRequest struct {
-	apiservice.SessionArgs
+	sessions.SessionArgs
 	AccountID string `json:"accountId"`
 }
 
@@ -339,7 +338,7 @@ func (p *DashboardService) AccountDetail(r *http.Request, request *AccountDetail
 	log = networking.GetServiceRequestLog(log, r, "Dashboard", "UserAccountListRequest")
 
 	// Get userID from session
-	request.SessionID = apiservice.GetSessionCookie(r)
+	request.SessionID = sessions.GetSessionCookie(r)
 	sessionID := sessions.SessionID(request.SessionID)
 
 	isAdmin, log, err := isUserAdmin(ctx, log, sessionID)
@@ -362,7 +361,7 @@ func (p *DashboardService) AccountDetail(r *http.Request, request *AccountDetail
 		log.WithError(err).
 			WithField("AccountID", request.AccountID).
 			Error("accountID FromSecureID failed")
-		return apiservice.ErrServiceInternalError
+		return sessions.ErrInternalError
 	}
 
 	var account model.Account
@@ -390,7 +389,7 @@ func (p *DashboardService) AccountDetail(r *http.Request, request *AccountDetail
 	if err != nil {
 		log.WithError(err).
 			Error("AccountDetail failed")
-		return apiservice.ErrServiceInternalError
+		return sessions.ErrInternalError
 	}
 
 	secureID, err := sID.ToSecureID("user", secureid.Value(uint64(account.UserID)))

@@ -8,17 +8,15 @@ import (
 	"net/http"
 
 	"github.com/condensat/bank-core/logger"
-	"github.com/condensat/bank-core/networking"
 
-	"github.com/condensat/bank-core/networking/sessions"
-
-	apiservice "github.com/condensat/bank-core/api/services"
 	"github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/networking"
+	"github.com/condensat/bank-core/networking/sessions"
 )
 
 // WalletListRequest holds args for walletlist requests
 type WalletListRequest struct {
-	apiservice.SessionArgs
+	sessions.SessionArgs
 }
 
 type WalletListStatus struct {
@@ -39,7 +37,7 @@ func (p *DashboardService) WalletList(r *http.Request, request *WalletListReques
 	log = networking.GetServiceRequestLog(log, r, "Dashboard", "WalletList")
 
 	// Get userID from session
-	request.SessionID = apiservice.GetSessionCookie(r)
+	request.SessionID = sessions.GetSessionCookie(r)
 	sessionID := sessions.SessionID(request.SessionID)
 
 	isAdmin, log, err := isUserAdmin(ctx, log, sessionID)
@@ -96,7 +94,7 @@ func (p *DashboardService) WalletList(r *http.Request, request *WalletListReques
 
 // WalletDetailRequest holds args for walletdetail requests
 type WalletDetailRequest struct {
-	apiservice.SessionArgs
+	sessions.SessionArgs
 	Wallet string
 }
 
@@ -112,7 +110,7 @@ func (p *DashboardService) WalletDetail(r *http.Request, request *WalletDetailRe
 	log = networking.GetServiceRequestLog(log, r, "Dashboard", "WalletDetail")
 
 	// Get userID from session
-	request.SessionID = apiservice.GetSessionCookie(r)
+	request.SessionID = sessions.GetSessionCookie(r)
 	sessionID := sessions.SessionID(request.SessionID)
 
 	isAdmin, log, err := isUserAdmin(ctx, log, sessionID)

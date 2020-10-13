@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package services
+package sessions
 
 import (
 	"context"
@@ -11,14 +11,29 @@ import (
 
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
-	"github.com/condensat/bank-core/networking"
 
-	"github.com/condensat/bank-core/networking/sessions"
+	"github.com/condensat/bank-core/networking"
 
 	"github.com/gorilla/rpc/v2"
 	"github.com/gorilla/rpc/v2/json"
 	"github.com/sirupsen/logrus"
 )
+
+const (
+	SessionDuration = 3 * time.Minute
+)
+
+// SessionArgs holds SessionID for operation requests and repls
+type SessionArgs struct {
+	SessionID string `json:"-"` // SessionID is transmit to client via cookie
+}
+
+// SessionReply holds session informations for operation replies
+type SessionReply struct {
+	SessionArgs
+	Status     string `json:"status"`
+	ValidUntil int64  `json:"valid_until"`
+}
 
 type CookieCodec struct {
 	ctx    context.Context
@@ -78,8 +93,8 @@ func (p *CookieCodecRequest) WriteError(w http.ResponseWriter, status int, err e
 	p.request.WriteError(w, status, err)
 }
 
-func openUserSession(ctx context.Context, session *sessions.Session, r *http.Request, userID uint64) (SessionReply, error) {
-	log := logger.Logger(ctx).WithField("Method", "services.openUserSession")
+func OpenUserSession(ctx context.Context, session *Session, r *http.Request, userID uint64) (SessionReply, error) {
+	log := logger.Logger(ctx).WithField("Method", "OpenUserSession")
 
 	// check rate limit
 	openSessionAllowed := OpenSessionAllowed(ctx, userID)
@@ -112,22 +127,51 @@ func openUserSession(ctx context.Context, session *sessions.Session, r *http.Req
 }
 
 func CreateSessionWithCookie(ctx context.Context, r *http.Request, w http.ResponseWriter, userID uint64) error {
-	log := logger.Logger(ctx).WithField("Method", "services.CreateSessionWithCookie")
+	log := logger.Logger(ctx).WithField("Method", "CreateSessionWithCookie")
 	// Retrieve context values
-	_, session, err := ContextValues(ctx)
+	session, err := ContextSession(ctx)
 	if err != nil {
 		log.WithError(err).
 			Warning("Session open failed")
-		return ErrServiceInternalError
+		return ErrInternalError
 	}
 
-	reply, err := openUserSession(ctx, session, r, userID)
+	reply, err := OpenUserSession(ctx, session, r, userID)
 	if err != nil {
 		log.WithError(err).
-			Error("openUserSession failed")
+			Error("OpenUserSession failed")
 	}
 
 	setSessionCookie(appcontext.Domain(ctx), w, &reply)
 
 	return nil
+}
+
+func GetSessionCookie(r *http.Request) string {
+	cookie, err := r.Cookie("sessionId")
+	if err != nil {
+		return ""
+	}
+
+	return cookie.Value
+}
+
+func setSessionCookie(domain string, w http.ResponseWriter, reply *SessionReply) {
+	expires := fromTimestampMillis(reply.ValidUntil)
+	var maxAge int
+	if expires.After(time.Now()) {
+		maxAge = int(time.Until(expires).Seconds())
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:    "sessionId",
+		Value:   reply.SessionID,
+		Path:    "/api/v1",
+		Domain:  domain,
+		MaxAge:  maxAge,
+		Expires: expires,
+
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
 }
