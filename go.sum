@@ -132,8 +132,6 @@ github.com/thoas/stats v0.0.0-20190407194641-965cb2de1678 h1:kFej3rMKjbzysHYvLmv
 github.com/thoas/stats v0.0.0-20190407194641-965cb2de1678/go.mod h1:GkZsNBOco11YY68OnXUARbSl26IOXXAeYf6ZKmSZR2M=
 github.com/urfave/negroni v1.0.0 h1:kIimOitoypq34K7TG7DUaJ9kq/N4Ofuwi1sjz0KipXc=
 github.com/urfave/negroni v1.0.0/go.mod h1:Meg73S6kFm/4PpbYdq35yYWoCZ9mS/YSx+lKnmiohz4=
-github.com/ybbus/jsonrpc v2.1.2+incompatible h1:V4mkE9qhbDQ92/MLMIhlhMSbz8jNXdagC3xBR5NDwaQ=
-github.com/ybbus/jsonrpc v2.1.2+incompatible/go.mod h1:XJrh1eMSzdIYFbM08flv0wp5G35eRniyeGut1z+LSiE=
 go.opentelemetry.io/otel v0.11.0/go.mod h1:G8UCk+KooF2HLkgo8RHX9epABH/aRGYET7gQOqBVdB0=
 go.opentelemetry.io/otel v0.13.0 h1:2isEnyzjjJZq6r2EKMsFj4TxiQiexsM04AVhwbR/oBA=
 go.opentelemetry.io/otel v0.13.0/go.mod h1:dlSNewoRYikTkotEnxdmuBHgzT+k/idJSfDv/FxEnOY=

@@ -24,7 +24,6 @@ require (
 	github.com/sirupsen/logrus v1.7.0
 	github.com/thoas/stats v0.0.0-20190407194641-965cb2de1678
 	github.com/urfave/negroni v1.0.0
-	github.com/ybbus/jsonrpc v2.1.2+incompatible
 	golang.org/x/crypto v0.0.0-20201012173705-84dcc777aaee
 	golang.org/x/net v0.0.0-20201010224723-4f7140c49acb // indirect
 	golang.org/x/sys v0.0.0-20201013064817-56aa3af1a10a // indirect
