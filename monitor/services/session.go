@@ -8,7 +8,6 @@ import (
 	"context"
 
 	"github.com/condensat/bank-core"
-	"github.com/condensat/bank-core/api/services"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/networking/sessions"
@@ -26,10 +25,10 @@ func verifySessionId(ctx context.Context, sessionID sessions.SessionID) (bool, e
 		return false, ErrServiceInternalError
 	}
 
-	response, err := nats.Request(ctx, services.VerifySessionSubject, message)
+	response, err := nats.Request(ctx, ApiVerifySessionSubject, message)
 	if err != nil {
 		log.WithError(err).
-			WithField("Subject", services.VerifySessionSubject).
+			WithField("Subject", ApiVerifySessionSubject).
 			Error("nats.Request Failed")
 		return false, ErrServiceInternalError
 	}
