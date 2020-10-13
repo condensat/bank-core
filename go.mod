@@ -14,6 +14,7 @@ require (
 	github.com/gorilla/rpc v1.2.0
 	github.com/gorilla/sessions v1.2.1
 	github.com/jinzhu/gorm v1.9.16
+	github.com/jinzhu/now v1.1.1 // indirect
 	github.com/joho/godotenv v1.3.0
 	github.com/markbates/goth v1.65.0
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible // indirect

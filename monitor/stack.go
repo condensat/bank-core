@@ -5,70 +5,40 @@
 package monitor
 
 import (
-	"context"
-	"fmt"
-	"net"
-	"net/http"
 	"time"
 
-	"github.com/condensat/bank-core/logger"
-	"github.com/condensat/bank-core/networking"
-	"github.com/condensat/bank-core/utils"
+	"github.com/condensat/bank-core"
 
-	"github.com/condensat/bank-core/monitor/services"
-
-	"github.com/sirupsen/logrus"
-	"github.com/urfave/negroni"
+	"github.com/condensat/bank-core/monitor/database/model"
 )
 
-type StackMonitor int
-
-func (p *StackMonitor) Run(ctx context.Context, port int, corsAllowedOrigins []string) {
-	log := logger.Logger(ctx).WithField("Method", "monitor.StackMonitor.Run")
-	muxer := http.NewServeMux()
-
-	services.RegisterServices(ctx, muxer, corsAllowedOrigins)
-
-	handler := negroni.New(&negroni.Recovery{})
-	handler.Use(networking.StatsMiddleware)
-	handler.UseFunc(networking.MiddlewarePeerRateLimiter)
-	handler.UseFunc(AddWorkerHeader)
-	handler.UseFunc(AddWorkerVersion)
-	handler.UseHandler(muxer)
-
-	server := &http.Server{
-		Addr:           fmt.Sprintf(":%d", port),
-		Handler:        handler,
-		ReadTimeout:    3 * time.Second,
-		WriteTimeout:   3 * time.Second,
-		MaxHeaderBytes: 1 << 16, // 16 KiB
-		ConnContext:    func(conCtx context.Context, c net.Conn) context.Context { return ctx },
-	}
-
-	go func() {
-		err := server.ListenAndServe()
-		if err != nil {
-			log.WithError(err).
-				Info("Http server exited")
-		}
-	}()
-
-	log.WithFields(logrus.Fields{
-		"Hostname": utils.Hostname(),
-		"Port":     port,
-	}).Info("Stack Monintor Service started")
-
-	<-ctx.Done()
+type StackListService struct {
+	Since       time.Duration
+	Services    []string
+	ProcessInfo []model.ProcessInfo
 }
 
-// AddWorkerHeader - adds header of which node actually processed request
-func AddWorkerHeader(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
-	rw.Header().Add("X-Worker", utils.Hostname())
-	next(rw, r)
+func (p *StackListService) Encode() ([]byte, error) {
+	return bank.EncodeObject(p)
 }
 
-// AddWorkerVersion - adds header of which version is installed
-func AddWorkerVersion(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
-	rw.Header().Add("X-Worker-Version", networking.Version)
-	next(rw, r)
+func (p *StackListService) Decode(data []byte) error {
+	return bank.DecodeObject(data, bank.BankObject(p))
+}
+
+type StackServiceHistory struct {
+	AppName string
+	From    time.Time
+	To      time.Time
+	Step    time.Duration
+	Round   time.Duration
+	History []model.ProcessInfo
+}
+
+func (p *StackServiceHistory) Encode() ([]byte, error) {
+	return bank.EncodeObject(p)
+}
+
+func (p *StackServiceHistory) Decode(data []byte) error {
+	return bank.DecodeObject(data, bank.BankObject(p))
 }

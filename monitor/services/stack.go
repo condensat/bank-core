@@ -13,8 +13,9 @@ import (
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
-	"github.com/condensat/bank-core/monitor/common"
-	"github.com/condensat/bank-core/monitor/messaging"
+
+	"github.com/condensat/bank-core/monitor"
+	"github.com/condensat/bank-core/monitor/database/model"
 
 	"github.com/condensat/bank-core/networking"
 	"github.com/condensat/bank-core/networking/sessions"
@@ -124,18 +125,18 @@ func (p *StackService) ServiceList(r *http.Request, request *StackInfoRequest, r
 	return nil
 }
 
-func StackListServiceRequest(ctx context.Context) (common.StackListService, error) {
+func StackListServiceRequest(ctx context.Context) (monitor.StackListService, error) {
 	log := logger.Logger(ctx).WithField("Method", "StackService.StackListServiceRequest")
 	nats := appcontext.Messaging(ctx)
-	var result common.StackListService
+	var result monitor.StackListService
 
-	message := bank.ToMessage(appcontext.AppName(ctx), &common.StackListService{
+	message := bank.ToMessage(appcontext.AppName(ctx), &monitor.StackListService{
 		Since: time.Hour,
 	})
-	response, err := nats.Request(ctx, messaging.StackListSubject, message)
+	response, err := nats.Request(ctx, monitor.StackListSubject, message)
 	if err != nil {
 		log.WithError(err).
-			WithField("Subject", messaging.StackListSubject).
+			WithField("Subject", monitor.StackListSubject).
 			Error("nats.Request Failed")
 		return result, ErrServiceInternalError
 	}
@@ -199,22 +200,22 @@ func StackServiceHistoryRequest(ctx context.Context, request *StackHistoryReques
 	nats := appcontext.Messaging(ctx)
 	var result ServiceHistory
 
-	message := bank.ToMessage(appcontext.AppName(ctx), &common.StackServiceHistory{
+	message := bank.ToMessage(appcontext.AppName(ctx), &monitor.StackServiceHistory{
 		AppName: request.AppName,
 		From:    time.Unix(request.From, 0),
 		To:      time.Unix(request.To, 0),
 		Step:    time.Duration(request.Step) * time.Second,
 		Round:   time.Duration(request.Round) * time.Second,
 	})
-	response, err := nats.Request(ctx, messaging.StackServiceHistorySubject, message)
+	response, err := nats.Request(ctx, monitor.StackServiceHistorySubject, message)
 	if err != nil {
 		log.WithError(err).
-			WithField("Subject", messaging.StackServiceHistorySubject).
+			WithField("Subject", monitor.StackServiceHistorySubject).
 			Error("nats.Request Failed")
 		return result, ErrServiceInternalError
 	}
 
-	var serviceHistory common.StackServiceHistory
+	var serviceHistory monitor.StackServiceHistory
 	err = bank.FromMessage(response, &serviceHistory)
 	if err != nil {
 		log.WithError(err).
@@ -268,7 +269,7 @@ func StackServiceHistoryRequest(ctx context.Context, request *StackHistoryReques
 	return result, nil
 }
 
-func appendInfo(tick *ServiceHistory, pi *common.ProcessInfo) {
+func appendInfo(tick *ServiceHistory, pi *model.ProcessInfo) {
 	tick.ServiceCount++
 	tick.Timestamp = append(tick.Timestamp, pi.Timestamp.UnixNano()/int64(time.Second))
 	tick.Memory = append(tick.Memory, pi.MemAlloc)

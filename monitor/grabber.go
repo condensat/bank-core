@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package grabber
+package monitor
 
 import (
 	"context"
@@ -10,10 +10,10 @@ import (
 
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
-	"github.com/condensat/bank-core/monitor"
-	"github.com/condensat/bank-core/monitor/common"
-	"github.com/condensat/bank-core/monitor/messaging"
 	"github.com/condensat/bank-core/utils"
+
+	"github.com/condensat/bank-core/monitor/database"
+	"github.com/condensat/bank-core/monitor/database/model"
 
 	"github.com/condensat/bank-core/logger"
 
@@ -28,7 +28,7 @@ var (
 type Grabber int
 
 func (p *Grabber) Run(ctx context.Context) {
-	log := logger.Logger(ctx).WithField("Method", "monitor.Grabber.Run")
+	log := logger.Logger(ctx).WithField("Method", "grabber.Run")
 
 	p.registerHandlers(ctx)
 
@@ -40,26 +40,28 @@ func (p *Grabber) Run(ctx context.Context) {
 }
 
 func (p *Grabber) registerHandlers(ctx context.Context) {
-	log := logger.Logger(ctx).WithField("Method", "monitor.Grabber.RegisterHandlers")
+	log := logger.Logger(ctx).WithField("Method", "grabber.RegisterHandlers")
 
 	nats := appcontext.Messaging(ctx)
-	nats.SubscribeWorkers(ctx, messaging.InboundSubject, 4, p.onProcessInfo)
-	nats.SubscribeWorkers(ctx, messaging.StackListSubject, 4, p.onStackList)
-	nats.SubscribeWorkers(ctx, messaging.StackServiceHistorySubject, 4, p.onStackServiceHistory)
+	nats.SubscribeWorkers(ctx, InboundSubject, 4, p.onProcessInfo)
+	nats.SubscribeWorkers(ctx, StackListSubject, 4, p.onStackList)
+	nats.SubscribeWorkers(ctx, StackServiceHistorySubject, 4, p.onStackServiceHistory)
 
 	log.Debug("Monitor Grabber registered")
 }
 
 func (p *Grabber) onProcessInfo(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
-	log := logger.Logger(ctx).WithField("Method", "monitor.Grabber.onProcessInfo")
+	log := logger.Logger(ctx).WithField("Method", "grabber.onProcessInfo")
 	log = log.WithFields(logrus.Fields{
 		"Subject": subject,
 	})
 
-	var req common.ProcessInfo
+	db := appcontext.Database(ctx)
+
+	var req model.ProcessInfo
 	err := bank.FromMessage(message, &req)
 	if err != nil {
-		log.WithError(err).Error("Message data is not ProcessInfo")
+		log.WithError(err).Error("Message data is not model.ProcessInfo")
 		return nil, ErrInternalError
 	}
 
@@ -68,7 +70,7 @@ func (p *Grabber) onProcessInfo(ctx context.Context, subject string, message *ba
 		"Hostname": req.Hostname,
 	})
 
-	err = monitor.AddProcessInfo(ctx, &req)
+	err = database.AddProcessInfo(db, &req)
 	if err != nil {
 		log.WithError(err).Error("Failed to AddProcessInfo")
 		return nil, ErrAddProcessInfo
@@ -78,19 +80,21 @@ func (p *Grabber) onProcessInfo(ctx context.Context, subject string, message *ba
 }
 
 func (p *Grabber) onStackList(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
-	log := logger.Logger(ctx).WithField("Method", "monitor.Grabber.onStackList")
+	log := logger.Logger(ctx).WithField("Method", "grabber.onStackList")
 	log = log.WithFields(logrus.Fields{
 		"Subject": subject,
 	})
 
-	var req common.StackListService
+	var req StackListService
 	err := bank.FromMessage(message, &req)
 	if err != nil {
 		log.WithError(err).Error("Message data is not StackListService")
 		return nil, ErrInternalError
 	}
 
-	processInfo, err := monitor.LastServicesStatus(ctx)
+	db := appcontext.Database(ctx)
+
+	processInfo, err := database.LastServicesStatus(db)
 	if err != nil {
 		log.WithError(err).Error("LastServicesStatus failed")
 		return nil, ErrInternalError
@@ -112,7 +116,7 @@ func (p *Grabber) onStackList(ctx context.Context, subject string, message *bank
 	}
 
 	// create response
-	resp := common.StackListService{
+	resp := StackListService{
 		Services:    services[:],
 		ProcessInfo: processInfo[:],
 	}
@@ -121,26 +125,28 @@ func (p *Grabber) onStackList(ctx context.Context, subject string, message *bank
 }
 
 func (p *Grabber) onStackServiceHistory(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
-	log := logger.Logger(ctx).WithField("Method", "monitor.Grabber.onStackServiceHistory")
+	log := logger.Logger(ctx).WithField("Method", "grabber.onStackServiceHistory")
 	log = log.WithFields(logrus.Fields{
 		"Subject": subject,
 	})
 
-	var req common.StackServiceHistory
+	var req StackServiceHistory
 	err := bank.FromMessage(message, &req)
 	if err != nil {
 		log.WithError(err).Error("Message data is not StackServiceHistory")
 		return nil, ErrInternalError
 	}
 
-	history, err := monitor.LastServiceHistory(ctx, req.AppName, req.From, req.To, req.Step, req.Round)
+	db := appcontext.Database(ctx)
+
+	history, err := database.LastServiceHistory(db, req.AppName, req.From, req.To, req.Step, req.Round)
 	if err != nil {
 		log.WithError(err).Error("LastServiceHistory failed")
 		return nil, ErrInternalError
 	}
 
 	// create response
-	resp := common.StackServiceHistory{
+	resp := StackServiceHistory{
 		AppName: req.AppName,
 		History: history,
 	}

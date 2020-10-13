@@ -2,39 +2,30 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package monitor
+package database
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"time"
 
-	"github.com/condensat/bank-core/appcontext"
-	"github.com/condensat/bank-core/monitor/common"
+	"github.com/condensat/bank-core"
+
+	"github.com/condensat/bank-core/monitor/database/model"
+
 	"github.com/jinzhu/gorm"
 )
 
-func AddProcessInfo(ctx context.Context, processInfo *common.ProcessInfo) error {
-	db, ok := appcontext.Database(ctx).DB().(*gorm.DB)
-	if !ok {
-		return errors.New("Wrong database")
-	}
-
-	return db.Create(&processInfo).Error
-}
-
-func ListServices(ctx context.Context, since time.Duration) ([]string, error) {
-	db, ok := appcontext.Database(ctx).DB().(*gorm.DB)
-	if !ok {
-		return nil, errors.New("Wrong database")
+func ListServices(db bank.Database, since time.Duration) ([]string, error) {
+	gdb := db.DB().(*gorm.DB)
+	if db == nil {
+		panic("Invalid db")
 	}
 
 	now := time.Now().UTC()
 	distinctAppName := fmt.Sprintf("distinct (%s)", gorm.ToColumnName("AppName"))
 
-	var list []*common.ProcessInfo
-	err := db.Select(distinctAppName).
+	var list []*model.ProcessInfo
+	err := gdb.Select(distinctAppName).
 		Where("timestamp BETWEEN ? AND ?", now.Add(-since), now).
 		Find(&list).Error
 
@@ -50,20 +41,20 @@ func ListServices(ctx context.Context, since time.Duration) ([]string, error) {
 	return result, nil
 }
 
-func LastServicesStatus(ctx context.Context) ([]common.ProcessInfo, error) {
-	db, ok := appcontext.Database(ctx).DB().(*gorm.DB)
-	if !ok {
-		return nil, errors.New("Wrong database")
+func LastServicesStatus(db bank.Database) ([]model.ProcessInfo, error) {
+	gdb := db.DB().(*gorm.DB)
+	if db == nil {
+		panic("Invalid db")
 	}
 
-	subQuery := db.Model(&common.ProcessInfo{}).
+	subQuery := gdb.Model(&model.ProcessInfo{}).
 		Select("MAX(id) as id, MAX(timestamp) AS last").
 		Where("timestamp >= DATE_SUB(NOW(), INTERVAL 3 MINUTE)").
 		Group("app_name, hostname").
 		SubQuery()
 
-	var list []*common.ProcessInfo
-	err := db.Joins("RIGHT JOIN (?) AS t1 ON process_info.id = t1.id AND timestamp = t1.last", subQuery).
+	var list []*model.ProcessInfo
+	err := gdb.Joins("RIGHT JOIN (?) AS t1 ON process_info.id = t1.id AND timestamp = t1.last", subQuery).
 		Order("app_name ASC, hostname ASC, timestamp DESC").
 		Find(&list).Error
 
@@ -71,7 +62,7 @@ func LastServicesStatus(ctx context.Context) ([]common.ProcessInfo, error) {
 		return nil, err
 	}
 
-	var result []common.ProcessInfo
+	var result []model.ProcessInfo
 	for _, entry := range list {
 		result = append(result, *entry)
 	}
@@ -79,24 +70,24 @@ func LastServicesStatus(ctx context.Context) ([]common.ProcessInfo, error) {
 	return result, nil
 }
 
-func LastServiceHistory(ctx context.Context, appName string, from, to time.Time, step time.Duration, round time.Duration) ([]common.ProcessInfo, error) {
-	db, ok := appcontext.Database(ctx).DB().(*gorm.DB)
-	if !ok {
-		return nil, errors.New("Wrong database")
+func LastServiceHistory(db bank.Database, appName string, from, to time.Time, step time.Duration, round time.Duration) ([]model.ProcessInfo, error) {
+	gdb := db.DB().(*gorm.DB)
+	if db == nil {
+		panic("Invalid db")
 	}
 
 	tsFrom := from.UnixNano() / int64(time.Second)
 	tsTo := to.UnixNano() / int64(time.Second)
 
-	subQuery := db.Model(&common.ProcessInfo{}).
+	subQuery := gdb.Model(&model.ProcessInfo{}).
 		Select("MAX(id) AS id, FLOOR(UNIX_TIMESTAMP(timestamp)/(?)) AS timekey", step/time.Second).
 		Where("app_name=?", appName).
 		Where("timestamp BETWEEN FROM_UNIXTIME(?) AND FROM_UNIXTIME(?)", tsFrom, tsTo).
 		Group("timekey, hostname").
 		SubQuery()
 
-	var list []*common.ProcessInfo
-	err := db.Joins("RIGHT JOIN (?) AS t1 ON process_info.id = t1.id", subQuery).
+	var list []*model.ProcessInfo
+	err := gdb.Joins("RIGHT JOIN (?) AS t1 ON process_info.id = t1.id", subQuery).
 		Order("timestamp, hostname DESC").
 		Find(&list).Error
 
@@ -104,7 +95,7 @@ func LastServiceHistory(ctx context.Context, appName string, from, to time.Time,
 		return nil, err
 	}
 
-	var result []common.ProcessInfo
+	var result []model.ProcessInfo
 	for _, entry := range list {
 		entry.Timestamp = entry.Timestamp.Round(round)
 		result = append(result, *entry)

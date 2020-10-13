@@ -13,7 +13,7 @@ import (
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
-	"github.com/condensat/bank-core/monitor/processus"
+	"github.com/condensat/bank-core/monitor"
 	"github.com/condensat/bank-core/networking"
 	"github.com/condensat/bank-core/web"
 
@@ -66,7 +66,7 @@ func main() {
 	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, args.Redis))
 	ctx = appcontext.WithWriter(ctx, logger.NewRedisLogger(ctx))
 	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, args.Nats))
-	ctx = appcontext.WithProcessusGrabber(ctx, processus.NewGrabber(ctx, 15*time.Second))
+	ctx = appcontext.WithProcessusGrabber(ctx, monitor.NewProcessusGrabber(ctx, 15*time.Second))
 
 	ctx = networking.RegisterRateLimiter(ctx, args.WebApp.PeerRequestPerSecond)
 
