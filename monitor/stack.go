@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/networking"
 	"github.com/condensat/bank-core/utils"
 
 	"github.com/condensat/bank-core/api"
-	coreService "github.com/condensat/bank-core/api/services"
 
 	"github.com/condensat/bank-core/monitor/services"
 
@@ -32,7 +32,7 @@ func (p *StackMonitor) Run(ctx context.Context, port int, corsAllowedOrigins []s
 	services.RegisterServices(ctx, muxer, corsAllowedOrigins)
 
 	handler := negroni.New(&negroni.Recovery{})
-	handler.Use(coreService.StatsMiddleware)
+	handler.Use(networking.StatsMiddleware)
 	handler.UseFunc(api.MiddlewarePeerRateLimiter)
 	handler.UseFunc(AddWorkerHeader)
 	handler.UseFunc(AddWorkerVersion)
@@ -71,6 +71,6 @@ func AddWorkerHeader(rw http.ResponseWriter, r *http.Request, next http.HandlerF
 
 // AddWorkerVersion - adds header of which version is installed
 func AddWorkerVersion(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
-	rw.Header().Add("X-Worker-Version", coreService.Version)
+	rw.Header().Add("X-Worker-Version", networking.Version)
 	next(rw, r)
 }

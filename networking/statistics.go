@@ -2,13 +2,18 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package services
+package networking
 
 import (
 	"net"
 	"net/http"
 
 	"github.com/thoas/stats"
+)
+
+// Version
+const (
+	Version string = "0.1"
 )
 
 type StatsArgs struct {

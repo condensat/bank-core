@@ -13,6 +13,7 @@ import (
 
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/networking"
 	"github.com/condensat/bank-core/utils"
 
 	"github.com/condensat/bank-core/api/oauth"
@@ -50,7 +51,7 @@ func (p *Api) Run(ctx context.Context, port int, corsAllowedOrigins []string, oa
 	oauth.RegisterHandlers(ctx, muxer)
 
 	handler := negroni.New(&negroni.Recovery{})
-	handler.Use(services.StatsMiddleware)
+	handler.Use(networking.StatsMiddleware)
 	handler.UseFunc(MiddlewarePeerRateLimiter)
 	handler.UseFunc(AddWorkerHeader)
 	handler.UseFunc(AddWorkerVersion)
@@ -89,6 +90,6 @@ func AddWorkerHeader(rw http.ResponseWriter, r *http.Request, next http.HandlerF
 
 // AddWorkerVersion - adds header of which version is installed
 func AddWorkerVersion(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
-	rw.Header().Add("X-Worker-Version", services.Version)
+	rw.Header().Add("X-Worker-Version", networking.Version)
 	next(rw, r)
 }
