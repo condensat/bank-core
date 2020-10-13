@@ -15,8 +15,6 @@ import (
 	"github.com/condensat/bank-core/networking"
 	"github.com/condensat/bank-core/utils"
 
-	"github.com/condensat/bank-core/api"
-
 	"github.com/condensat/bank-core/monitor/services"
 
 	"github.com/sirupsen/logrus"
@@ -33,7 +31,7 @@ func (p *StackMonitor) Run(ctx context.Context, port int, corsAllowedOrigins []s
 
 	handler := negroni.New(&negroni.Recovery{})
 	handler.Use(networking.StatsMiddleware)
-	handler.UseFunc(api.MiddlewarePeerRateLimiter)
+	handler.UseFunc(networking.MiddlewarePeerRateLimiter)
 	handler.UseFunc(AddWorkerHeader)
 	handler.UseFunc(AddWorkerVersion)
 	handler.UseHandler(muxer)

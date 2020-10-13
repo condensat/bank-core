@@ -15,11 +15,12 @@ import (
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
 	"github.com/condensat/bank-core/monitor/processus"
+	"github.com/condensat/bank-core/networking"
 
 	"github.com/condensat/bank-core/api"
 	"github.com/condensat/bank-core/api/oauth"
-	"github.com/condensat/bank-core/api/ratelimiter"
 	"github.com/condensat/bank-core/api/secureid"
+	"github.com/condensat/bank-core/networking/ratelimiter"
 
 	"github.com/condensat/bank-core/database"
 )
@@ -64,7 +65,7 @@ func parseArgs() Args {
 
 	flag.StringVar(&args.Api.SecureID, "secureId", "secureid.json", "SecureID json file")
 
-	args.Api.PeerRequestPerSecond = api.DefaultPeerRequestPerSecond
+	args.Api.PeerRequestPerSecond = networking.DefaultPeerRequestPerSecond
 	flag.IntVar(&args.Api.PeerRequestPerSecond.Rate, "peerRateLimit", 100, "Rate limit rate, per second, per peer connection (default 100)")
 
 	args.Api.OpenSessionPerMinute = api.DefaultOpenSessionPerMinute
@@ -89,7 +90,7 @@ func main() {
 	ctx = appcontext.WithProcessusGrabber(ctx, processus.NewGrabber(ctx, 15*time.Second))
 	ctx = appcontext.WithSecureID(ctx, secureid.FromFile(args.Api.SecureID))
 
-	ctx = api.RegisterRateLimiter(ctx, args.Api.PeerRequestPerSecond)
+	ctx = networking.RegisterRateLimiter(ctx, args.Api.PeerRequestPerSecond)
 	ctx = api.RegisterOpenSessionRateLimiter(ctx, args.Api.OpenSessionPerMinute)
 
 	migrateDatabase(ctx)

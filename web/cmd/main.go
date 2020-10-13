@@ -14,10 +14,10 @@ import (
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
 	"github.com/condensat/bank-core/monitor/processus"
+	"github.com/condensat/bank-core/networking"
 	"github.com/condensat/bank-core/web"
 
-	"github.com/condensat/bank-core/api"
-	"github.com/condensat/bank-core/api/ratelimiter"
+	"github.com/condensat/bank-core/networking/ratelimiter"
 )
 
 type WebApp struct {
@@ -50,7 +50,7 @@ func parseArgs() Args {
 	flag.StringVar(&args.WebApp.Directory, "webDirectory", "/var/www", "BankWebApp http web directory (default /var/www)")
 	flag.BoolVar(&args.WebApp.SinglePageApplication, "spa", false, "Is Single Page Application (default false")
 
-	args.WebApp.PeerRequestPerSecond = api.DefaultPeerRequestPerSecond
+	args.WebApp.PeerRequestPerSecond = networking.DefaultPeerRequestPerSecond
 	flag.IntVar(&args.WebApp.PeerRequestPerSecond.Rate, "peerRateLimit", 20, "Rate limit rate, per second, per peer connection (default 20)")
 
 	flag.Parse()
@@ -68,7 +68,7 @@ func main() {
 	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, args.Nats))
 	ctx = appcontext.WithProcessusGrabber(ctx, processus.NewGrabber(ctx, 15*time.Second))
 
-	ctx = api.RegisterRateLimiter(ctx, args.WebApp.PeerRequestPerSecond)
+	ctx = networking.RegisterRateLimiter(ctx, args.WebApp.PeerRequestPerSecond)
 
 	var web web.Web
 	web.Run(ctx, args.WebApp.Port, args.WebApp.Directory, args.WebApp.SinglePageApplication)
