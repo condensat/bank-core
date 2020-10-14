@@ -6,14 +6,14 @@ package wallet
 
 import (
 	"github.com/condensat/bank-core/database"
-	"github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/database/query"
 )
 
-func Models() []model.Model {
-	var result []model.Model
-	result = append(result, database.CryptoAddressModel()...)
-	result = append(result, database.SsmAddressModel()...)
-	result = append(result, database.OperationInfoModel()...)
-	result = append(result, database.AssetModel()...)
+func Models() []database.Model {
+	var result []database.Model
+	result = append(result, query.CryptoAddressModel()...)
+	result = append(result, query.SsmAddressModel()...)
+	result = append(result, query.OperationInfoModel()...)
+	result = append(result, query.AssetModel()...)
 	return result
 }

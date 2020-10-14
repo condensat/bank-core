@@ -6,13 +6,14 @@ package database
 
 import (
 	"errors"
-	syslog "log"
+	"log"
 	"os"
 
-	"github.com/condensat/bank-core"
-	"github.com/condensat/bank-core/appcontext"
-
 	"github.com/jinzhu/gorm"
+)
+
+const (
+	DatabaseFloatingPrecision = 12
 )
 
 var (
@@ -23,23 +24,17 @@ type Database struct {
 	db *gorm.DB
 }
 
-func (p *Database) Transaction(txFunc func(tx bank.Database) error) error {
-	return p.db.Transaction(func(tx *gorm.DB) error {
-		return txFunc(&Database{db: tx})
-	})
-}
-
-// NewDatabase create new mysql connection
+// New create new mysql connection
 // pannic if failed to connect
-func NewDatabase(options Options) *Database {
+func New(options Options) Context {
 	db := connectMyql(
 		options.HostName, options.Port,
-		options.User, appcontext.SecretOrPassword(options.Password),
+		options.User, secretOrPassword(options.Password),
 		options.Database,
 	)
 
 	db.LogMode(options.EnableLogging)
-	db.SetLogger(syslog.New(os.Stderr, "", 0))
+	db.SetLogger(log.New(os.Stderr, "", 0))
 
 	return &Database{
 		db: db,
@@ -47,28 +42,23 @@ func NewDatabase(options Options) *Database {
 }
 
 // DB returns subsequent db connection
-// see bank.Database interface
-func (d *Database) DB() bank.DB {
+// see Context interface
+func (d *Database) DB() DB {
 	return d.db
 }
 
-func getGormDB(db bank.Database) *gorm.DB {
-	if db == nil {
-		return nil
+func (p *Database) Migrate(models []Model) error {
+	var interfaces []interface{}
+	for _, model := range models {
+		interfaces = append(interfaces, model)
 	}
-
-	switch gdb := db.DB().(type) {
-	case *gorm.DB:
-		return gdb
-
-	default:
-		return nil
-	}
+	return p.db.AutoMigrate(
+		interfaces...,
+	).Error
 }
 
-// zero allocation requests string for scope
-const (
-	reqEQ  = " = ?"
-	reqGTE = " >= ?"
-	reqLTE = " <= ?"
-)
+func (p *Database) Transaction(txFunc func(tx Context) error) error {
+	return p.db.Transaction(func(tx *gorm.DB) error {
+		return txFunc(&Database{db: tx})
+	})
+}

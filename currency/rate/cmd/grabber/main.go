@@ -12,11 +12,12 @@ import (
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/currency/rate"
+	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
 	"github.com/condensat/bank-core/monitor"
 
-	"github.com/condensat/bank-core/database"
+	"github.com/condensat/bank-core/database/query"
 )
 
 type CurrencyRate struct {
@@ -62,7 +63,7 @@ func main() {
 	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, args.Redis))
 	ctx = appcontext.WithWriter(ctx, logger.NewRedisLogger(ctx))
 	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, args.Nats))
-	ctx = appcontext.WithDatabase(ctx, database.NewDatabase(args.Database))
+	ctx = appcontext.WithDatabase(ctx, database.New(args.Database))
 	ctx = appcontext.WithProcessusGrabber(ctx, monitor.NewProcessusGrabber(ctx, 15*time.Second))
 
 	migrateDatabase(ctx)
@@ -74,7 +75,7 @@ func main() {
 func migrateDatabase(ctx context.Context) {
 	db := appcontext.Database(ctx)
 
-	err := db.Migrate(database.CurrencyModel())
+	err := db.Migrate(query.CurrencyModel())
 	if err != nil {
 		logger.Logger(ctx).WithError(err).
 			WithField("Method", "main.migrateDatabase").

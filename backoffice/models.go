@@ -5,11 +5,12 @@
 package backoffice
 
 import (
+	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
 )
 
-func Models() []model.Model {
-	return []model.Model{
+func Models() []database.Model {
+	return []database.Model{
 		new(model.User),
 		new(model.UserRole),
 

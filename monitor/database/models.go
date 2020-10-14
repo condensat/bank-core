@@ -5,12 +5,12 @@
 package database
 
 import (
-	bank "github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/monitor/database/model"
 )
 
-func Models() []bank.Model {
-	return []bank.Model{
-		bank.Model(new(model.ProcessInfo)),
+func Models() []database.Model {
+	return []database.Model{
+		database.Model(new(model.ProcessInfo)),
 	}
 }

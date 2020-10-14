@@ -5,10 +5,11 @@
 package model
 
 import (
-	"github.com/condensat/bank-core/utils"
+	"github.com/condensat/bank-core/database"
+	"github.com/condensat/bank-core/database/utils"
 )
 
 func ToFixedFloat(value Float) Float {
-	fixed := utils.ToFixed(float64(value), utils.DatabaseFloatingPrecision)
+	fixed := utils.ToFixed(float64(value), database.DatabaseFloatingPrecision)
 	return Float(fixed)
 }

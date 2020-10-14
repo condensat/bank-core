@@ -8,12 +8,13 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
-	"github.com/condensat/bank-core/database"
-	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/secureid"
+
+	"github.com/condensat/bank-core/database"
+	"github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/database/query"
 
 	"github.com/condensat/bank-core/networking"
 	"github.com/condensat/bank-core/networking/sessions"
@@ -79,15 +80,15 @@ func (p *DashboardService) UserList(r *http.Request, request *UserListRequest, r
 	}
 	var pagesCount int
 	var userPage []model.User
-	err = db.Transaction(func(db bank.Database) error {
+	err = db.Transaction(func(db database.Context) error {
 		var err error
-		pagesCount, err = database.UserPagingCount(db, DefaultUserCountByPage)
+		pagesCount, err = query.UserPagingCount(db, DefaultUserCountByPage)
 		if err != nil {
 			pagesCount = 0
 			return err
 		}
 
-		userPage, err = database.UserPage(db, model.UserID(startID), DefaultUserCountByPage)
+		userPage, err = query.UserPage(db, model.UserID(startID), DefaultUserCountByPage)
 		if err != nil {
 			userPage = nil
 			return err
@@ -183,15 +184,15 @@ func (p *DashboardService) UserDetail(r *http.Request, request *UserDetailReques
 
 	var user model.User
 	var roles []string
-	err = db.Transaction(func(db bank.Database) error {
+	err = db.Transaction(func(db database.Context) error {
 		var err error
 
-		user, err = database.FindUserById(db, model.UserID(userID))
+		user, err = query.FindUserById(db, model.UserID(userID))
 		if err != nil {
 			return err
 		}
 
-		roleNames, err := database.UserRoles(db, user.ID)
+		roleNames, err := query.UserRoles(db, user.ID)
 		if err != nil {
 			return err
 		}
@@ -230,7 +231,7 @@ func FetchUserStatus(ctx context.Context) (UsersStatus, error) {
 		return UsersStatus{}, err
 	}
 
-	userCount, err := database.UserCount(db)
+	userCount, err := query.UserCount(db)
 	if err != nil {
 		return UsersStatus{}, err
 	}

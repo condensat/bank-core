@@ -9,14 +9,15 @@ import (
 
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/cache"
+	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/messaging"
 
 	"github.com/condensat/bank-core/accounting/common"
 
-	"github.com/condensat/bank-core/cache"
-	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
-	"github.com/condensat/bank-core/messaging"
+	"github.com/condensat/bank-core/database/query"
 
 	"github.com/sirupsen/logrus"
 )
@@ -29,10 +30,10 @@ func CurrencyCreate(ctx context.Context, currencyName, displayName string, curre
 
 	// Database Query
 	db := appcontext.Database(ctx)
-	err := db.Transaction(func(db bank.Database) error {
+	err := db.Transaction(func(db database.Context) error {
 
 		// check if currency exists
-		currency, err := database.GetCurrencyByName(db, model.CurrencyName(currencyName))
+		currency, err := query.GetCurrencyByName(db, model.CurrencyName(currencyName))
 		if err != nil {
 			log.WithError(err).Error("Failed to GetCurrencyByName")
 			return err
@@ -44,7 +45,7 @@ func CurrencyCreate(ctx context.Context, currencyName, displayName string, curre
 			if isCrypto {
 				crypto = 1
 			}
-			currency, err = database.AddOrUpdateCurrency(db,
+			currency, err = query.AddOrUpdateCurrency(db,
 				model.NewCurrency(
 					model.CurrencyName(currencyName),
 					model.CurrencyName(displayName),

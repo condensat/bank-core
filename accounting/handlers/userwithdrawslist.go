@@ -17,6 +17,7 @@ import (
 
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/database/query"
 
 	"github.com/sirupsen/logrus"
 )
@@ -29,8 +30,8 @@ func UserWithdrawList(ctx context.Context, userID uint64) (common.UserWithdraws,
 		UserID: userID,
 	}
 	db := appcontext.Database(ctx)
-	err := db.Transaction(func(db bank.Database) error {
-		withdraws, err := database.FindWithdrawByUser(db, model.UserID(userID))
+	err := db.Transaction(func(db database.Context) error {
+		withdraws, err := query.FindWithdrawByUser(db, model.UserID(userID))
 		if err != nil {
 			log.WithError(err).
 				Error("AddWithdraw failed")
@@ -38,14 +39,14 @@ func UserWithdrawList(ctx context.Context, userID uint64) (common.UserWithdraws,
 		}
 
 		for _, w := range withdraws {
-			wi, err := database.GetLastWithdrawInfo(db, w.ID)
+			wi, err := query.GetLastWithdrawInfo(db, w.ID)
 			if err != nil {
 				log.WithError(err).
 					Error("GetLastWithdrawInfo failed")
 				continue
 			}
 
-			wt, err := database.GetWithdrawTargetByWithdrawID(db, w.ID)
+			wt, err := query.GetWithdrawTargetByWithdrawID(db, w.ID)
 			if err != nil {
 				log.WithError(err).
 					Error("GetWithdrawTargetByWithdrawID failed")

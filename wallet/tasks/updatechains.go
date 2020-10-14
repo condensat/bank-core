@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/accounting/client"
 	"github.com/condensat/bank-core/accounting/common"
 	"github.com/condensat/bank-core/appcontext"
@@ -21,6 +20,7 @@ import (
 
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/database/query"
 
 	"github.com/jinzhu/gorm"
 	"github.com/sirupsen/logrus"
@@ -114,7 +114,7 @@ func updateChain(ctx context.Context, epoch time.Time, state chain.ChainState) {
 			cryptoTransaction.CryptoAddress.FirstBlockId = firstBlockId
 
 			// store into db
-			cryptoAddressUpdate, err := database.AddOrUpdateCryptoAddress(db, cryptoTransaction.CryptoAddress)
+			cryptoAddressUpdate, err := query.AddOrUpdateCryptoAddress(db, cryptoTransaction.CryptoAddress)
 			if err != nil {
 				log.WithError(err).
 					Error("Failed to AddOrUpdateCryptoAddress")
@@ -169,8 +169,8 @@ func updateOperation(ctx context.Context, state chain.ChainState, cryptoAddressI
 	})
 
 	// create OperationInfo and update OperationStatus
-	err := db.Transaction(func(db bank.Database) error {
-		operationInfo, err := database.GetOperationInfoByTxId(db, txID)
+	err := db.Transaction(func(db database.Context) error {
+		operationInfo, err := query.GetOperationInfoByTxId(db, txID)
 		if err != nil && err != gorm.ErrRecordNotFound {
 			log.WithError(err).
 				Error("Failed to GetOperationInfoByTxId")
@@ -180,7 +180,7 @@ func updateOperation(ctx context.Context, state chain.ChainState, cryptoAddressI
 		// operationInfo does not exists
 		if operationInfo.ID == 0 {
 			// create new OperationInfo
-			info, err := database.AddOperationInfo(db, model.OperationInfo{
+			info, err := query.AddOperationInfo(db, model.OperationInfo{
 				CryptoAddressID: cryptoAddressID,
 				TxID:            txID,
 				Vout:            vout,
@@ -202,7 +202,7 @@ func updateOperation(ctx context.Context, state chain.ChainState, cryptoAddressI
 		if operationInfo.ID == 0 {
 			log.
 				Error("Invalid operation ID")
-			return database.ErrDatabaseError
+			return query.ErrDatabaseError
 		}
 
 		log := log.WithField("operationInfoID", operationInfo.ID)
@@ -214,7 +214,7 @@ func updateOperation(ctx context.Context, state chain.ChainState, cryptoAddressI
 		}
 
 		// fetch OperationStatus if exists
-		status, _ := database.GetOperationStatus(db, operationInfo.ID)
+		status, _ := query.GetOperationStatus(db, operationInfo.ID)
 		if status.Accounted == "settled" {
 			// time to settle
 			operationState = status.Accounted
@@ -263,7 +263,7 @@ func updateOperation(ctx context.Context, state chain.ChainState, cryptoAddressI
 		}
 
 		// update state
-		status, err = database.AddOrUpdateOperationStatus(db, model.OperationStatus{
+		status, err = query.AddOrUpdateOperationStatus(db, model.OperationStatus{
 			OperationInfoID: operationInfo.ID,
 			State:           operationState,
 			Accounted:       status.Accounted,
@@ -340,7 +340,7 @@ func createAssetCurrency(ctx context.Context, assetHash string) (model.AssetID, 
 
 	// asset must be created
 	if asset.ID == 0 {
-		asset, err = database.AddAsset(db, model.AssetHash(assetHash), currencyName)
+		asset, err = query.AddAsset(db, model.AssetHash(assetHash), currencyName)
 		if err != nil {
 			log.WithError(err).
 				Error("AddAsset failed")
@@ -355,12 +355,12 @@ func createAssetCurrency(ctx context.Context, assetHash string) (model.AssetID, 
 	return asset.ID, nil
 }
 
-func getCurrencyNameFromAssetHash(db bank.Database, assetHash model.AssetHash) (model.Asset, model.CurrencyName, error) {
+func getCurrencyNameFromAssetHash(db database.Context, assetHash model.AssetHash) (model.Asset, model.CurrencyName, error) {
 	// check if asset exists
-	asset, err := database.GetAssetByHash(db, model.AssetHash(assetHash))
+	asset, err := query.GetAssetByHash(db, model.AssetHash(assetHash))
 	if err != nil {
 		// format new currency name
-		assetCount, err := database.AssetCount(db)
+		assetCount, err := query.AssetCount(db)
 		if err != nil {
 			return model.Asset{}, "", err
 		}
@@ -369,7 +369,7 @@ func getCurrencyNameFromAssetHash(db bank.Database, assetHash model.AssetHash) (
 
 	// return asset CurrencyName
 	if len(asset.CurrencyName) == 0 {
-		return model.Asset{}, "", database.ErrInvalidCurrencyName
+		return model.Asset{}, "", query.ErrInvalidCurrencyName
 	}
 
 	return asset, asset.CurrencyName, nil
@@ -390,7 +390,7 @@ func fetchActiveAddresses(ctx context.Context, state chain.ChainState) ([]string
 
 	// fetch unused addresses from database
 	{
-		unused, err := database.AllUnusedCryptoAddresses(db, chainName)
+		unused, err := query.AllUnusedCryptoAddresses(db, chainName)
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to AllUnusedCryptoAddresses")
@@ -402,7 +402,7 @@ func fetchActiveAddresses(ctx context.Context, state chain.ChainState) ([]string
 
 	// fetch mempool addresses from database
 	{
-		mempool, err := database.AllMempoolCryptoAddresses(db, chainName)
+		mempool, err := query.AllMempoolCryptoAddresses(db, chainName)
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to AllMempoolCryptoAddresses")
@@ -413,7 +413,7 @@ func fetchActiveAddresses(ctx context.Context, state chain.ChainState) ([]string
 	}
 
 	// fetch unconfirmed addresses from database
-	unconfirmed, err := database.AllUnconfirmedCryptoAddresses(db, chainName, model.BlockID(state.Height-UnconfirmedBlockCount))
+	unconfirmed, err := query.AllUnconfirmedCryptoAddresses(db, chainName, model.BlockID(state.Height-UnconfirmedBlockCount))
 	{
 		if err != nil {
 			log.WithError(err).
@@ -426,7 +426,7 @@ func fetchActiveAddresses(ctx context.Context, state chain.ChainState) ([]string
 
 	// fetch missing addresses from database
 	{
-		missing, err := database.FindCryptoAddressesNotInOperationInfo(db, chainName)
+		missing, err := query.FindCryptoAddressesNotInOperationInfo(db, chainName)
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to FindCryptoAddressesNotInOperationInfo")
@@ -442,7 +442,7 @@ func fetchActiveAddresses(ctx context.Context, state chain.ChainState) ([]string
 			"received",
 			"confirmed",
 		}
-		received, err := database.FindCryptoAddressesByOperationInfoState(db, chainName, activeStates...)
+		received, err := query.FindCryptoAddressesByOperationInfoState(db, chainName, activeStates...)
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to FindCryptoAddressesByOperationInfoState")

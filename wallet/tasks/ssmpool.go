@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 
@@ -20,6 +19,7 @@ import (
 
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/database/query"
 
 	"github.com/sirupsen/logrus"
 )
@@ -50,7 +50,7 @@ func SsmPool(ctx context.Context, epoch time.Time, infos []SsmInfo) {
 	for _, info := range infos {
 		ssm := common.SsmClientFromContext(ctx, info.Device)
 
-		unusedCount, err := database.CountSsmAddressByState(db,
+		unusedCount, err := query.CountSsmAddressByState(db,
 			model.SsmChain(info.Chain),
 			model.SsmFingerprint(info.Fingerprint),
 			model.SsmAddressStatusUnused,
@@ -61,7 +61,7 @@ func SsmPool(ctx context.Context, epoch time.Time, infos []SsmInfo) {
 		}
 
 		// count actual ssm addresses count for chain/fingerprint
-		addressCount, err := database.CountSsmAddress(db,
+		addressCount, err := query.CountSsmAddress(db,
 			model.SsmChain(info.Chain),
 			model.SsmFingerprint(info.Fingerprint),
 		)
@@ -137,10 +137,10 @@ func SsmPool(ctx context.Context, epoch time.Time, infos []SsmInfo) {
 		})
 
 		// store new address to database within a db transaction
-		err = db.Transaction(func(db bank.Database) error {
+		err = db.Transaction(func(db database.Context) error {
 
 			for _, addressPath := range addresses {
-				ssmAddressID, err := database.AddSsmAddress(db,
+				ssmAddressID, err := query.AddSsmAddress(db,
 					model.SsmAddress{
 						PublicAddress: model.SsmPublicAddress(addressPath.address.Address),
 						ScriptPubkey:  model.SsmPubkey(addressPath.address.PubKey),

@@ -15,10 +15,11 @@ import (
 	"github.com/condensat/bank-core/messaging"
 	"github.com/condensat/bank-core/utils"
 
+	"github.com/condensat/bank-core/accounting/common"
+
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
-
-	"github.com/condensat/bank-core/accounting/common"
+	"github.com/condensat/bank-core/database/query"
 
 	"github.com/sirupsen/logrus"
 )
@@ -33,9 +34,9 @@ func AccountInfo(ctx context.Context, accountID uint64) (common.AccountInfo, err
 	var result common.AccountInfo
 	// Database Query
 	db := appcontext.Database(ctx)
-	err := db.Transaction(func(db bank.Database) error {
+	err := db.Transaction(func(db database.Context) error {
 
-		account, err := database.GetAccountByID(db, model.AccountID(accountID))
+		account, err := query.GetAccountByID(db, model.AccountID(accountID))
 		if err != nil {
 			return err
 		}
@@ -56,17 +57,17 @@ func AccountInfo(ctx context.Context, accountID uint64) (common.AccountInfo, err
 	return result, nil
 }
 
-func txGetAccountInfo(db bank.Database, account model.Account) (common.AccountInfo, error) {
-	currency, err := database.GetCurrencyByName(db, account.CurrencyName)
+func txGetAccountInfo(db database.Context, account model.Account) (common.AccountInfo, error) {
+	currency, err := query.GetCurrencyByName(db, account.CurrencyName)
 	if err != nil {
 		return common.AccountInfo{}, err
 	}
-	accountState, err := database.GetAccountStatusByAccountID(db, account.ID)
+	accountState, err := query.GetAccountStatusByAccountID(db, account.ID)
 	if err != nil {
 		return common.AccountInfo{}, err
 	}
 
-	last, err := database.GetLastAccountOperation(db, account.ID)
+	last, err := query.GetLastAccountOperation(db, account.ID)
 	if err != nil {
 		return common.AccountInfo{}, err
 	}
@@ -78,7 +79,7 @@ func txGetAccountInfo(db bank.Database, account model.Account) (common.AccountIn
 		totalLocked = float64(*last.TotalLocked)
 	}
 
-	asset, _ := database.GetAssetByCurrencyName(db, currency.Name)
+	asset, _ := query.GetAssetByCurrencyName(db, currency.Name)
 
 	isAsset := currency.IsCrypto() && currency.GetType() == 2 && asset.ID > 0
 
@@ -94,7 +95,7 @@ func txGetAccountInfo(db bank.Database, account model.Account) (common.AccountIn
 		currencyName = utils.EllipsisCentral(string(asset.Hash), 5)
 		displayPrecision = 0
 		tickerPrecision = 0
-		if assetInfo, err := database.GetAssetInfo(db, asset.ID); err == nil {
+		if assetInfo, err := query.GetAssetInfo(db, asset.ID); err == nil {
 			tickerPrecision = int(assetInfo.Precision)
 			currencyName = assetInfo.Ticker
 			displayName = assetInfo.Name

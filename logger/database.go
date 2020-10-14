@@ -6,10 +6,11 @@ package logger
 
 import (
 	"context"
+	"errors"
 	"time"
 
-	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/logger/model"
 
 	"github.com/jinzhu/gorm"
@@ -17,8 +18,7 @@ import (
 )
 
 type DatabaseLogger struct {
-	database bank.Database
-	db       *gorm.DB
+	database database.Context
 }
 
 func NewDatabaseLogger(ctx context.Context) *DatabaseLogger {
@@ -38,14 +38,15 @@ func NewDatabaseLogger(ctx context.Context) *DatabaseLogger {
 
 	ret := DatabaseLogger{
 		database: database,
-		db:       db,
 	}
 
 	return &ret
 }
 
 func (p *DatabaseLogger) Close() {
-	p.db.Close()
+	if db, ok := p.database.DB().(*gorm.DB); ok {
+		db.Close()
+	}
 }
 
 func (p *DatabaseLogger) CreateLogEntry(timestamp time.Time, app, level string, userID uint64, sessionID string, method, err, msg, data string) *model.LogEntry {
@@ -63,5 +64,8 @@ func (p *DatabaseLogger) CreateLogEntry(timestamp time.Time, app, level string, 
 }
 
 func (p *DatabaseLogger) AddLogEntries(entries []*model.LogEntry) error {
-	return model.TxAddLogEntries(p.db, entries)
+	if db, ok := p.database.DB().(*gorm.DB); ok {
+		model.TxAddLogEntries(db, entries)
+	}
+	return errors.New("Invalid db")
 }

@@ -9,15 +9,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/accounting/common"
 	"github.com/condensat/bank-core/accounting/handlers"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
-	"github.com/condensat/bank-core/database"
-	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/utils"
+
+	"github.com/condensat/bank-core/database"
+	"github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/database/query"
 
 	"github.com/sirupsen/logrus"
 )
@@ -228,9 +229,9 @@ func processCancelingWithdraws(ctx context.Context) error {
 		wID := model.WithdrawID(from.ReferenceID)
 		log = log.WithField("WithdrawID", wID)
 
-		err = db.Transaction(func(db bank.Database) error {
+		err = db.Transaction(func(db database.Context) error {
 			// mark withdraw as Canceled
-			_, err = database.AddWithdrawInfo(db, model.WithdrawID(wID), model.WithdrawStatusCanceled, "{}")
+			_, err = query.AddWithdrawInfo(db, model.WithdrawID(wID), model.WithdrawStatusCanceled, "{}")
 			if err != nil {
 				log.WithError(err).
 					Error("Failed to AddWithdrawInfo")
@@ -280,7 +281,7 @@ func processPendingBatches(ctx context.Context) error {
 
 	log.Info("Process batches")
 
-	batches, err := database.FetchBatchReady(db)
+	batches, err := query.FetchBatchReady(db)
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to ProcessWithdraws")
@@ -291,7 +292,7 @@ func processPendingBatches(ctx context.Context) error {
 		if !batch.IsComplete() {
 			continue
 		}
-		info, err := database.GetLastBatchInfo(db, batch.ID)
+		info, err := query.GetLastBatchInfo(db, batch.ID)
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to GetLastBatchInfo")
@@ -303,7 +304,7 @@ func processPendingBatches(ctx context.Context) error {
 			continue
 		}
 
-		_, err = database.AddBatchInfo(db, batch.ID, model.BatchStatusReady, info.Type, info.Data)
+		_, err = query.AddBatchInfo(db, batch.ID, model.BatchStatusReady, info.Type, info.Data)
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to AddBatchInfo")
@@ -320,7 +321,7 @@ func processConfirmedBatches(ctx context.Context) error {
 
 	log.Info("Process batches")
 
-	batches, err := database.FetchBatchByLastStatus(db, model.BatchStatusConfirmed)
+	batches, err := query.FetchBatchByLastStatus(db, model.BatchStatusConfirmed)
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to FetchBatchByLastStatus")
@@ -328,7 +329,7 @@ func processConfirmedBatches(ctx context.Context) error {
 	}
 
 	for _, batch := range batches {
-		info, err := database.GetLastBatchInfo(db, batch.ID)
+		info, err := query.GetLastBatchInfo(db, batch.ID)
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to GetLastBatchInfo")
@@ -341,9 +342,9 @@ func processConfirmedBatches(ctx context.Context) error {
 		}
 
 		// within a db transaction
-		err = db.Transaction(func(db bank.Database) error {
+		err = db.Transaction(func(db database.Context) error {
 			// Mark WithdrawInfo as settled
-			withdraws, err := database.GetBatchWithdraws(db, batch.ID)
+			withdraws, err := query.GetBatchWithdraws(db, batch.ID)
 			if err != nil {
 				log.WithError(err).
 					Error("Failed to GetBatchWithdraws")
@@ -353,7 +354,7 @@ func processConfirmedBatches(ctx context.Context) error {
 			wInfos := make(map[model.WithdrawID]model.WithdrawInfo)
 			for _, wID := range withdraws {
 				// get last withdraw stats
-				wi, err := database.GetLastWithdrawInfo(db, wID)
+				wi, err := query.GetLastWithdrawInfo(db, wID)
 				if err != nil {
 					log.WithError(err).
 						Error("Failed to GetLastWithdrawInfo")
@@ -367,7 +368,7 @@ func processConfirmedBatches(ctx context.Context) error {
 				}
 
 				// mark withdraw as Settled
-				wi, err = database.AddWithdrawInfo(db, wID, model.WithdrawStatusSettled, "{}")
+				wi, err = query.AddWithdrawInfo(db, wID, model.WithdrawStatusSettled, "{}")
 				if err != nil {
 					log.WithError(err).
 						Error("Failed to AddWithdrawInfo")
@@ -379,7 +380,7 @@ func processConfirmedBatches(ctx context.Context) error {
 			}
 
 			// Mark BatchInfo as settled
-			_, err = database.AddBatchInfo(db, batch.ID, model.BatchStatusSettled, info.Type, info.Data)
+			_, err = query.AddBatchInfo(db, batch.ID, model.BatchStatusSettled, info.Type, info.Data)
 			if err != nil {
 				log.WithError(err).
 					Error("Failed to AddBatchInfo")
@@ -415,9 +416,9 @@ func processConfirmedBatches(ctx context.Context) error {
 	return nil
 }
 
-func settleAccountOperation(ctx context.Context, db bank.Database, refID model.RefID) error {
+func settleAccountOperation(ctx context.Context, db database.Context, refID model.RefID) error {
 	// Find transfer account operation
-	op, err := database.FindAccountOperationByReference(db, model.SynchroneousTypeAsyncStart, model.OperationTypeTransfer, refID)
+	op, err := query.FindAccountOperationByReference(db, model.SynchroneousTypeAsyncStart, model.OperationTypeTransfer, refID)
 	if err != nil {
 		return err
 	}
@@ -430,7 +431,7 @@ func settleAccountOperation(ctx context.Context, db bank.Database, refID model.R
 	defer lock.Unlock()
 
 	// create new AccountOperation, removing and unlock amount
-	_, err = database.TxAppendAccountOperation(db, model.NewAccountOperation(0,
+	_, err = query.TxAppendAccountOperation(db, model.NewAccountOperation(0,
 		op.AccountID,
 		model.SynchroneousTypeAsyncEnd,
 		model.OperationTypeWithdraw,

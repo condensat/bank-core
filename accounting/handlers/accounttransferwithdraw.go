@@ -19,6 +19,7 @@ import (
 
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/database/query"
 
 	"github.com/sirupsen/logrus"
 )
@@ -35,7 +36,7 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 	if err != nil {
 		log.WithError(err).
 			Error("Invalid BankAccount")
-		return common.AccountTransfer{}, database.ErrInvalidAccountID
+		return common.AccountTransfer{}, query.ErrInvalidAccountID
 	}
 
 	log = log.WithFields(logrus.Fields{
@@ -45,11 +46,11 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 
 	// get ticker precision to convert back in BTC precision (for RPC)
 	tickerPrecision := -1 // no ticker precison if not crypto
-	currency, err := database.GetCurrencyByName(db, model.CurrencyName(withdraw.Source.Currency))
+	currency, err := query.GetCurrencyByName(db, model.CurrencyName(withdraw.Source.Currency))
 	if err != nil {
 		return common.AccountTransfer{}, err
 	}
-	asset, _ := database.GetAssetByCurrencyName(db, currency.Name)
+	asset, _ := query.GetAssetByCurrencyName(db, currency.Name)
 
 	isAsset := currency.IsCrypto() && currency.GetType() == 2 && asset.ID > 0
 	if currency.IsCrypto() {
@@ -57,7 +58,7 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 	}
 	if isAsset {
 		tickerPrecision = 0
-		if assetInfo, err := database.GetAssetInfo(db, asset.ID); err == nil {
+		if assetInfo, err := query.GetAssetInfo(db, asset.ID); err == nil {
 			tickerPrecision = int(assetInfo.Precision)
 		}
 
@@ -69,7 +70,7 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 	// convert amount in BTC precision
 	amount := convertAssetAmountToBitcoin(withdraw.Source.Amount, tickerPrecision)
 	if amount <= 0.0 {
-		return common.AccountTransfer{}, database.ErrInvalidWithdrawAmount
+		return common.AccountTransfer{}, query.ErrInvalidWithdrawAmount
 	}
 
 	log.WithFields(logrus.Fields{
@@ -89,10 +90,10 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 
 	var result common.AccountTransfer
 	// Database Query
-	err = db.Transaction(func(db bank.Database) error {
+	err = db.Transaction(func(db database.Context) error {
 
 		// Create Witdraw for batch
-		w, err := database.AddWithdraw(db,
+		w, err := query.AddWithdraw(db,
 			model.AccountID(withdraw.Source.AccountID),
 			model.AccountID(bankAccountID),
 			model.Float(amount), batchMode,
@@ -103,7 +104,7 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 				Error("AddWithdraw failed")
 			return err
 		}
-		_, err = database.AddWithdrawInfo(db, w.ID, model.WithdrawStatusCreated, "{}")
+		_, err = query.AddWithdrawInfo(db, w.ID, model.WithdrawStatusCreated, "{}")
 		if err != nil {
 			log.WithError(err).
 				Error("AddWithdrawInfo failed")
@@ -116,7 +117,7 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 			},
 		})
 
-		_, err = database.AddWithdrawTarget(db, w.ID, wt.Type, wt.Data)
+		_, err = query.AddWithdrawTarget(db, w.ID, wt.Type, wt.Data)
 		if err != nil {
 			log.WithError(err).
 				Error("AddWithdrawTarget failed")
@@ -125,7 +126,7 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 
 		referenceID := uint64(w.ID)
 
-		currency, err := database.GetCurrencyByName(db, model.CurrencyName(withdraw.Source.Currency))
+		currency, err := query.GetCurrencyByName(db, model.CurrencyName(withdraw.Source.Currency))
 		if err != nil {
 			log.WithError(err).
 				Error("GetCurrencyByName failed")
@@ -140,10 +141,10 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 		if err != nil {
 			log.WithError(err).
 				Error("Invalid Fee BankAccount")
-			return database.ErrInvalidAccountID
+			return query.ErrInvalidAccountID
 		}
 
-		feeInfo, err := database.GetFeeInfo(db, model.CurrencyName(feeCurrencyName))
+		feeInfo, err := query.GetFeeInfo(db, model.CurrencyName(feeCurrencyName))
 		if err != nil {
 			log.WithError(err).
 				Error("GetFeeInfo failed")
@@ -162,19 +163,19 @@ func AccountTransferWithdraw(ctx context.Context, withdraw common.AccountTransfe
 			feeAmount = feeInfo.Minimum
 
 			// get feeUserAccoiunt from user
-			userAccount, err := database.GetAccountByID(db, model.AccountID(withdraw.Source.AccountID))
+			userAccount, err := query.GetAccountByID(db, model.AccountID(withdraw.Source.AccountID))
 			if err != nil {
 				log.WithError(err).
 					Error("GetAccountByID failed")
 				return err
 			}
 			// get user account for currency fee
-			accounts, err := database.GetAccountsByUserAndCurrencyAndName(db, userAccount.UserID, model.CurrencyName(feeCurrencyName), database.AccountNameDefault)
+			accounts, err := query.GetAccountsByUserAndCurrencyAndName(db, userAccount.UserID, model.CurrencyName(feeCurrencyName), query.AccountNameDefault)
 			if err != nil {
 				return errors.New("GetAccountsByUserAndCurrencyAndName failed")
 			}
 			if len(accounts) == 0 {
-				return database.ErrAccountNotFound
+				return query.ErrAccountNotFound
 			}
 			// use first default account
 			account := accounts[0]
@@ -277,12 +278,12 @@ func OnAccountTransferWithdraw(ctx context.Context, subject string, message *ban
 func getBankWithdrawAccount(ctx context.Context, currency string) (model.AccountID, error) {
 	bankUser := common.BankUserFromContext(ctx)
 	if bankUser.ID == 0 {
-		return 0, database.ErrInvalidUserID
+		return 0, query.ErrInvalidUserID
 	}
 
 	db := appcontext.Database(ctx)
 	currencyName := model.CurrencyName(currency)
-	if !database.AccountsExists(db, bankUser.ID, currencyName, BankWitdrawAccountName) {
+	if !query.AccountsExists(db, bankUser.ID, currencyName, BankWitdrawAccountName) {
 		result, err := AccountCreate(ctx, uint64(bankUser.ID), common.AccountInfo{
 			UserID: uint64(bankUser.ID),
 			Name:   string(BankWitdrawAccountName),
@@ -301,17 +302,17 @@ func getBankWithdrawAccount(ctx context.Context, currency string) (model.Account
 		return model.AccountID(result.AccountID), err
 	}
 
-	accounts, err := database.GetAccountsByUserAndCurrencyAndName(db, bankUser.ID, model.CurrencyName(currencyName), BankWitdrawAccountName)
+	accounts, err := query.GetAccountsByUserAndCurrencyAndName(db, bankUser.ID, model.CurrencyName(currencyName), BankWitdrawAccountName)
 	if err != nil {
 		return 0, err
 	}
 
 	if len(accounts) == 0 {
-		return 0, database.ErrAccountNotFound
+		return 0, query.ErrAccountNotFound
 	}
 	account := accounts[0]
 	if account.ID == 0 {
-		return 0, database.ErrInvalidAccountID
+		return 0, query.ErrInvalidAccountID
 	}
 
 	return account.ID, nil

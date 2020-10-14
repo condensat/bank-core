@@ -9,14 +9,15 @@ import (
 
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
-	"github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/messaging"
 
 	"github.com/condensat/bank-core/wallet/common"
 
-	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/database"
-	"github.com/condensat/bank-core/messaging"
+	"github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/database/query"
 
 	"github.com/sirupsen/logrus"
 )
@@ -49,7 +50,7 @@ func CryptoAddressNewDeposit(ctx context.Context, address common.CryptoAddress) 
 
 	// Database Query
 	db := appcontext.Database(ctx)
-	err := db.Transaction(func(db bank.Database) error {
+	err := db.Transaction(func(db database.Context) error {
 
 		chain := model.String(address.Chain)
 		accountID := model.AccountID(address.AccountID)
@@ -112,7 +113,7 @@ func OnCryptoAddressNewDeposit(ctx context.Context, subject string, message *ban
 		})
 }
 
-func txNewCryptoAddress(ctx context.Context, db bank.Database, chainHandler ChainHandler, chain model.String, accountID model.AccountID, ignoreAccounting bool) (model.CryptoAddress, error) {
+func txNewCryptoAddress(ctx context.Context, db database.Context, chainHandler ChainHandler, chain model.String, accountID model.AccountID, ignoreAccounting bool) (model.CryptoAddress, error) {
 	var result model.CryptoAddress
 	var err error
 	errCall := cache.ExecuteSingleCall(ctx, "txNewCryptoAddress", func(ctx context.Context) error {
@@ -135,7 +136,7 @@ func txNewCryptoAddress(ctx context.Context, db bank.Database, chainHandler Chai
 	return result, err
 }
 
-func txNewCryptoAddressFullNode(ctx context.Context, db bank.Database, chainHandler ChainHandler, chain model.String, accountID model.AccountID, ignoreAccounting bool) (model.CryptoAddress, error) {
+func txNewCryptoAddressFullNode(ctx context.Context, db database.Context, chainHandler ChainHandler, chain model.String, accountID model.AccountID, ignoreAccounting bool) (model.CryptoAddress, error) {
 	log := logger.Logger(ctx).WithField("Method", "wallet.txNewCryptoAddressFullNode")
 	account := genAccountLabelFromAccountID(accountID)
 	publicAddress, err := chainHandler.GetNewAddress(ctx, string(chain), account)
@@ -153,7 +154,7 @@ func txNewCryptoAddressFullNode(ctx context.Context, db bank.Database, chainHand
 		return model.CryptoAddress{}, ErrGenAddress
 	}
 
-	addr, err := database.AddOrUpdateCryptoAddress(db, model.CryptoAddress{
+	addr, err := query.AddOrUpdateCryptoAddress(db, model.CryptoAddress{
 		Chain:            chain,
 		AccountID:        accountID,
 		PublicAddress:    model.String(publicAddress),
@@ -169,7 +170,7 @@ func txNewCryptoAddressFullNode(ctx context.Context, db bank.Database, chainHand
 	return addr, nil
 }
 
-func txNewCryptoAddressSsm(ctx context.Context, db bank.Database, chainHandler ChainHandler, chain model.String, accountID model.AccountID, ignoreAccounting bool) (model.CryptoAddress, error) {
+func txNewCryptoAddressSsm(ctx context.Context, db database.Context, chainHandler ChainHandler, chain model.String, accountID model.AccountID, ignoreAccounting bool) (model.CryptoAddress, error) {
 	log := logger.Logger(ctx).WithField("Method", "wallet.txNewCryptoAddressSsm")
 	account := genAccountLabelFromAccountID(accountID)
 
@@ -189,23 +190,23 @@ func txNewCryptoAddressSsm(ctx context.Context, db bank.Database, chainHandler C
 
 	var result model.CryptoAddress
 	// already within a db transaction
-	err := func(db bank.Database) error {
+	err := func(db database.Context) error {
 
-		ssmAddressID, err := database.NextSsmAddressID(db, ssmChain, fingerprint)
+		ssmAddressID, err := query.NextSsmAddressID(db, ssmChain, fingerprint)
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to NextSsmAddressID")
 			return ErrGenAddress
 		}
 
-		ssmAddress, err := database.GetSsmAddress(db, ssmAddressID)
+		ssmAddress, err := query.GetSsmAddress(db, ssmAddressID)
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to GetSsmAddress")
 			return ErrGenAddress
 		}
 
-		_, err = database.UpdateSsmAddressState(db, ssmAddressID, model.SsmAddressStatusUsed)
+		_, err = query.UpdateSsmAddressState(db, ssmAddressID, model.SsmAddressStatusUsed)
 		if err != nil {
 			if err != nil {
 				log.WithError(err).
@@ -231,7 +232,7 @@ func txNewCryptoAddressSsm(ctx context.Context, db bank.Database, chainHandler C
 			return ErrGenAddress
 		}
 
-		result, err = database.AddOrUpdateCryptoAddress(db, model.CryptoAddress{
+		result, err = query.AddOrUpdateCryptoAddress(db, model.CryptoAddress{
 			Chain:            chain,
 			AccountID:        accountID,
 			PublicAddress:    model.String(publicAddress),

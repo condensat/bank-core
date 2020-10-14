@@ -11,19 +11,19 @@ import (
 	"time"
 
 	"github.com/condensat/bank-core/appcontext"
-	bankdb "github.com/condensat/bank-core/database"
+	"github.com/condensat/bank-core/database"
 
-	"github.com/condensat/bank-core/monitor/database"
+	monitordb "github.com/condensat/bank-core/monitor/database"
 	"github.com/condensat/bank-core/monitor/database/model"
 )
 
 func main() {
-	var opt bankdb.Options
-	bankdb.OptionArgs(&opt)
+	var opt database.Options
+	database.OptionArgs(&opt)
 	flag.Parse()
 
 	ctx := context.Background()
-	ctx = appcontext.WithDatabase(ctx, bankdb.NewDatabase(opt))
+	ctx = appcontext.WithDatabase(ctx, database.New(opt))
 
 	step := 15 * time.Second
 	timeframe := 10 * time.Minute
@@ -33,14 +33,14 @@ func main() {
 
 	db := appcontext.Database(ctx)
 
-	apps, err := database.ListServices(db, timeframe)
+	apps, err := monitordb.ListServices(db, timeframe)
 	if err != nil {
 		panic(err)
 	}
 
 	var serviceMap = make(map[string][]model.ProcessInfo)
 	for _, appName := range apps {
-		services, err := database.LastServiceHistory(db, appName, from, to, step, round)
+		services, err := monitordb.LastServiceHistory(db, appName, from, to, step, round)
 		if err != nil {
 			panic(err)
 		}

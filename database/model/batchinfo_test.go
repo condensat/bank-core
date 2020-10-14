@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/condensat/bank-core/database/encoding"
 )
 
 func TestBatchInfo_CryptoData(t *testing.T) {
@@ -18,7 +20,7 @@ func TestBatchInfo_CryptoData(t *testing.T) {
 		Timestamp time.Time
 		BatchID   BatchID
 		Status    BatchStatus
-		Type      DataType
+		Type      encoding.DataType
 		Data      BatchInfoData
 	}
 	tests := []struct {

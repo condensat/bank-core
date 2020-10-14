@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/database"
 
 	"github.com/condensat/bank-core/security"
 	"github.com/condensat/bank-core/security/utils"
@@ -75,7 +76,7 @@ func WithMessaging(ctx context.Context, messaging bank.Messaging) context.Contex
 }
 
 // WithDatabase returns a context with the database set
-func WithDatabase(ctx context.Context, db bank.Database) context.Context {
+func WithDatabase(ctx context.Context, db database.Context) context.Context {
 	return context.WithValue(ctx, DatabaseKey, db)
 }
 
@@ -165,8 +166,8 @@ func Messaging(ctx context.Context) bank.Messaging {
 	return nil
 }
 
-func Database(ctx context.Context) bank.Database {
-	if ctxDatabase, ok := ctx.Value(DatabaseKey).(bank.Database); ok {
+func Database(ctx context.Context) database.Context {
+	if ctxDatabase, ok := ctx.Value(DatabaseKey).(database.Context); ok {
 		return ctxDatabase
 	}
 	return nil

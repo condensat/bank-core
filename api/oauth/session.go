@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/accounting/client"
 	"github.com/condensat/bank-core/appcontext"
 
@@ -18,6 +17,7 @@ import (
 
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/database/query"
 
 	"github.com/markbates/goth"
 )
@@ -35,8 +35,8 @@ func UpdateUserSession(ctx context.Context, req *http.Request, w http.ResponseWr
 	var userID uint64
 	// Database Query
 	db := appcontext.Database(ctx)
-	err := db.Transaction(func(db bank.Database) error {
-		u, err := database.FindUserByEmail(db, model.UserEmail(user.Email))
+	err := db.Transaction(func(db database.Context) error {
+		u, err := query.FindUserByEmail(db, model.UserEmail(user.Email))
 		if err != nil {
 			return err
 		}
@@ -45,7 +45,7 @@ func UpdateUserSession(ctx context.Context, req *http.Request, w http.ResponseWr
 
 		// create user if email does not exists
 		if u.ID == 0 {
-			u, err = database.FindOrCreateUser(db, model.User{
+			u, err = query.FindOrCreateUser(db, model.User{
 				Name:  model.UserName(fmt.Sprintf("%s:%s", user.Provider, providerID)),
 				Email: model.UserEmail(user.Email),
 			})
@@ -84,7 +84,7 @@ func UpdateUserSession(ctx context.Context, req *http.Request, w http.ResponseWr
 		// store userID for cookie creation
 		userID = uint64(u.ID)
 
-		oa, err := database.FindOrCreateOAuth(db, model.OAuth{
+		oa, err := query.FindOrCreateOAuth(db, model.OAuth{
 			Provider:   user.Provider,
 			ProviderID: providerID,
 			UserID:     u.ID,
@@ -99,7 +99,7 @@ func UpdateUserSession(ctx context.Context, req *http.Request, w http.ResponseWr
 			return err
 		}
 
-		_, err = database.CreateOrUpdateOAuthData(db, model.OAuthData{
+		_, err = query.CreateOrUpdateOAuthData(db, model.OAuthData{
 			OAuthID: oa.ID,
 			Data:    string(data),
 		})

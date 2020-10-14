@@ -9,14 +9,14 @@ import (
 
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/messaging"
 
 	"github.com/condensat/bank-core/accounting/common"
 
-	"github.com/condensat/bank-core/cache"
-	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
-	"github.com/condensat/bank-core/messaging"
+	"github.com/condensat/bank-core/database/query"
 
 	"github.com/sirupsen/logrus"
 )
@@ -30,7 +30,7 @@ func BatchWithdrawList(ctx context.Context, status, network string) (common.Batc
 
 	// Database Query
 	db := appcontext.Database(ctx)
-	batches, err := database.GetLastBatchInfoByStatusAndNetwork(db, model.BatchStatus(status), model.BatchNetwork(network))
+	batches, err := query.GetLastBatchInfoByStatusAndNetwork(db, model.BatchStatus(status), model.BatchNetwork(network))
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to GetLastBatchInfoByStatusAndNetwork")
@@ -64,7 +64,7 @@ func BatchWithdrawList(ctx context.Context, status, network string) (common.Batc
 			continue
 		}
 
-		withdraws, err := database.GetBatchWithdraws(db, batch.BatchID)
+		withdraws, err := query.GetBatchWithdraws(db, batch.BatchID)
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to GetBatchWithdraws")
@@ -80,7 +80,7 @@ func BatchWithdrawList(ctx context.Context, status, network string) (common.Batc
 		}
 
 		for _, wID := range withdraws {
-			w, err := database.GetWithdraw(db, wID)
+			w, err := query.GetWithdraw(db, wID)
 			if err != nil {
 				log.WithError(err).
 					Error("Failed to GetWithdraw")
@@ -92,7 +92,7 @@ func BatchWithdrawList(ctx context.Context, status, network string) (common.Batc
 					Error("Invalid withdraw amount")
 				continue
 			}
-			wt, err := database.GetWithdrawTargetByWithdrawID(db, wID)
+			wt, err := query.GetWithdrawTargetByWithdrawID(db, wID)
 			if err != nil {
 				log.WithError(err).
 					Error("Failed to GetWithdrawTargetByWithdrawID")

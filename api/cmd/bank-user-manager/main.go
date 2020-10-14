@@ -46,7 +46,7 @@ func main() {
 	ctx := context.Background()
 	ctx = appcontext.WithOptions(ctx, args.App)
 	ctx = appcontext.WithHasherWorker(ctx, args.App.Hasher)
-	ctx = appcontext.WithDatabase(ctx, database.NewDatabase(args.Database))
+	ctx = appcontext.WithDatabase(ctx, database.New(args.Database))
 
 	migrateDatabase(ctx)
 

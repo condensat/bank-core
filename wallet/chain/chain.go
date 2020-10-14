@@ -12,8 +12,8 @@ import (
 
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
-	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/database/query"
 	"github.com/condensat/bank-core/logger"
 
 	"github.com/condensat/bank-core/wallet/common"
@@ -574,7 +574,7 @@ func getAddressInfoFromDatabase(ctx context.Context, address string, isUnconfide
 	}
 
 	if isUnconfidential {
-		cryptoAddress, err := database.GetCryptoAddressWithUnconfidential(db, model.String(address))
+		cryptoAddress, err := query.GetCryptoAddressWithUnconfidential(db, model.String(address))
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to GetCryptoAddressWithUnconfidential")
@@ -585,13 +585,13 @@ func getAddressInfoFromDatabase(ctx context.Context, address string, isUnconfide
 		address = string(cryptoAddress.PublicAddress)
 	}
 
-	ssmAddress, err := database.GetSsmAddressByPublicAddress(db, model.SsmPublicAddress(address))
+	ssmAddress, err := query.GetSsmAddressByPublicAddress(db, model.SsmPublicAddress(address))
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to GetSsmAddressByPublicAddress")
 		return commands.SsmPath{}, err
 	}
-	addressInfo, err := database.GetSsmAddressInfo(db, ssmAddress.ID)
+	addressInfo, err := query.GetSsmAddressInfo(db, ssmAddress.ID)
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to GetSsmAddressInfo")

@@ -8,7 +8,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/utils"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/database/query"
 
 	"github.com/sirupsen/logrus"
 )
@@ -26,7 +26,7 @@ func UpdateOperations(ctx context.Context, epoch time.Time, chains []string) {
 	log := logger.Logger(ctx).WithField("Method", "tasks.UpdateOperations")
 	db := appcontext.Database(ctx)
 
-	activeStatuses, err := database.FindActiveOperationStatus(db)
+	activeStatuses, err := query.FindActiveOperationStatus(db)
 	if err != nil {
 		log.WithError(err).
 			Error("Failed to FindActiveOperationInfo")
@@ -99,7 +99,7 @@ func UpdateOperations(ctx context.Context, epoch time.Time, chains []string) {
 
 		// update Accounted status
 		status.Accounted = accountedStatus
-		_, err = database.AddOrUpdateOperationStatus(db, status)
+		_, err = query.AddOrUpdateOperationStatus(db, status)
 		if err != nil {
 			log.WithError(err).
 				Error("Failed to AddOrUpdateOperationStatus")
@@ -112,20 +112,20 @@ func UpdateOperations(ctx context.Context, epoch time.Time, chains []string) {
 	}).Info("Operations updated")
 }
 
-func getOperationInfos(db bank.Database, operationInfoID model.OperationInfoID) (model.UserID, model.CryptoAddress, model.OperationInfo, error) {
+func getOperationInfos(db database.Context, operationInfoID model.OperationInfoID) (model.UserID, model.CryptoAddress, model.OperationInfo, error) {
 	// fetch OperationInfo from db
-	operation, err := database.GetOperationInfo(db, operationInfoID)
+	operation, err := query.GetOperationInfo(db, operationInfoID)
 	if err != nil {
 		return 0, model.CryptoAddress{}, model.OperationInfo{}, err
 	}
 
 	// fetch CryptoAddress from db
-	addr, err := database.GetCryptoAddress(db, operation.CryptoAddressID)
+	addr, err := query.GetCryptoAddress(db, operation.CryptoAddressID)
 	if err != nil {
 		return 0, model.CryptoAddress{}, model.OperationInfo{}, err
 	}
 
-	account, err := database.GetAccountByID(db, addr.AccountID)
+	account, err := query.GetAccountByID(db, addr.AccountID)
 	if err != nil {
 		return 0, model.CryptoAddress{}, model.OperationInfo{}, err
 	}
@@ -148,11 +148,11 @@ func createUserAssetAccount(ctx context.Context, userID, accountID uint64, asset
 		return accountID, nil
 	}
 	if userID == 0 {
-		return 0, database.ErrInvalidUserID
+		return 0, query.ErrInvalidUserID
 	}
 
 	// check if asset exists
-	asset, err := database.GetAsset(db, assetID)
+	asset, err := query.GetAsset(db, assetID)
 	if err != nil {
 		log.WithError(err).
 			Error("Asset NotFound")

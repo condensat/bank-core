@@ -9,11 +9,12 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/logger"
+
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
-	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/database/query"
 
 	"github.com/condensat/bank-core/networking"
 	"github.com/condensat/bank-core/networking/sessions"
@@ -56,7 +57,7 @@ func NewSessionHandler(ctx context.Context) http.Handler {
 		NewSessionService(
 			func(ctx context.Context, login, password string) (uint64, bool, error) {
 				db := appcontext.Database(ctx)
-				userID, allowed, err := database.CheckCredential(ctx, db, model.Base58(login), model.Base58(password))
+				userID, allowed, err := query.CheckCredential(ctx, db, model.Base58(login), model.Base58(password))
 				return uint64(userID), allowed, err
 			},
 		), "session")
@@ -127,7 +128,7 @@ func NewSwapHandler(ctx context.Context) http.Handler {
 	return server
 }
 
-func ContextValues(ctx context.Context) (bank.Database, *sessions.Session, error) {
+func ContextValues(ctx context.Context) (database.Context, *sessions.Session, error) {
 	db := appcontext.Database(ctx)
 	session, err := sessions.ContextSession(ctx)
 	if db == nil || session == nil {

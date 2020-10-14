@@ -8,14 +8,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/condensat/bank-core"
-
+	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/monitor/database/model"
 
 	"github.com/jinzhu/gorm"
 )
 
-func ListServices(db bank.Database, since time.Duration) ([]string, error) {
+func ListServices(db database.Context, since time.Duration) ([]string, error) {
 	gdb := db.DB().(*gorm.DB)
 	if db == nil {
 		panic("Invalid db")
@@ -41,7 +40,7 @@ func ListServices(db bank.Database, since time.Duration) ([]string, error) {
 	return result, nil
 }
 
-func LastServicesStatus(db bank.Database) ([]model.ProcessInfo, error) {
+func LastServicesStatus(db database.Context) ([]model.ProcessInfo, error) {
 	gdb := db.DB().(*gorm.DB)
 	if db == nil {
 		panic("Invalid db")
@@ -70,7 +69,7 @@ func LastServicesStatus(db bank.Database) ([]model.ProcessInfo, error) {
 	return result, nil
 }
 
-func LastServiceHistory(db bank.Database, appName string, from, to time.Time, step time.Duration, round time.Duration) ([]model.ProcessInfo, error) {
+func LastServiceHistory(db database.Context, appName string, from, to time.Time, step time.Duration, round time.Duration) ([]model.ProcessInfo, error) {
 	gdb := db.DB().(*gorm.DB)
 	if db == nil {
 		panic("Invalid db")

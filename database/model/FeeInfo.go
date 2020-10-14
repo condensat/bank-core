@@ -5,7 +5,8 @@
 package model
 
 import (
-	"github.com/condensat/bank-core/utils"
+	"github.com/condensat/bank-core/database"
+	"github.com/condensat/bank-core/database/utils"
 )
 
 const DefaultFeeRate = Float(0.001) // 0.1%
@@ -34,7 +35,7 @@ func (p *FeeInfo) Compute(amount Float) Float {
 	if fees < p.Minimum {
 		fees = p.Minimum
 	}
-	fees = Float(utils.ToFixed(float64(fees), utils.DatabaseFloatingPrecision))
+	fees = Float(utils.ToFixed(float64(fees), database.DatabaseFloatingPrecision))
 
 	return Float(fees)
 }

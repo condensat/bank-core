@@ -7,11 +7,13 @@ package model
 import (
 	"errors"
 	"time"
+
+	"github.com/condensat/bank-core/database/encoding"
 )
 
 type BatchInfoID ID
 type BatchStatus String
-type BatchInfoData Data
+type BatchInfoData encoding.Data
 
 const (
 	BatchStatusCreated    BatchStatus = "created"
@@ -21,7 +23,7 @@ const (
 	BatchStatusSettled    BatchStatus = "settled"
 	BatchStatusCanceled   BatchStatus = "canceled"
 
-	BatchInfoCrypto DataType = "crypto"
+	BatchInfoCrypto encoding.DataType = "crypto"
 )
 
 var (
@@ -29,12 +31,12 @@ var (
 )
 
 type BatchInfo struct {
-	ID        BatchInfoID   `gorm:"primary_key"`
-	Timestamp time.Time     `gorm:"index;not null;type:timestamp"`   // Creation timestamp
-	BatchID   BatchID       `gorm:"index;not null"`                  // [FK] Reference to Batch table
-	Status    BatchStatus   `gorm:"index;not null;size:16"`          // BatchStatus [created, processing, completed, canceled]
-	Type      DataType      `gorm:"index;not null;size:16"`          // DataType [crypto]
-	Data      BatchInfoData `gorm:"type:blob;not null;default:'{}'"` // BatchInfo data
+	ID        BatchInfoID       `gorm:"primary_key"`
+	Timestamp time.Time         `gorm:"index;not null;type:timestamp"`   // Creation timestamp
+	BatchID   BatchID           `gorm:"index;not null"`                  // [FK] Reference to Batch table
+	Status    BatchStatus       `gorm:"index;not null;size:16"`          // BatchStatus [created, processing, completed, canceled]
+	Type      encoding.DataType `gorm:"index;not null;size:16"`          // DataType [crypto]
+	Data      BatchInfoData     `gorm:"type:blob;not null;default:'{}'"` // BatchInfo data
 }
 
 // BatchInfoCryptoData data type for BatchInfo crypto
@@ -48,7 +50,7 @@ func (p *BatchInfo) CryptoData() (BatchInfoCryptoData, error) {
 
 	case BatchInfoCrypto:
 		var data BatchInfoCryptoData
-		err := DecodeData(&data, Data(p.Data))
+		err := encoding.DecodeData(&data, encoding.Data(p.Data))
 		return data, err
 
 	default:

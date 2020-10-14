@@ -13,7 +13,7 @@ import (
 	"github.com/condensat/bank-core/wallet/common"
 
 	"github.com/condensat/bank-core/cache"
-	"github.com/condensat/bank-core/database"
+	"github.com/condensat/bank-core/database/query"
 	"github.com/condensat/bank-core/messaging"
 
 	"github.com/sirupsen/logrus"
@@ -40,16 +40,16 @@ func AddressInfo(ctx context.Context, address common.AddressInfo) (common.Addres
 		return result, ErrInvalidChain
 	}
 	if len(address.PublicAddress) == 0 {
-		log.WithError(database.ErrInvalidPublicAddress).
+		log.WithError(query.ErrInvalidPublicAddress).
 			Debug("AddressInfo Failed")
-		return result, database.ErrInvalidPublicAddress
+		return result, query.ErrInvalidPublicAddress
 	}
 
 	result, err := chainHandler.GetAddressInfo(ctx, address.Chain, address.PublicAddress)
 	if err != nil {
 		log.WithError(err).
 			Debug("GetAddressInfo Failed")
-		return result, database.ErrInvalidPublicAddress
+		return result, query.ErrInvalidPublicAddress
 	}
 	result = common.AddressInfo{
 		Chain:          address.Chain,

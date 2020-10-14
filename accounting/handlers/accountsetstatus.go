@@ -9,14 +9,15 @@ import (
 
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/messaging"
 
 	"github.com/condensat/bank-core/accounting/common"
 
-	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
-	"github.com/condensat/bank-core/messaging"
+	"github.com/condensat/bank-core/database/query"
 
 	"github.com/sirupsen/logrus"
 )
@@ -29,15 +30,15 @@ func AccountSetStatus(ctx context.Context, accountID uint64, state string) (comm
 
 	// Database Query
 	db := appcontext.Database(ctx)
-	err := db.Transaction(func(db bank.Database) error {
+	err := db.Transaction(func(db database.Context) error {
 
-		account, err := database.GetAccountByID(db, model.AccountID(accountID))
+		account, err := query.GetAccountByID(db, model.AccountID(accountID))
 		if err != nil {
 			log.WithError(err).Error("Failed to GetAccountByID")
 			return err
 		}
 
-		status, err := database.GetAccountStatusByAccountID(db, model.AccountID(accountID))
+		status, err := query.GetAccountStatusByAccountID(db, model.AccountID(accountID))
 		if err != nil {
 			log.WithError(err).Error("Failed to GetAccountStatusByAccountID")
 			return err
@@ -53,7 +54,7 @@ func AccountSetStatus(ctx context.Context, accountID uint64, state string) (comm
 		}
 
 		// update acount status
-		status, err = database.AddOrUpdateAccountState(db, model.AccountState{
+		status, err = query.AddOrUpdateAccountState(db, model.AccountState{
 			AccountID: account.ID,
 			State:     model.ParseAccountStatus(state),
 		})

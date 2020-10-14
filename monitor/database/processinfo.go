@@ -5,14 +5,13 @@
 package database
 
 import (
-	"github.com/condensat/bank-core"
-
+	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/monitor/database/model"
 
 	"github.com/jinzhu/gorm"
 )
 
-func AddProcessInfo(db bank.Database, processInfo *model.ProcessInfo) error {
+func AddProcessInfo(db database.Context, processInfo *model.ProcessInfo) error {
 	gdb := db.DB().(*gorm.DB)
 	if db == nil {
 		panic("Invalid db")

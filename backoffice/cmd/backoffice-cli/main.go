@@ -12,10 +12,11 @@ import (
 
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/backoffice"
+	"github.com/condensat/bank-core/database"
 
 	"github.com/condensat/bank-core/cache"
-	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/database/query"
 	"github.com/condensat/bank-core/messaging"
 
 	"github.com/condensat/bank-core/logger"
@@ -49,7 +50,7 @@ func main() {
 
 	ctx := context.Background()
 	ctx = appcontext.WithOptions(ctx, args.App)
-	ctx = appcontext.WithDatabase(ctx, database.NewDatabase(args.Database))
+	ctx = appcontext.WithDatabase(ctx, database.New(args.Database))
 
 	migrateDatabase(ctx)
 
@@ -82,13 +83,13 @@ func AccountsInfo(ctx context.Context) {
 	}
 	fmt.Printf("LogsInfo: %+v\n", logsInfo)
 
-	userCount, err := database.UserCount(db)
+	userCount, err := query.UserCount(db)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("UserCount", userCount)
 
-	accountsInfo, err := database.AccountsInfos(db)
+	accountsInfo, err := query.AccountsInfos(db)
 	if err != nil {
 		panic(err)
 	}
@@ -98,13 +99,13 @@ func AccountsInfo(ctx context.Context) {
 	fmt.Printf("\tCount: %d\n", accountsInfo.Count)
 	fmt.Printf("\tActive: %d\n", accountsInfo.Active)
 
-	batchsInfo, err := database.BatchsInfos(db)
+	batchsInfo, err := query.BatchsInfos(db)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Printf("Batchs: %+v\n", batchsInfo)
 
-	withdrawsInfo, err := database.WithdrawsInfos(db)
+	withdrawsInfo, err := query.WithdrawsInfos(db)
 	if err != nil {
 		panic(err)
 	}
@@ -114,7 +115,7 @@ func AccountsInfo(ctx context.Context) {
 func UsersInfo(ctx context.Context) {
 	db := appcontext.Database(ctx)
 
-	pages, err := database.UserPagingCount(db, 5)
+	pages, err := query.UserPagingCount(db, 5)
 	if err != nil {
 		panic(err)
 	}
@@ -123,7 +124,7 @@ func UsersInfo(ctx context.Context) {
 	var start string
 	for page := 0; page < pages; page++ {
 		startID, _ := strconv.Atoi(start)
-		userPage, err := database.UserPage(db, model.UserID(startID), 5)
+		userPage, err := query.UserPage(db, model.UserID(startID), 5)
 		if err != nil {
 			panic(err)
 		}
@@ -139,7 +140,7 @@ func UsersInfo(ctx context.Context) {
 func DepositList(ctx context.Context) {
 	db := appcontext.Database(ctx)
 
-	page, err := database.DepositPage(db, 0, 10)
+	page, err := query.DepositPage(db, 0, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -149,7 +150,7 @@ func DepositList(ctx context.Context) {
 func BatchList(ctx context.Context) {
 	db := appcontext.Database(ctx)
 
-	page, err := database.BatchPage(db, 0, 10)
+	page, err := query.BatchPage(db, 0, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -159,7 +160,7 @@ func BatchList(ctx context.Context) {
 func WithdrawList(ctx context.Context) {
 	db := appcontext.Database(ctx)
 
-	page, err := database.WithdrawPage(db, 0, 10)
+	page, err := query.WithdrawPage(db, 0, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -169,7 +170,7 @@ func WithdrawList(ctx context.Context) {
 func SwapList(ctx context.Context) {
 	db := appcontext.Database(ctx)
 
-	page, err := database.SwapPage(db, 0, 10)
+	page, err := query.SwapPage(db, 0, 10)
 	if err != nil {
 		panic(err)
 	}

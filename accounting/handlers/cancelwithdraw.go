@@ -10,21 +10,23 @@ import (
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
+	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/logger"
-	"github.com/condensat/bank-core/messaging"
 	"github.com/sirupsen/logrus"
 
 	"github.com/condensat/bank-core/accounting/common"
 
-	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/database/query"
+
+	"github.com/condensat/bank-core/messaging"
 )
 
 func CancelWithdraw(ctx context.Context, withdrawID uint64) (common.WithdrawInfo, error) {
 	log := logger.Logger(ctx).WithField("Method", "accounting.CancelWithdraw")
 
 	if withdrawID == 0 {
-		return common.WithdrawInfo{}, database.ErrInvalidWithdrawID
+		return common.WithdrawInfo{}, query.ErrInvalidWithdrawID
 	}
 
 	result := common.WithdrawInfo{
@@ -32,8 +34,8 @@ func CancelWithdraw(ctx context.Context, withdrawID uint64) (common.WithdrawInfo
 	}
 	// Database Query
 	db := appcontext.Database(ctx)
-	err := db.Transaction(func(db bank.Database) error {
-		wi, err := database.GetLastWithdrawInfo(db, model.WithdrawID(withdrawID))
+	err := db.Transaction(func(db database.Context) error {
+		wi, err := query.GetLastWithdrawInfo(db, model.WithdrawID(withdrawID))
 		if err != nil {
 			log.WithError(err).
 				Error("GetLastWithdrawInfo failed")
@@ -45,7 +47,7 @@ func CancelWithdraw(ctx context.Context, withdrawID uint64) (common.WithdrawInfo
 			return cache.ErrInternalError
 		}
 
-		wi, err = database.AddWithdrawInfo(db, model.WithdrawID(withdrawID), model.WithdrawStatusCanceling, "{}")
+		wi, err = query.AddWithdrawInfo(db, model.WithdrawID(withdrawID), model.WithdrawStatusCanceling, "{}")
 		if err != nil {
 			log.WithError(err).
 				Error("AddWithdrawInfo failed")

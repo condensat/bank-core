@@ -52,7 +52,7 @@ func main() {
 	ctx = appcontext.WithProcessusGrabber(ctx, monitor.NewProcessusGrabber(ctx, 15*time.Second))
 
 	if args.WithDatabase {
-		ctx = appcontext.WithDatabase(ctx, database.NewDatabase(args.Database))
+		ctx = appcontext.WithDatabase(ctx, database.New(args.Database))
 		databaseLogger := logger.NewDatabaseLogger(ctx)
 		ctx = appcontext.WithLogger(ctx, databaseLogger)
 		defer databaseLogger.Close()

@@ -14,8 +14,8 @@ import (
 
 	"github.com/condensat/bank-core/api/services/assets"
 	"github.com/condensat/bank-core/appcontext"
-	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/database/query"
 
 	"github.com/nfnt/resize"
 )
@@ -68,15 +68,15 @@ func getTickerIconNoCache(ctx context.Context, ticker string) []byte {
 		// LBTC is not listed from blockstream API but have an icon
 		// must be assetID = 1 in database
 		const liquidAssetID = model.AssetID(1)
-		if assetIcon, err := database.GetAssetIcon(db, liquidAssetID); err == nil {
+		if assetIcon, err := query.GetAssetIcon(db, liquidAssetID); err == nil {
 			return resizeIcon(IconSize, assetIcon.Data)
 		}
 		return nil
 
 	default:
 
-		if asset, err := database.GetAssetByCurrencyName(db, model.CurrencyName(ticker)); err == nil {
-			if assetIcon, err := database.GetAssetIcon(db, asset.ID); err == nil {
+		if asset, err := query.GetAssetByCurrencyName(db, model.CurrencyName(ticker)); err == nil {
+			if assetIcon, err := query.GetAssetIcon(db, asset.ID); err == nil {
 				return resizeIcon(IconSize, assetIcon.Data)
 			}
 		}

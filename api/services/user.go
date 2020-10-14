@@ -8,8 +8,8 @@ import (
 	"net/http"
 
 	"github.com/condensat/bank-core/appcontext"
-	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
+	"github.com/condensat/bank-core/database/query"
 	"github.com/condensat/bank-core/logger"
 
 	"github.com/condensat/bank-core/networking"
@@ -60,7 +60,7 @@ func (p *UserService) Info(r *http.Request, request *UserInfoRequest, reply *Use
 	})
 
 	// Request UserID from email
-	user, err := database.FindUserById(db, model.UserID(userID))
+	user, err := query.FindUserById(db, model.UserID(userID))
 	if err != nil {
 		log.WithError(err).
 			Error("database.FindUserById Failed")

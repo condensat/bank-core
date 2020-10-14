@@ -9,14 +9,14 @@ import (
 
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/messaging"
 
 	"github.com/condensat/bank-core/accounting/common"
 
-	"github.com/condensat/bank-core/cache"
-	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
-	"github.com/condensat/bank-core/messaging"
+	"github.com/condensat/bank-core/database/query"
 
 	"github.com/sirupsen/logrus"
 )
@@ -60,7 +60,7 @@ func AccountOperation(ctx context.Context, entry common.AccountEntry) (common.Ac
 		balance = lockAmount
 	}
 
-	op, err := database.AppendAccountOperation(db, model.AccountOperation{
+	op, err := query.AppendAccountOperation(db, model.AccountOperation{
 		AccountID:        accountID,
 		SynchroneousType: model.ParseSynchroneousType(entry.SynchroneousType),
 		OperationType:    model.ParseOperationType(entry.OperationType),
