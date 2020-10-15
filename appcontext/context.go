@@ -96,7 +96,7 @@ func WithOptions(ctx context.Context, options Options) context.Context {
 	return ctx
 }
 
-func WithProcessusGrabber(ctx context.Context, grabber bank.Worker) context.Context {
+func WithProcessusGrabber(ctx context.Context, grabber Worker) context.Context {
 	go grabber.Run(ctx, 1)
 	return context.WithValue(ctx, ProcessusGrabberKey, grabber)
 }
@@ -149,8 +149,8 @@ func Database(ctx context.Context) database.Context {
 	return nil
 }
 
-func HasherWorker(ctx context.Context) bank.Worker {
-	if ctxWorker, ok := ctx.Value(hasherWorkerKey).(bank.Worker); ok {
+func HasherWorker(ctx context.Context) Worker {
+	if ctxWorker, ok := ctx.Value(hasherWorkerKey).(Worker); ok {
 		return ctxWorker
 	}
 	return nil
