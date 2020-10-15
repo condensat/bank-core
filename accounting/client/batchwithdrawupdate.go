@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/condensat/bank-core/accounting/common"
+	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
 	"github.com/sirupsen/logrus"
@@ -35,7 +36,7 @@ func BatchWithdrawUpdateWithHeight(ctx context.Context, batchID uint64, status, 
 	}
 
 	var result common.BatchStatus
-	err := messaging.RequestMessage(ctx, common.BatchWithdrawUpdateSubject, &request, &result)
+	err := messaging.RequestMessage(ctx, appcontext.AppName(ctx), common.BatchWithdrawUpdateSubject, &request, &result)
 	if err != nil {
 		log.WithError(err).
 			Error("RequestMessage failed")

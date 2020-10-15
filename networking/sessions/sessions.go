@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
 
@@ -27,7 +26,7 @@ type Session struct {
 }
 
 func NewSession(ctx context.Context) *Session {
-	rdb := cache.ToRedis(appcontext.Cache(ctx))
+	rdb := cache.ToRedis(cache.FromContext(ctx))
 	return &Session{
 		rdb: rdb,
 	}

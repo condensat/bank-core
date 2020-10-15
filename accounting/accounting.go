@@ -14,6 +14,7 @@ import (
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/messaging"
 	"github.com/condensat/bank-core/utils"
 
 	"github.com/condensat/bank-core/database"
@@ -49,7 +50,7 @@ func (p *Accounting) Run(ctx context.Context, bankUser model.User) {
 func (p *Accounting) registerHandlers(ctx context.Context) {
 	log := logger.Logger(ctx).WithField("Method", "Accounting.RegisterHandlers")
 
-	nats := appcontext.Messaging(ctx)
+	nats := messaging.FromContext(ctx)
 
 	const concurencyLevel = 8
 

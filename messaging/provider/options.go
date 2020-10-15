@@ -2,24 +2,22 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package messaging
+package provider
 
 import (
 	"flag"
-
-	"github.com/condensat/bank-core"
 )
 
 type NatsOptions struct {
-	bank.ServerOptions
+	Protocol string
+	HostName string
+	Port     int
 }
 
 func DefaultOptions() NatsOptions {
 	return NatsOptions{
-		ServerOptions: bank.ServerOptions{
-			HostName: "nats",
-			Port:     4222,
-		},
+		HostName: "nats",
+		Port:     4222,
 	}
 }
 

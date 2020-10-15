@@ -10,8 +10,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/condensat/bank-core/appcontext"
-
 	"github.com/bsm/redislock"
 )
 
@@ -40,7 +38,7 @@ type RedisMutex struct {
 }
 
 func NewRedisMutex(ctx context.Context) Mutex {
-	client := ToRedis(appcontext.Cache(ctx))
+	client := ToRedis(FromContext(ctx))
 	if client == nil {
 		panic("Invalid Redis client")
 	}

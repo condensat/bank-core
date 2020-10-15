@@ -2,13 +2,12 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package compression
+package messaging
 
 import (
 	"context"
 	"testing"
 
-	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/security"
 	"github.com/condensat/bank-core/security/utils"
 )
@@ -20,22 +19,22 @@ func TestCompressMessage(t *testing.T) {
 	ctx = context.WithValue(ctx, security.KeyPrivateKeySalt, utils.GenerateRandN(32))
 
 	var data [32]byte
-	message := bank.Message{
+	message := Message{
 		Data: data[:],
 	}
-	compress := bank.Message{
+	compress := Message{
 		Data: data[:],
 	}
 	_ = CompressMessage(&compress, 5)
 
-	encrypted := bank.Message{
+	encrypted := Message{
 		Data: data[:],
 	}
 	k := security.NewKey(ctx)
-	_ = security.EncryptMessageFor(ctx, k, k.Public(ctx), &encrypted)
+	_ = EncryptMessageFor(ctx, k, k.Public(ctx), &encrypted)
 
 	type args struct {
-		message *bank.Message
+		message *Message
 		level   int
 	}
 	tests := []struct {
@@ -45,7 +44,7 @@ func TestCompressMessage(t *testing.T) {
 		wantCompress bool
 	}{
 		{"nil", args{nil, 5}, true, false},
-		{"empty", args{new(bank.Message), 5}, true, false},
+		{"empty", args{new(Message), 5}, true, false},
 		{"encrypted", args{&encrypted, 5}, true, false},
 
 		{"compress", args{&message, 5}, false, true},
@@ -73,16 +72,16 @@ func TestDecompressMessage(t *testing.T) {
 	t.Parallel()
 
 	var data [32]byte
-	message := bank.Message{
+	message := Message{
 		Data: data[:],
 	}
-	compress := bank.Message{
+	compress := Message{
 		Data: data[:],
 	}
 	_ = CompressMessage(&compress, 5)
 
 	type args struct {
-		message *bank.Message
+		message *Message
 	}
 	tests := []struct {
 		name         string
@@ -91,7 +90,7 @@ func TestDecompressMessage(t *testing.T) {
 		wantCompress bool
 	}{
 		{"nil", args{nil}, true, false},
-		{"empty", args{new(bank.Message)}, true, false},
+		{"empty", args{new(Message)}, true, false},
 		{"compress", args{&compress}, false, false},
 		{"not_compressed", args{&message}, false, false},
 	}

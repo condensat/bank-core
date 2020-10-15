@@ -11,12 +11,16 @@ import (
 	"time"
 
 	"github.com/condensat/bank-core/appcontext"
-	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/logger"
-	"github.com/condensat/bank-core/messaging"
 	"github.com/condensat/bank-core/monitor"
 	"github.com/condensat/bank-core/networking"
+
+	"github.com/condensat/bank-core/messaging"
+	"github.com/condensat/bank-core/messaging/provider"
+	mprovider "github.com/condensat/bank-core/messaging/provider"
+
+	"github.com/condensat/bank-core/cache"
 
 	"github.com/condensat/bank-core/api"
 	"github.com/condensat/bank-core/api/oauth"
@@ -40,7 +44,7 @@ type Args struct {
 	App appcontext.Options
 
 	Redis    cache.RedisOptions
-	Nats     messaging.NatsOptions
+	Nats     mprovider.NatsOptions
 	Database database.Options
 
 	Api Api
@@ -52,7 +56,7 @@ func parseArgs() Args {
 	appcontext.OptionArgs(&args.App, "BankApi")
 
 	cache.OptionArgs(&args.Redis)
-	messaging.OptionArgs(&args.Nats)
+	mprovider.OptionArgs(&args.Nats)
 	database.OptionArgs(&args.Database)
 
 	flag.IntVar(&args.Api.Port, "port", 4242, "BankApi rpc port (default 4242)")
@@ -82,9 +86,9 @@ func main() {
 	ctx = appcontext.WithOptions(ctx, args.App)
 	ctx = appcontext.WithWebAppURL(ctx, args.Api.WebAppURL)
 	ctx = appcontext.WithHasherWorker(ctx, args.App.Hasher)
-	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, args.Redis))
+	ctx = cache.WithCache(ctx, cache.NewRedis(ctx, args.Redis))
 	ctx = appcontext.WithWriter(ctx, logger.NewRedisLogger(ctx))
-	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, args.Nats))
+	ctx = messaging.WithMessaging(ctx, provider.NewNats(ctx, args.Nats))
 	ctx = appcontext.WithDatabase(ctx, database.New(args.Database))
 	ctx = appcontext.WithProcessusGrabber(ctx, monitor.NewProcessusGrabber(ctx, 15*time.Second))
 	ctx = appcontext.WithSecureID(ctx, security.SecureIDFromFile(args.Api.SecureID))

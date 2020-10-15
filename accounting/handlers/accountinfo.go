@@ -8,7 +8,6 @@ import (
 	"context"
 	"math"
 
-	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
@@ -130,15 +129,15 @@ func txGetAccountInfo(db database.Context, account model.Account) (common.Accoun
 	}, nil
 }
 
-func OnAccountInfo(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
+func OnAccountInfo(ctx context.Context, subject string, message *messaging.Message) (*messaging.Message, error) {
 	log := logger.Logger(ctx).WithField("Method", "Accounting.OnAccountInfo")
 	log = log.WithFields(logrus.Fields{
 		"Subject": subject,
 	})
 
 	var request common.AccountInfo
-	return messaging.HandleRequest(ctx, message, &request,
-		func(ctx context.Context, _ bank.BankObject) (bank.BankObject, error) {
+	return messaging.HandleRequest(ctx, appcontext.AppName(ctx), message, &request,
+		func(ctx context.Context, _ messaging.BankObject) (messaging.BankObject, error) {
 			log = log.WithFields(logrus.Fields{
 				"AccountID": request.AccountID,
 			})

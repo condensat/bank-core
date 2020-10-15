@@ -7,7 +7,6 @@ package handlers
 import (
 	"context"
 
-	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
@@ -75,15 +74,15 @@ func CryptoAddressNewDeposit(ctx context.Context, address common.CryptoAddress) 
 	return result, err
 }
 
-func OnCryptoAddressNewDeposit(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
+func OnCryptoAddressNewDeposit(ctx context.Context, subject string, message *messaging.Message) (*messaging.Message, error) {
 	log := logger.Logger(ctx).WithField("Method", "wallet.OnCryptoAddressNewDeposit")
 	log = log.WithFields(logrus.Fields{
 		"Subject": subject,
 	})
 
 	var request common.CryptoAddress
-	return messaging.HandleRequest(ctx, message, &request,
-		func(ctx context.Context, _ bank.BankObject) (bank.BankObject, error) {
+	return messaging.HandleRequest(ctx, appcontext.AppName(ctx), message, &request,
+		func(ctx context.Context, _ messaging.BankObject) (messaging.BankObject, error) {
 			log = log.WithFields(logrus.Fields{
 				"Chain":     request.Chain,
 				"AccountID": request.AccountID,

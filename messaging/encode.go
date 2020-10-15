@@ -2,12 +2,17 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package bank
+package messaging
 
 import (
 	"bytes"
 	"encoding/gob"
 )
+
+type BankObject interface {
+	Encode() ([]byte, error)
+	Decode(data []byte) error
+}
 
 // encode return bytes from BankObject. Encoded with gob
 func EncodeObject(object BankObject) ([]byte, error) {

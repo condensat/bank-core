@@ -12,12 +12,13 @@ import (
 
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/backoffice"
+	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/database"
 
-	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/database/model"
 	"github.com/condensat/bank-core/database/query"
-	"github.com/condensat/bank-core/messaging"
+
+	mprovider "github.com/condensat/bank-core/messaging/provider"
 
 	"github.com/condensat/bank-core/logger"
 	logmodel "github.com/condensat/bank-core/logger/model"
@@ -29,7 +30,7 @@ type Args struct {
 	App appcontext.Options
 
 	Redis    cache.RedisOptions
-	Nats     messaging.NatsOptions
+	Nats     mprovider.NatsOptions
 	Database database.Options
 }
 

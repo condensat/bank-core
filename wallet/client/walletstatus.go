@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
 	"github.com/condensat/bank-core/wallet/common"
@@ -37,7 +38,7 @@ func WalletStatus(ctx context.Context, chain string) (common.WalletStatus, error
 		})
 	}
 	var result common.WalletStatus
-	err := messaging.RequestMessage(ctx, common.WalletStatusSubject, &request, &result)
+	err := messaging.RequestMessage(ctx, appcontext.AppName(ctx), common.WalletStatusSubject, &request, &result)
 	if err != nil {
 		log.WithError(err).
 			Error("RequestMessage failed")

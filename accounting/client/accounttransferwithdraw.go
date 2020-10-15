@@ -8,6 +8,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 
 	"github.com/condensat/bank-core/accounting/common"
@@ -70,7 +71,7 @@ func accountTransferWithdrawRequest(ctx context.Context, withdraw common.Account
 	})
 
 	var result common.AccountTransfer
-	err := messaging.RequestMessage(ctx, common.AccountTransferWithdrawSubject, &withdraw, &result)
+	err := messaging.RequestMessage(ctx, appcontext.AppName(ctx), common.AccountTransferWithdrawSubject, &withdraw, &result)
 	if err != nil {
 		log.WithError(err).
 			Error("RequestMessage failed")

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
+
 	"github.com/go-redis/redis/v8"
 )
 
@@ -21,8 +21,8 @@ func TestNewSession(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.TODO()
-	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, redisOptions()))
-	rdb := cache.ToRedis(appcontext.Cache(ctx))
+	ctx = cache.WithCache(ctx, createCache(ctx))
+	rdb := cache.ToRedis(cache.FromContext(ctx))
 
 	type args struct {
 		ctx context.Context
@@ -48,8 +48,8 @@ func TestSession_CreateSession(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.TODO()
-	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, redisOptions()))
-	rdb := cache.ToRedis(appcontext.Cache(ctx))
+	ctx = cache.WithCache(ctx, createCache(ctx))
+	rdb := cache.ToRedis(cache.FromContext(ctx))
 
 	type fields struct {
 		rdb *redis.Client
@@ -109,8 +109,8 @@ func TestSession_IsSessionValid(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.TODO()
-	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, redisOptions()))
-	rdb := cache.ToRedis(appcontext.Cache(ctx))
+	ctx = cache.WithCache(ctx, createCache(ctx))
+	rdb := cache.ToRedis(cache.FromContext(ctx))
 
 	s := NewSession(ctx)
 
@@ -163,8 +163,8 @@ func TestSession_UserSession(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.TODO()
-	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, redisOptions()))
-	rdb := cache.ToRedis(appcontext.Cache(ctx))
+	ctx = cache.WithCache(ctx, createCache(ctx))
+	rdb := cache.ToRedis(cache.FromContext(ctx))
 
 	s := NewSession(ctx)
 
@@ -203,8 +203,8 @@ func TestSession_ExtendSession(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.TODO()
-	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, redisOptions()))
-	rdb := cache.ToRedis(appcontext.Cache(ctx))
+	ctx = cache.WithCache(ctx, createCache(ctx))
+	rdb := cache.ToRedis(cache.FromContext(ctx))
 
 	type fields struct {
 		rdb *redis.Client
@@ -262,8 +262,8 @@ func TestSession_InvalidateSession(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.TODO()
-	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, redisOptions()))
-	rdb := cache.ToRedis(appcontext.Cache(ctx))
+	ctx = cache.WithCache(ctx, createCache(ctx))
+	rdb := cache.ToRedis(cache.FromContext(ctx))
 
 	type fields struct {
 		rdb *redis.Client
@@ -368,8 +368,8 @@ func Test_pushSession(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.TODO()
-	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, redisOptions()))
-	rdb := cache.ToRedis(appcontext.Cache(ctx))
+	ctx = cache.WithCache(ctx, createCache(ctx))
+	rdb := cache.ToRedis(cache.FromContext(ctx))
 
 	s1 := NewSessionID()
 	s2 := NewSessionID()
@@ -431,8 +431,8 @@ func Test_fetchSession(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.TODO()
-	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, redisOptions()))
-	rdb := cache.ToRedis(appcontext.Cache(ctx))
+	ctx = cache.WithCache(ctx, createCache(ctx))
+	rdb := cache.ToRedis(cache.FromContext(ctx))
 
 	s := NewSession(ctx)
 
@@ -468,12 +468,11 @@ func Test_fetchSession(t *testing.T) {
 	}
 }
 
-func redisOptions() cache.RedisOptions {
-	var options cache.RedisOptions
-	options.HostName = "redis"
-	options.Port = 6379
-
-	return options
+func createCache(ctx context.Context) cache.Cache {
+	return cache.NewRedis(ctx, cache.RedisOptions{
+		HostName: "redis",
+		Port:     6379,
+	})
 }
 
 func createSession(ctx context.Context, s *Session, d time.Duration) SessionID {

@@ -8,8 +8,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
+	"github.com/condensat/bank-core/messaging"
 	"github.com/condensat/bank-core/utils"
 
 	"github.com/condensat/bank-core/monitor/database"
@@ -42,7 +42,7 @@ func (p *Grabber) Run(ctx context.Context) {
 func (p *Grabber) registerHandlers(ctx context.Context) {
 	log := logger.Logger(ctx).WithField("Method", "grabber.RegisterHandlers")
 
-	nats := appcontext.Messaging(ctx)
+	nats := messaging.FromContext(ctx)
 	nats.SubscribeWorkers(ctx, InboundSubject, 4, p.onProcessInfo)
 	nats.SubscribeWorkers(ctx, StackListSubject, 4, p.onStackList)
 	nats.SubscribeWorkers(ctx, StackServiceHistorySubject, 4, p.onStackServiceHistory)
@@ -50,7 +50,7 @@ func (p *Grabber) registerHandlers(ctx context.Context) {
 	log.Debug("Monitor Grabber registered")
 }
 
-func (p *Grabber) onProcessInfo(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
+func (p *Grabber) onProcessInfo(ctx context.Context, subject string, message *messaging.Message) (*messaging.Message, error) {
 	log := logger.Logger(ctx).WithField("Method", "grabber.onProcessInfo")
 	log = log.WithFields(logrus.Fields{
 		"Subject": subject,
@@ -59,7 +59,7 @@ func (p *Grabber) onProcessInfo(ctx context.Context, subject string, message *ba
 	db := appcontext.Database(ctx)
 
 	var req model.ProcessInfo
-	err := bank.FromMessage(message, &req)
+	err := messaging.FromMessage(message, &req)
 	if err != nil {
 		log.WithError(err).Error("Message data is not model.ProcessInfo")
 		return nil, ErrInternalError
@@ -79,14 +79,14 @@ func (p *Grabber) onProcessInfo(ctx context.Context, subject string, message *ba
 	return nil, nil
 }
 
-func (p *Grabber) onStackList(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
+func (p *Grabber) onStackList(ctx context.Context, subject string, message *messaging.Message) (*messaging.Message, error) {
 	log := logger.Logger(ctx).WithField("Method", "grabber.onStackList")
 	log = log.WithFields(logrus.Fields{
 		"Subject": subject,
 	})
 
 	var req StackListService
-	err := bank.FromMessage(message, &req)
+	err := messaging.FromMessage(message, &req)
 	if err != nil {
 		log.WithError(err).Error("Message data is not StackListService")
 		return nil, ErrInternalError
@@ -121,17 +121,17 @@ func (p *Grabber) onStackList(ctx context.Context, subject string, message *bank
 		ProcessInfo: processInfo[:],
 	}
 
-	return bank.ToMessage(appcontext.AppName(ctx), &resp), nil
+	return messaging.ToMessage(appcontext.AppName(ctx), &resp), nil
 }
 
-func (p *Grabber) onStackServiceHistory(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
+func (p *Grabber) onStackServiceHistory(ctx context.Context, subject string, message *messaging.Message) (*messaging.Message, error) {
 	log := logger.Logger(ctx).WithField("Method", "grabber.onStackServiceHistory")
 	log = log.WithFields(logrus.Fields{
 		"Subject": subject,
 	})
 
 	var req StackServiceHistory
-	err := bank.FromMessage(message, &req)
+	err := messaging.FromMessage(message, &req)
 	if err != nil {
 		log.WithError(err).Error("Message data is not StackServiceHistory")
 		return nil, ErrInternalError
@@ -151,5 +151,5 @@ func (p *Grabber) onStackServiceHistory(ctx context.Context, subject string, mes
 		History: history,
 	}
 
-	return bank.ToMessage(appcontext.AppName(ctx), &resp), nil
+	return messaging.ToMessage(appcontext.AppName(ctx), &resp), nil
 }

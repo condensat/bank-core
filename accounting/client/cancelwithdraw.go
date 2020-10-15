@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/condensat/bank-core/accounting/common"
+	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
@@ -22,7 +23,7 @@ func CancelWithdraw(ctx context.Context, withdrawID uint64) (common.WithdrawInfo
 	}
 
 	var result common.WithdrawInfo
-	err := messaging.RequestMessage(ctx, common.CancelWithdrawSubject, &common.WithdrawInfo{WithdrawID: withdrawID}, &result)
+	err := messaging.RequestMessage(ctx, appcontext.AppName(ctx), common.CancelWithdrawSubject, &common.WithdrawInfo{WithdrawID: withdrawID}, &result)
 	if err != nil {
 		log.WithError(err).
 			Error("RequestMessage failed")

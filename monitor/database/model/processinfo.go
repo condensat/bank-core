@@ -7,7 +7,7 @@ package model
 import (
 	"time"
 
-	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/messaging"
 )
 
 type ProcessInfo struct {
@@ -29,9 +29,9 @@ type ProcessInfo struct {
 }
 
 func (p *ProcessInfo) Encode() ([]byte, error) {
-	return bank.EncodeObject(p)
+	return messaging.EncodeObject(p)
 }
 
 func (p *ProcessInfo) Decode(data []byte) error {
-	return bank.DecodeObject(data, bank.BankObject(p))
+	return messaging.DecodeObject(data, messaging.BankObject(p))
 }

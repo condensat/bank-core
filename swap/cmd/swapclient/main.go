@@ -8,15 +8,15 @@ import (
 	"context"
 	"log"
 
-	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/messaging"
+	"github.com/condensat/bank-core/messaging/provider"
 	"github.com/condensat/bank-core/swap/liquid/client"
 	"github.com/condensat/bank-core/swap/liquid/common"
 )
 
 func main() {
 	ctx := context.Background()
-	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, messaging.DefaultOptions()))
+	ctx = messaging.WithMessaging(ctx, provider.NewNats(ctx, provider.DefaultOptions()))
 
 	address := common.ConfidentialAddress("lq1qqv8ymngmdp5yj2jukdd78ujm92m0wjvk7yxplra2haf5dnuzsutz96dvvqscm0raftaljf9p30wg4sd2alht5epuyn2fe7vn6")
 	proposal, err := client.CreateSwapProposal(ctx, 42,

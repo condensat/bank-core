@@ -10,12 +10,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/accounting/client"
 	"github.com/condensat/bank-core/accounting/common"
-	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/messaging"
 
 	"github.com/condensat/bank-core/database/model"
 )
@@ -28,16 +27,16 @@ type Rate struct {
 }
 
 func (p *Rate) Encode() ([]byte, error) {
-	return bank.EncodeObject(p)
+	return messaging.EncodeObject(p)
 }
 
 func (p *Rate) Decode(data []byte) error {
-	return bank.DecodeObject(data, bank.BankObject(p))
+	return messaging.DecodeObject(data, messaging.BankObject(p))
 }
 
 func CurrencyInfo(ctx context.Context, name string) (common.CurrencyInfo, error) {
 	log := logger.Logger(ctx).WithField("Method", "rate.CurrencyInfo")
-	rdb := cache.ToRedis(appcontext.Cache(ctx))
+	rdb := cache.ToRedis(cache.FromContext(ctx))
 	if rdb == nil {
 		log.Error("Invalid redis cache")
 		return common.CurrencyInfo{}, errors.New("Internal Error")
@@ -85,7 +84,7 @@ func CurrencyInfo(ctx context.Context, name string) (common.CurrencyInfo, error)
 
 func UpdateRedisRate(ctx context.Context, currencyRates []model.CurrencyRate) {
 	log := logger.Logger(ctx).WithField("Method", "rate.UpdateRedisRate")
-	rdb := cache.ToRedis(appcontext.Cache(ctx))
+	rdb := cache.ToRedis(cache.FromContext(ctx))
 	if rdb == nil {
 		log.Error("Invalid redis cache")
 		return
@@ -121,7 +120,7 @@ func UpdateRedisRate(ctx context.Context, currencyRates []model.CurrencyRate) {
 
 func FetchRedisRate(ctx context.Context, name, base string) (Rate, error) {
 	log := logger.Logger(ctx).WithField("Method", "rate.FetchRedisRate")
-	rdb := cache.ToRedis(appcontext.Cache(ctx))
+	rdb := cache.ToRedis(cache.FromContext(ctx))
 	if rdb == nil {
 		log.Error("Invalid redis cache")
 		return Rate{}, errors.New("Internal Error")

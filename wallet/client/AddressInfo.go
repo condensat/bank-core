@@ -7,6 +7,7 @@ package client
 import (
 	"context"
 
+	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
 	"github.com/condensat/bank-core/wallet/common"
@@ -23,7 +24,7 @@ func AddressInfo(ctx context.Context, chain, publicAddress string) (common.Addre
 	}
 
 	var result common.AddressInfo
-	err := messaging.RequestMessage(ctx, common.AddressInfoSubject, &request, &result)
+	err := messaging.RequestMessage(ctx, appcontext.AppName(ctx), common.AddressInfoSubject, &request, &result)
 	if err != nil {
 		log.WithError(err).
 			Error("RequestMessage failed")

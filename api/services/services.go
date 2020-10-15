@@ -11,6 +11,7 @@ import (
 
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/messaging"
 
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"
@@ -30,7 +31,7 @@ var (
 func RegisterMessageHandlers(ctx context.Context) {
 	log := logger.Logger(ctx).WithField("Method", "RegisterMessageHandlers")
 
-	nats := appcontext.Messaging(ctx)
+	nats := messaging.FromContext(ctx)
 	nats.SubscribeWorkers(ctx, VerifySessionSubject, 4, sessions.VerifySession)
 
 	log.Debug("MessageHandlers registered")

@@ -12,14 +12,17 @@ import (
 
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
-	"github.com/condensat/bank-core/messaging"
 	"github.com/condensat/bank-core/monitor"
 	"github.com/condensat/bank-core/networking"
 	"github.com/condensat/bank-core/networking/ratelimiter"
 
-	"github.com/condensat/bank-core/monitor/tasks"
-
 	"github.com/condensat/bank-core/cache"
+
+	"github.com/condensat/bank-core/messaging"
+	"github.com/condensat/bank-core/messaging/provider"
+	mprovider "github.com/condensat/bank-core/messaging/provider"
+
+	"github.com/condensat/bank-core/monitor/tasks"
 )
 
 type StackMonitor struct {
@@ -34,7 +37,7 @@ type Args struct {
 	App appcontext.Options
 
 	Redis cache.RedisOptions
-	Nats  messaging.NatsOptions
+	Nats  mprovider.NatsOptions
 
 	StackMonitor StackMonitor
 }
@@ -45,7 +48,7 @@ func parseArgs() Args {
 	appcontext.OptionArgs(&args.App, "StackMonitor")
 
 	cache.OptionArgs(&args.Redis)
-	messaging.OptionArgs(&args.Nats)
+	mprovider.OptionArgs(&args.Nats)
 
 	flag.IntVar(&args.StackMonitor.Port, "port", 4000, "Stack monitor port (default 4000)")
 
@@ -64,9 +67,9 @@ func main() {
 
 	ctx := context.Background()
 	ctx = appcontext.WithOptions(ctx, args.App)
-	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, args.Redis))
+	ctx = cache.WithCache(ctx, cache.NewRedis(ctx, args.Redis))
 	ctx = appcontext.WithWriter(ctx, logger.NewRedisLogger(ctx))
-	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, args.Nats))
+	ctx = messaging.WithMessaging(ctx, provider.NewNats(ctx, args.Nats))
 	ctx = appcontext.WithProcessusGrabber(ctx, monitor.NewProcessusGrabber(ctx, 15*time.Second))
 
 	ctx = networking.RegisterRateLimiter(ctx, args.StackMonitor.PeerRequestPerSecond)

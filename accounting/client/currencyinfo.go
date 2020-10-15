@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/condensat/bank-core/accounting/common"
+	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
 
@@ -22,7 +23,7 @@ func CurrencyInfo(ctx context.Context, currencyName string) (common.CurrencyInfo
 	}
 
 	var result common.CurrencyInfo
-	err := messaging.RequestMessage(ctx, common.CurrencyInfoSubject, &request, &result)
+	err := messaging.RequestMessage(ctx, appcontext.AppName(ctx), common.CurrencyInfoSubject, &request, &result)
 	if err != nil {
 		log.WithError(err).
 			Error("RequestMessage failed")

@@ -7,7 +7,7 @@ package handlers
 import (
 	"context"
 
-	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 
 	"github.com/condensat/bank-core/wallet/common"
@@ -61,15 +61,15 @@ func AddressInfo(ctx context.Context, address common.AddressInfo) (common.Addres
 	return result, err
 }
 
-func OnAddressInfo(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
+func OnAddressInfo(ctx context.Context, subject string, message *messaging.Message) (*messaging.Message, error) {
 	log := logger.Logger(ctx).WithField("Method", "wallet.OnAddressInfo")
 	log = log.WithFields(logrus.Fields{
 		"Subject": subject,
 	})
 
 	var request common.AddressInfo
-	return messaging.HandleRequest(ctx, message, &request,
-		func(ctx context.Context, _ bank.BankObject) (bank.BankObject, error) {
+	return messaging.HandleRequest(ctx, appcontext.AppName(ctx), message, &request,
+		func(ctx context.Context, _ messaging.BankObject) (messaging.BankObject, error) {
 			log = log.WithFields(logrus.Fields{
 				"Chain":         request.Chain,
 				"PublicAddress": request.PublicAddress,

@@ -6,17 +6,16 @@ package cache
 
 import (
 	"flag"
-
-	"github.com/condensat/bank-core"
 )
 
 type RedisOptions struct {
-	bank.ServerOptions
+	HostName string
+	Port     int
 }
 
 func OptionArgs(args *RedisOptions) {
 	if args == nil {
-		panic("Invalid redis options")
+		panic("Invalid cache options")
 	}
 
 	flag.StringVar(&args.HostName, "redisHost", "cache", "Redis hostName (default 'cache')")

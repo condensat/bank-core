@@ -2,24 +2,18 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package compression
+package messaging
 
 import (
-	"errors"
-
-	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/compression"
 )
 
-var (
-	ErrOperationNotPermited = errors.New("Operation Not Permited")
-)
-
-func CompressMessage(message *bank.Message, level int) error {
+func CompressMessage(message *Message, level int) error {
 	if message == nil {
-		return bank.ErrInvalidMessage
+		return ErrInvalidMessage
 	}
 	if len(message.Data) == 0 {
-		return bank.ErrNoData
+		return ErrNoData
 	}
 
 	if message.IsCompressed() {
@@ -31,7 +25,7 @@ func CompressMessage(message *bank.Message, level int) error {
 		return ErrOperationNotPermited
 	}
 
-	data, err := Compress(message.Data, level)
+	data, err := compression.Compress(message.Data, level)
 	if err != nil {
 		return err
 	}
@@ -41,12 +35,12 @@ func CompressMessage(message *bank.Message, level int) error {
 	return nil
 }
 
-func DecompressMessage(message *bank.Message) error {
+func DecompressMessage(message *Message) error {
 	if message == nil {
-		return bank.ErrInvalidMessage
+		return ErrInvalidMessage
 	}
 	if len(message.Data) == 0 {
-		return bank.ErrNoData
+		return ErrNoData
 	}
 
 	if !message.IsCompressed() {
@@ -54,7 +48,7 @@ func DecompressMessage(message *bank.Message) error {
 		return nil
 	}
 
-	data, err := Decompress(message.Data)
+	data, err := compression.Decompress(message.Data)
 	if err != nil {
 		return err
 	}

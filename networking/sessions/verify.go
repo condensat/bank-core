@@ -7,14 +7,14 @@ package sessions
 import (
 	"context"
 
-	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/messaging"
 
 	"github.com/sirupsen/logrus"
 )
 
-func VerifySession(ctx context.Context, subject string, message *bank.Message) (*bank.Message, error) {
+func VerifySession(ctx context.Context, subject string, message *messaging.Message) (*messaging.Message, error) {
 	log := logger.Logger(ctx).WithField("Method", "services.VerifySession")
 	log = log.WithFields(logrus.Fields{
 		"Subject": subject,
@@ -29,7 +29,7 @@ func VerifySession(ctx context.Context, subject string, message *bank.Message) (
 	}
 
 	var sessionInfo SessionInfo
-	err = bank.FromMessage(message, &sessionInfo)
+	err = messaging.FromMessage(message, &sessionInfo)
 	if err != nil {
 		log.WithError(err).
 			Warning("Message data is not SessionInfo")
@@ -38,5 +38,5 @@ func VerifySession(ctx context.Context, subject string, message *bank.Message) (
 
 	resp := session.sessionInfo(ctx, sessionInfo.SessionID)
 
-	return bank.ToMessage(appcontext.AppName(ctx), &resp), nil
+	return messaging.ToMessage(appcontext.AppName(ctx), &resp), nil
 }

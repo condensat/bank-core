@@ -7,18 +7,13 @@ package cache
 import (
 	"context"
 	"testing"
-
-	"github.com/condensat/bank-core"
-	"github.com/condensat/bank-core/appcontext"
 )
 
 func TestResetNonce(t *testing.T) {
 	ctx := context.Background()
-	ctx = appcontext.WithCache(ctx, NewRedis(ctx, RedisOptions{
-		ServerOptions: bank.ServerOptions{
-			HostName: "redis",
-			Port:     6379,
-		},
+	ctx = WithCache(ctx, NewRedis(ctx, RedisOptions{
+		HostName: "redis",
+		Port:     6379,
 	}))
 
 	_, _ = Nonce(ctx, "ResetNonce.test", 42)
@@ -54,11 +49,9 @@ func TestResetNonce(t *testing.T) {
 
 func TestNonce(t *testing.T) {
 	ctx := context.Background()
-	ctx = appcontext.WithCache(ctx, NewRedis(ctx, RedisOptions{
-		ServerOptions: bank.ServerOptions{
-			HostName: "redis",
-			Port:     6379,
-		},
+	ctx = WithCache(ctx, NewRedis(ctx, RedisOptions{
+		HostName: "redis",
+		Port:     6379,
 	}))
 
 	_ = ResetNonce(ctx, "Nonce.foo")

@@ -15,11 +15,15 @@ import (
 	"github.com/condensat/bank-core/monitor"
 	"github.com/condensat/bank-core/security"
 
-	"github.com/condensat/bank-core/backoffice"
+	"github.com/condensat/bank-core/messaging"
+	"github.com/condensat/bank-core/messaging/provider"
+	mprovider "github.com/condensat/bank-core/messaging/provider"
 
 	"github.com/condensat/bank-core/cache"
+
+	"github.com/condensat/bank-core/backoffice"
+
 	"github.com/condensat/bank-core/logger"
-	"github.com/condensat/bank-core/messaging"
 )
 
 type BackOffice struct {
@@ -33,7 +37,7 @@ type Args struct {
 	App appcontext.Options
 
 	Redis    cache.RedisOptions
-	Nats     messaging.NatsOptions
+	Nats     mprovider.NatsOptions
 	Database database.Options
 
 	BackOffice BackOffice
@@ -45,7 +49,7 @@ func parseArgs() Args {
 	appcontext.OptionArgs(&args.App, "BackOffice")
 
 	cache.OptionArgs(&args.Redis)
-	messaging.OptionArgs(&args.Nats)
+	mprovider.OptionArgs(&args.Nats)
 	database.OptionArgs(&args.Database)
 
 	flag.IntVar(&args.BackOffice.Port, "port", 4242, "BankApi rpc port (default 4242)")
@@ -63,9 +67,9 @@ func main() {
 
 	ctx := context.Background()
 	ctx = appcontext.WithOptions(ctx, args.App)
-	ctx = appcontext.WithCache(ctx, cache.NewRedis(ctx, args.Redis))
+	ctx = cache.WithCache(ctx, cache.NewRedis(ctx, args.Redis))
 	ctx = appcontext.WithWriter(ctx, logger.NewRedisLogger(ctx))
-	ctx = appcontext.WithMessaging(ctx, messaging.NewNats(ctx, args.Nats))
+	ctx = messaging.WithMessaging(ctx, provider.NewNats(ctx, args.Nats))
 	ctx = appcontext.WithDatabase(ctx, database.New(args.Database))
 	ctx = appcontext.WithProcessusGrabber(ctx, monitor.NewProcessusGrabber(ctx, 15*time.Second))
 	ctx = appcontext.WithSecureID(ctx, security.SecureIDFromFile(args.BackOffice.SecureID))

@@ -5,12 +5,10 @@
 package messaging
 
 import (
-	"github.com/condensat/bank-core"
-
 	nats "github.com/nats-io/nats.go"
 )
 
-func ToNats(messaging bank.Messaging) *nats.Conn {
+func ToNats(messaging Messaging) *nats.Conn {
 	nc := messaging.NC()
 	return nc.(*nats.Conn)
 }

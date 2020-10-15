@@ -10,9 +10,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
+	"github.com/condensat/bank-core/messaging"
 
 	"github.com/condensat/bank-core/monitor"
 	"github.com/condensat/bank-core/monitor/database/model"
@@ -127,10 +127,10 @@ func (p *StackService) ServiceList(r *http.Request, request *StackInfoRequest, r
 
 func StackListServiceRequest(ctx context.Context) (monitor.StackListService, error) {
 	log := logger.Logger(ctx).WithField("Method", "StackService.StackListServiceRequest")
-	nats := appcontext.Messaging(ctx)
+	nats := messaging.FromContext(ctx)
 	var result monitor.StackListService
 
-	message := bank.ToMessage(appcontext.AppName(ctx), &monitor.StackListService{
+	message := messaging.ToMessage(appcontext.AppName(ctx), &monitor.StackListService{
 		Since: time.Hour,
 	})
 	response, err := nats.Request(ctx, monitor.StackListSubject, message)
@@ -141,7 +141,7 @@ func StackListServiceRequest(ctx context.Context) (monitor.StackListService, err
 		return result, ErrServiceInternalError
 	}
 
-	err = bank.FromMessage(response, &result)
+	err = messaging.FromMessage(response, &result)
 	if err != nil {
 		log.WithError(err).
 			Error("Message data is not StackListService")
@@ -197,10 +197,10 @@ func (p *StackService) ServiceHistory(r *http.Request, request *StackHistoryRequ
 
 func StackServiceHistoryRequest(ctx context.Context, request *StackHistoryRequest) (ServiceHistory, error) {
 	log := logger.Logger(ctx).WithField("Method", "StackService.StackServiceHistoryRequest")
-	nats := appcontext.Messaging(ctx)
+	nats := messaging.FromContext(ctx)
 	var result ServiceHistory
 
-	message := bank.ToMessage(appcontext.AppName(ctx), &monitor.StackServiceHistory{
+	message := messaging.ToMessage(appcontext.AppName(ctx), &monitor.StackServiceHistory{
 		AppName: request.AppName,
 		From:    time.Unix(request.From, 0),
 		To:      time.Unix(request.To, 0),
@@ -216,7 +216,7 @@ func StackServiceHistoryRequest(ctx context.Context, request *StackHistoryReques
 	}
 
 	var serviceHistory monitor.StackServiceHistory
-	err = bank.FromMessage(response, &serviceHistory)
+	err = messaging.FromMessage(response, &serviceHistory)
 	if err != nil {
 		log.WithError(err).
 			Error("Message data is not StackListService")

@@ -12,7 +12,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/cache"
 	"github.com/condensat/bank-core/logger/model"
@@ -29,11 +28,11 @@ var (
 )
 
 type RedisLogger struct {
-	cache bank.Cache
+	cache cache.Cache
 }
 
 func NewRedisLogger(ctx context.Context) *RedisLogger {
-	cache := appcontext.Cache(ctx)
+	cache := cache.FromContext(ctx)
 	if cache == nil {
 		panic(ErrInvalidCache)
 	}

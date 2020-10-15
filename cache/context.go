@@ -10,12 +10,25 @@ import (
 )
 
 const (
+	CacheKey       = "Key.CacheKey"
 	RedisLockerKey = "Key.RedisLockerKey"
 )
 
 var (
 	ErrInternalError = errors.New("InternalError")
 )
+
+// WithCache returns a context with the messaging set
+func WithCache(ctx context.Context, cache Cache) context.Context {
+	return context.WithValue(ctx, CacheKey, cache)
+}
+
+func FromContext(ctx context.Context) Cache {
+	if ctxCache, ok := ctx.Value(CacheKey).(Cache); ok {
+		return ctxCache
+	}
+	return nil
+}
 
 func RedisMutexContext(ctx context.Context) context.Context {
 	return context.WithValue(ctx, RedisLockerKey, NewRedisMutex(ctx))

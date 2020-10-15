@@ -4,14 +4,9 @@
 
 package cache
 
-import (
-	"github.com/go-redis/redis/v8"
-)
+// Cache (Redis)
+type RDB interface{}
 
-func ToRedis(cache Cache) *redis.Client {
-	if cache == nil {
-		return nil
-	}
-	rdb := cache.RDB()
-	return rdb.(*redis.Client)
+type Cache interface {
+	RDB() RDB
 }

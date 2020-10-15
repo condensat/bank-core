@@ -10,7 +10,6 @@ import (
 
 	"crypto/ed25519"
 
-	"github.com/condensat/bank-core"
 	sodium "github.com/condensat/bank-core/security/internal/libsodium"
 	"github.com/condensat/bank-core/security/utils"
 )
@@ -134,7 +133,7 @@ func (p *Key) private(ctx context.Context) EncryptionPrivateKey {
 
 func (p *Key) EncryptFor(ctx context.Context, to EncryptionPublicKey, data []byte) ([]byte, error) {
 	if len(data) == 0 {
-		return nil, bank.ErrNoData
+		return nil, ErrNoData
 	}
 	defer utils.Memzero(to[:])
 
@@ -146,7 +145,7 @@ func (p *Key) EncryptFor(ctx context.Context, to EncryptionPublicKey, data []byt
 
 func (p *Key) DecryptFrom(ctx context.Context, from EncryptionPublicKey, data []byte) ([]byte, error) {
 	if len(data) == 0 {
-		return nil, bank.ErrNoData
+		return nil, ErrNoData
 	}
 	defer utils.Memzero(from[:])
 

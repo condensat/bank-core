@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/messaging"
 	"github.com/condensat/bank-core/utils"
 )
 
@@ -76,11 +76,11 @@ func (p *ProposalInfo) Valid() bool {
 }
 
 func (p *SwapProposal) Encode() ([]byte, error) {
-	return bank.EncodeObject(p)
+	return messaging.EncodeObject(p)
 }
 
 func (p *SwapProposal) Decode(data []byte) error {
-	return bank.DecodeObject(data, bank.BankObject(p))
+	return messaging.DecodeObject(data, messaging.BankObject(p))
 }
 
 func (payload Payload) Stdin() io.Reader {

@@ -27,8 +27,6 @@ const (
 	SecureIDKey
 	WriterKey
 	LogLevelKey
-	CacheKey
-	MessagingKey
 	DatabaseKey
 
 	privateKeySaltKey = security.KeyPrivateKeySalt
@@ -63,16 +61,6 @@ func WithWriter(ctx context.Context, writer io.Writer) context.Context {
 // WithLogLevel returns a context with the LogLevel set
 func WithLogLevel(ctx context.Context, level string) context.Context {
 	return context.WithValue(ctx, LogLevelKey, level)
-}
-
-// WithMessaging returns a context with the messaging set
-func WithCache(ctx context.Context, cache bank.Cache) context.Context {
-	return context.WithValue(ctx, CacheKey, cache)
-}
-
-// WithMessaging returns a context with the messaging set
-func WithMessaging(ctx context.Context, messaging bank.Messaging) context.Context {
-	return context.WithValue(ctx, MessagingKey, messaging)
 }
 
 // WithDatabase returns a context with the database set
@@ -148,20 +136,6 @@ func Level(ctx context.Context) log.Level {
 func Logger(ctx context.Context) bank.Logger {
 	if ctxLogger, ok := ctx.Value(LoggerKey).(bank.Logger); ok {
 		return ctxLogger
-	}
-	return nil
-}
-
-func Cache(ctx context.Context) bank.Cache {
-	if ctxCache, ok := ctx.Value(CacheKey).(bank.Cache); ok {
-		return ctxCache
-	}
-	return nil
-}
-
-func Messaging(ctx context.Context) bank.Messaging {
-	if ctxMessaging, ok := ctx.Value(MessagingKey).(bank.Messaging); ok {
-		return ctxMessaging
 	}
 	return nil
 }

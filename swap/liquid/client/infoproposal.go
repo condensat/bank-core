@@ -7,6 +7,7 @@ package client
 import (
 	"context"
 
+	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
 
@@ -28,7 +29,7 @@ func InfoSwapProposal(ctx context.Context, swapID uint64, payload common.Payload
 	}
 
 	var result common.SwapProposal
-	err := messaging.RequestMessage(ctx, common.SwapInfoProposalSubject, &request, &result)
+	err := messaging.RequestMessage(ctx, appcontext.AppName(ctx), common.SwapInfoProposalSubject, &request, &result)
 	if err != nil {
 		log.WithError(err).
 			Error("RequestMessage failed")

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package bank
+package messaging
 
 import (
 	"bytes"
@@ -23,8 +23,9 @@ const (
 )
 
 var (
-	ErrInvalidMessage = errors.New("Invalid Message")
-	ErrNoData         = errors.New("No Data")
+	ErrNoData               = errors.New("No Data")
+	ErrInvalidMessage       = errors.New("Invalid Message")
+	ErrOperationNotPermited = errors.New("Operation Not Permited")
 )
 
 // Message used for all communication between components

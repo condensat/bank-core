@@ -9,11 +9,10 @@ import (
 	"compress/gzip"
 	"errors"
 	"io/ioutil"
-
-	"github.com/condensat/bank-core"
 )
 
 var (
+	ErrNoData     = errors.New("No Data")
 	ErrCompress   = errors.New("Compress Error")
 	ErrDecompress = errors.New("Decompress Error")
 )
@@ -30,7 +29,7 @@ func clamp(count, min, max int) int {
 
 func Compress(data []byte, level int) ([]byte, error) {
 	if len(data) == 0 {
-		return nil, bank.ErrNoData
+		return nil, ErrNoData
 	}
 	level = clamp(level, 0, 9)
 
@@ -53,7 +52,7 @@ func Compress(data []byte, level int) ([]byte, error) {
 
 func Decompress(data []byte) ([]byte, error) {
 	if len(data) == 0 {
-		return nil, bank.ErrNoData
+		return nil, ErrNoData
 	}
 
 	b := bytes.NewBuffer(data[:])
