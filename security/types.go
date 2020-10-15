@@ -9,6 +9,7 @@ import (
 	"errors"
 
 	sodium "github.com/condensat/bank-core/security/internal/libsodium"
+	"github.com/condensat/bank-core/security/secureid"
 )
 
 const (
@@ -37,6 +38,14 @@ var (
 	ErrNoSignature     = errors.New("No Signature found")
 	ErrNoData          = errors.New("No Data")
 )
+
+type SecureID interface {
+	ToSecureID(context string, value secureid.Value) (secureid.SecureID, error)
+	FromSecureID(context string, secureID secureid.SecureID) (secureid.Value, error)
+
+	ToString(secureID secureid.SecureID) string
+	Parse(secureID string) secureid.SecureID
+}
 
 type SecretKey [SignatureSecretKeySize]byte
 type SignatureSecretKey [SignatureSecretKeySize]byte
