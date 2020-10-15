@@ -10,7 +10,7 @@ import (
 
 	"github.com/condensat/bank-core/appcontext"
 	"github.com/condensat/bank-core/logger"
-	"github.com/condensat/secureid"
+	"github.com/condensat/bank-core/security/secureid"
 
 	"github.com/condensat/bank-core/database"
 	"github.com/condensat/bank-core/database/model"

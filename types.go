@@ -10,7 +10,7 @@ import (
 
 	logModel "github.com/condensat/bank-core/logger/model"
 
-	"github.com/condensat/secureid"
+	"github.com/condensat/bank-core/security/secureid"
 )
 
 type BankObject interface {
