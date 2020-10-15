@@ -7,11 +7,11 @@ package ssm
 import (
 	"flag"
 
-	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/wallet/common"
 )
 
 type SsmOptions struct {
-	bank.ServerOptions
+	common.ServerOptions
 
 	User string
 	Pass string

@@ -5,14 +5,13 @@
 package commands
 
 import (
-	"github.com/condensat/bank-core"
-
+	"github.com/condensat/bank-core/wallet/common"
 	"github.com/condensat/bank-core/wallet/rpc"
 )
 
 func testRpcClient(hostname string, port int) RpcClient {
 	return rpc.New(rpc.Options{
-		ServerOptions: bank.ServerOptions{Protocol: "http", HostName: hostname, Port: port},
+		ServerOptions: common.ServerOptions{Protocol: "http", HostName: hostname, Port: port},
 		User:          "condensat",
 		Password:      "condensat",
 	}).Client

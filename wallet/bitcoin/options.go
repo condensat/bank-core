@@ -7,11 +7,11 @@ package bitcoin
 import (
 	"flag"
 
-	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/wallet/common"
 )
 
 type BitcoinOptions struct {
-	bank.ServerOptions
+	common.ServerOptions
 
 	User string
 	Pass string

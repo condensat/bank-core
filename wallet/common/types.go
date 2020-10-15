@@ -15,6 +15,12 @@ const (
 	CryptoModeCryptoSsm   CryptoMode = "crypto-ssm"
 )
 
+type ServerOptions struct {
+	Protocol string
+	HostName string
+	Port     int
+}
+
 type CryptoAddress struct {
 	CryptoAddressID  uint64
 	Chain            string

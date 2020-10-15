@@ -11,8 +11,6 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/condensat/bank-core"
-
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/wallet/common"
 	"github.com/condensat/bank-core/wallet/rpc"
@@ -38,7 +36,7 @@ type SsmClient struct {
 
 func New(ctx context.Context, options SsmOptions) *SsmClient {
 	client := rpc.New(rpc.Options{
-		ServerOptions: bank.ServerOptions{Protocol: "http", HostName: options.HostName, Port: options.Port},
+		ServerOptions: common.ServerOptions{Protocol: "http", HostName: options.HostName, Port: options.Port},
 		User:          options.User,
 		Password:      options.Pass,
 	})

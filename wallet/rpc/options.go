@@ -8,12 +8,12 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/condensat/bank-core"
+	"github.com/condensat/bank-core/wallet/common"
 	"github.com/ybbus/jsonrpc"
 )
 
 type Options struct {
-	bank.ServerOptions
+	common.ServerOptions
 	User     string
 	Password string
 

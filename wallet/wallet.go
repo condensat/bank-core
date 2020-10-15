@@ -8,7 +8,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/logger"
 	"github.com/condensat/bank-core/messaging"
 
@@ -64,7 +63,7 @@ func (p *Wallet) Run(ctx context.Context, options WalletOptions) {
 		p.chains = append(p.chains, chainOption.Chain)
 
 		ctx = common.ChainClientContext(ctx, chainOption.Chain, bitcoin.New(ctx, bitcoin.BitcoinOptions{
-			ServerOptions: bank.ServerOptions{
+			ServerOptions: common.ServerOptions{
 				Protocol: "http",
 				HostName: chainOption.HostName,
 				Port:     chainOption.Port,
@@ -84,7 +83,7 @@ func (p *Wallet) Run(ctx context.Context, options WalletOptions) {
 			ctx = common.SsmClientContext(ctx, ssmDevice.Name, ssm.NewWithTorEndpoint(ctx, ssmOptions.TorProxy, ssmDevice.Endpoint))
 		} else {
 			ctx = common.SsmClientContext(ctx, ssmDevice.Name, ssm.New(ctx, ssm.SsmOptions{
-				ServerOptions: bank.ServerOptions{
+				ServerOptions: common.ServerOptions{
 					Protocol: "http",
 					HostName: "ssm_server",
 					Port:     5000,
