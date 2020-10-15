@@ -6,9 +6,6 @@ package bank
 
 import (
 	"context"
-	"time"
-
-	logModel "github.com/condensat/bank-core/logger/model"
 
 	"github.com/condensat/bank-core/security/secureid"
 )
@@ -17,12 +14,6 @@ type ServerOptions struct {
 	Protocol string
 	HostName string
 	Port     int
-}
-
-type Logger interface {
-	Close()
-	CreateLogEntry(timestamp time.Time, app, level string, userID uint64, sessionID string, method, err, msg, data string) *logModel.LogEntry
-	AddLogEntries(entries []*logModel.LogEntry) error
 }
 
 type Worker interface {

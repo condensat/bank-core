@@ -12,6 +12,8 @@ import (
 	"github.com/condensat/bank-core"
 	"github.com/condensat/bank-core/database"
 
+	logger "github.com/condensat/bank-core/logger/interface"
+
 	"github.com/condensat/bank-core/security"
 	"github.com/condensat/bank-core/security/utils"
 
@@ -49,7 +51,7 @@ func WithWebAppURL(ctx context.Context, url string) context.Context {
 }
 
 // WithLogger returns a context with the log Writer set
-func WithLogger(ctx context.Context, database bank.Logger) context.Context {
+func WithLogger(ctx context.Context, database logger.Logger) context.Context {
 	return context.WithValue(ctx, LoggerKey, database)
 }
 
@@ -133,8 +135,8 @@ func Level(ctx context.Context) log.Level {
 	return log.WarnLevel
 }
 
-func Logger(ctx context.Context) bank.Logger {
-	if ctxLogger, ok := ctx.Value(LoggerKey).(bank.Logger); ok {
+func Logger(ctx context.Context) logger.Logger {
+	if ctxLogger, ok := ctx.Value(LoggerKey).(logger.Logger); ok {
 		return ctxLogger
 	}
 	return nil
